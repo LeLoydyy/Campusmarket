@@ -1,42 +1,44 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import {
-  FiAlertCircle,
-  FiArrowRight,
-  FiCoffee,
-  FiGrid,
-  FiMonitor,
-  FiPackage,
-  FiRefreshCw,
-  FiSearch,
-  FiShoppingBag,
-  FiSliders,
-  FiTag,
-  FiX,
-} from "react-icons/fi";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { AlertCircle, ArrowDown, SlidersHorizontal, X } from "lucide-react";
 import Navbar from "../../components/common/Navbar.jsx";
-import ProductCard from "../../components/common/ProductCard.jsx";
-import { SkeletonGrid } from "../../components/common/Ui.jsx";
+import Footer from "../../components/common/Footer.jsx";
+import ProductCard from "../../components/ui/ProductCard.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
+import { SkeletonGrid } from "../../components/ui/Skeleton.jsx";
+import { categoryLabel } from "../../components/ui/Chip.jsx";
 import { productService } from "../../services/api.js";
-
+import { plural } from "../../utils/marketplace.js";
 import "./Browse.css";
 
 const CATEGORIES = [
-  { id: "food", name: "Food", icon: FiCoffee },
-  { id: "clothing", name: "Clothing", icon: FiShoppingBag },
-  { id: "electronics", name: "Electronics", icon: FiMonitor },
-  { id: "accessories", name: "Accessories", icon: FiTag },
-  { id: "student-made", name: "Student Made", icon: FiPackage },
-  { id: "other", name: "Other", icon: FiSliders },
+  { id: "food", name: "Food" },
+  { id: "clothing", name: "Clothing" },
+  { id: "electronics", name: "Electronics" },
+  { id: "accessories", name: "Accessories" },
+  { id: "student-made", name: "Student Made" },
+  { id: "other", name: "Other" },
 ];
 
-const FILTER_KEYS = ["q", "category", "min_price", "max_price"];
+const SORTS = [
+  { id: "", label: "Recommended" },
+  { id: "newest", label: "Newest first" },
+  { id: "popular", label: "Most viewed" },
+  { id: "price_asc", label: "Price: low to high" },
+  { id: "price_desc", label: "Price: high to low" },
+];
+
+const PRICE_MAX = 1000;
+const FILTER_KEYS = ["q", "category", "min_price", "max_price", "sort", "location", "open_now"];
 
 const getFiltersFromParams = (params) => ({
   q: params.get("q")?.trim() || "",
   category: params.get("category") || "",
   min_price: params.get("min_price") || "",
   max_price: params.get("max_price") || "",
+  sort: params.get("sort") || "",
+  location: params.get("location") || "",
+  open_now: params.get("open_now") === "true" ? "true" : "",
 });
 
 const compactFilters = (filters) =>
@@ -179,412 +181,216 @@ function useBrowseProducts(initialFilters = {}, limit = 20) {
   };
 }
 
-function CategoryFilter({ categories, selectedCategory, onSelectCategory }) {
+/** Dual-thumb price slider plus number fields; reports a change when the user lets go. */
+function PriceRange({ min, max, onCommit }) {
+  const id = useId();
+  const [low, setLow] = useState(min === "" ? 0 : Number(min));
+  const [high, setHigh] = useState(max === "" ? PRICE_MAX : Number(max));
+  useEffect(() => { setLow(min === "" ? 0 : Number(min)); setHigh(max === "" ? PRICE_MAX : Number(max)); }, [min, max]);
+  const commit = (nextLow = low, nextHigh = high) => {
+    const a = Math.max(0, Math.min(nextLow, nextHigh));
+    const b = Math.max(nextLow, nextHigh);
+    onCommit({ min_price: a > 0 ? String(a) : "", max_price: b < PRICE_MAX ? String(b) : "" });
+  };
+  const pct = (value) => `${(Math.min(value, PRICE_MAX) / PRICE_MAX) * 100}%`;
   return (
-    <fieldset className="category-filter">
-      <legend className="browse-filter-label">Category</legend>
-
-      <div className="category-filter-options">
-        <button
-          type="button"
-          className={`category-filter-option ${selectedCategory === "" ? "active" : ""}`}
-          onClick={() => onSelectCategory("")}
-          aria-pressed={selectedCategory === ""}
-        >
-          <span className="category-filter-icon" aria-hidden="true">
-            <FiGrid />
-          </span>
-          <span>All categories</span>
-        </button>
-
-        {categories.map((category) => {
-          const CategoryIcon = category.icon;
-          const selected = selectedCategory === category.id;
-
-          return (
-            <button
-              type="button"
-              key={category.id}
-              className={`category-filter-option ${selected ? "active" : ""}`}
-              onClick={() => onSelectCategory(category.id)}
-              aria-pressed={selected}
-            >
-              <span className="category-filter-icon" aria-hidden="true">
-                <CategoryIcon />
-              </span>
-              <span className="category-filter-name">{category.name}</span>
-            </button>
-          );
-        })}
+    <fieldset className="bf-group">
+      <legend>Price</legend>
+      <div className="bf-range" style={{ "--lo": pct(low), "--hi": pct(high) }}>
+        <input type="range" min="0" max={PRICE_MAX} step="10" value={Math.min(low, PRICE_MAX)} aria-label="Minimum price"
+          onChange={(e) => setLow(Math.min(Number(e.target.value), high))} onPointerUp={() => commit()} onKeyUp={() => commit()} />
+        <input type="range" min="0" max={PRICE_MAX} step="10" value={Math.min(high, PRICE_MAX)} aria-label="Maximum price"
+          onChange={(e) => setHigh(Math.max(Number(e.target.value), low))} onPointerUp={() => commit()} onKeyUp={() => commit()} />
+      </div>
+      <div className="bf-price-inputs">
+        <label htmlFor={`${id}-min`}><span>Min</span>
+          <span className="bf-peso"><b aria-hidden="true">₱</b><input id={`${id}-min`} type="number" inputMode="numeric" min="0" value={low}
+            onChange={(e) => setLow(Math.max(0, Number(e.target.value) || 0))} onBlur={() => commit()} /></span>
+        </label>
+        <span aria-hidden="true" className="bf-dash">–</span>
+        <label htmlFor={`${id}-max`}><span>Max</span>
+          <span className="bf-peso"><b aria-hidden="true">₱</b><input id={`${id}-max`} type="number" inputMode="numeric" min="0" value={high >= PRICE_MAX && max === "" ? "" : high} placeholder="Any"
+            onChange={(e) => setHigh(e.target.value === "" ? PRICE_MAX : Math.max(0, Number(e.target.value)))} onBlur={() => commit()} /></span>
+        </label>
       </div>
     </fieldset>
+  );
+}
+
+function Toggle({ checked, onChange, label, hint }) {
+  return (
+    <label className="bf-toggle">
+      <span><strong>{label}</strong>{hint && <small>{hint}</small>}</span>
+      <input type="checkbox" role="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <i aria-hidden="true" />
+    </label>
+  );
+}
+
+/** All filters; used in the desktop sidebar and the mobile bottom sheet. */
+function FilterPanel({ filters, locations, onChange, onClear, activeCount }) {
+  return (
+    <div className="bf-panel">
+      <div className="bf-head">
+        <h2>Filters</h2>
+        {activeCount > 0 && <button type="button" className="bf-clear" onClick={onClear}>Clear all</button>}
+      </div>
+      <Toggle label="Open now" hint="Stalls open at this hour" checked={filters.open_now === "true"} onChange={(on) => onChange({ open_now: on ? "true" : "" })} />
+      <Toggle label="Student Made" hint="Handmade by CSUCC students" checked={filters.category === "student-made"} onChange={(on) => onChange({ category: on ? "student-made" : "" })} />
+      <fieldset className="bf-group">
+        <legend>Category</legend>
+        <div className="bf-cats">
+          {[{ id: "", name: "All" }, ...CATEGORIES].map((category) => (
+            <button key={category.id || "all"} type="button" className={`bf-cat bf-cat--${category.id || "all"} ${filters.category === category.id ? "is-active" : ""}`}
+              aria-pressed={filters.category === category.id} onClick={() => onChange({ category: category.id })}>
+              <i aria-hidden="true" />{category.name}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+      <PriceRange min={filters.min_price} max={filters.max_price} onCommit={onChange} />
+      <fieldset className="bf-group">
+        <legend>Pickup location</legend>
+        <select className="bf-select" value={filters.location} onChange={(e) => onChange({ location: e.target.value })} aria-label="Pickup location">
+          <option value="">Anywhere on campus</option>
+          {locations.map((location) => <option key={location} value={location}>{location}</option>)}
+        </select>
+      </fieldset>
+    </div>
   );
 }
 
 export function Browse() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryString = searchParams.toString();
-  const urlFilters = useMemo(
-    () => getFiltersFromParams(new URLSearchParams(queryString)),
-    [queryString],
-  );
+  const urlFilters = useMemo(() => getFiltersFromParams(new URLSearchParams(queryString)), [queryString]);
+  const { products, loading, error, total, hasMore, isInitialLoading, isLoadingMore, filters, replaceFilters, loadMore, refetch } = useBrowseProducts(urlFilters);
+  const [locations, setLocations] = useState([]);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
-  const {
-    products,
-    loading,
-    error,
-    total,
-    hasMore,
-    isInitialLoading,
-    isLoadingMore,
-    filters,
-    updateFilters,
-    replaceFilters,
-    loadMore,
-    refetch,
-  } = useBrowseProducts(urlFilters);
-
-  const [searchInput, setSearchInput] = useState(urlFilters.q);
-  const [priceDraft, setPriceDraft] = useState({
-    min_price: urlFilters.min_price,
-    max_price: urlFilters.max_price,
-  });
-  const [priceError, setPriceError] = useState("");
-
+  useEffect(() => { replaceFilters(urlFilters); }, [replaceFilters, urlFilters]);
+  useEffect(() => { productService.getLocations().then(({ data }) => setLocations(Array.isArray(data) ? data : [])).catch(() => {}); }, []);
   useEffect(() => {
-    setSearchInput(urlFilters.q);
-    setPriceDraft({
-      min_price: urlFilters.min_price,
-      max_price: urlFilters.max_price,
-    });
-    setPriceError("");
-    replaceFilters(urlFilters);
-  }, [replaceFilters, urlFilters]);
+    if (!sheetOpen) return undefined;
+    const escape = (event) => { if (event.key === "Escape") setSheetOpen(false); };
+    document.addEventListener("keydown", escape);
+    document.body.style.overflow = "hidden";
+    return () => { document.removeEventListener("keydown", escape); document.body.style.overflow = ""; };
+  }, [sheetOpen]);
 
-  const commitFilters = (changes) => {
-    const nextFilters = { ...filters, ...changes };
-    const nextParams = new URLSearchParams(searchParams);
-
+  // The URL is the source of truth: every change goes through ?params.
+  const commit = (changes) => {
+    const next = new URLSearchParams(searchParams);
+    const merged = { ...urlFilters, ...changes };
     FILTER_KEYS.forEach((key) => {
-      const value = String(nextFilters[key] || "").trim();
-      if (value) nextParams.set(key, value);
-      else nextParams.delete(key);
+      const value = String(merged[key] || "").trim();
+      if (value) next.set(key, value); else next.delete(key);
     });
-
-    updateFilters(changes);
-    setSearchParams(nextParams, { replace: true });
+    setSearchParams(next, { replace: true });
   };
+  const clearAll = () => commit({ category: "", min_price: "", max_price: "", location: "", open_now: "", q: "" });
 
-  const handleSearch = (event) => {
-    event.preventDefault();
-    commitFilters({ q: searchInput.trim() });
-  };
-
-  const handleApplyPrice = (event) => {
-    event.preventDefault();
-    const minimum = priceDraft.min_price;
-    const maximum = priceDraft.max_price;
-
-    if (minimum !== "" && Number(minimum) < 0) {
-      setPriceError("Minimum price cannot be negative.");
-      return;
-    }
-
-    if (maximum !== "" && Number(maximum) < 0) {
-      setPriceError("Maximum price cannot be negative.");
-      return;
-    }
-
-    if (minimum !== "" && maximum !== "" && Number(minimum) > Number(maximum)) {
-      setPriceError("Minimum price must be lower than maximum price.");
-      return;
-    }
-
-    setPriceError("");
-    commitFilters({ min_price: minimum, max_price: maximum });
-  };
-
-  const clearProductFilters = () => {
-    setPriceError("");
-    commitFilters({ category: "", min_price: "", max_price: "" });
-  };
-
-  const selectedCategory = CATEGORIES.find(
-    (category) => category.id === filters.category,
-  );
-  const activeFilterCount = [
-    filters.category,
-    filters.min_price,
-    filters.max_price,
-  ].filter(Boolean).length;
-  const hasProductFilters = activeFilterCount > 0;
-  const hasAnyCriteria = Boolean(filters.q) || hasProductFilters;
-  const productLabel = total === 1 ? "product" : "products";
+  const activeChips = [
+    filters.q && { key: "q", label: `“${filters.q}”`, clear: { q: "" } },
+    filters.category && { key: "category", label: categoryLabel(filters.category), clear: { category: "" } },
+    (filters.min_price || filters.max_price) && { key: "price", label: `₱${filters.min_price || 0} – ${filters.max_price ? `₱${filters.max_price}` : "any"}`, clear: { min_price: "", max_price: "" } },
+    filters.location && { key: "location", label: filters.location, clear: { location: "" } },
+    filters.open_now && { key: "open", label: "Open now", clear: { open_now: "" } },
+  ].filter(Boolean);
+  const panelCount = activeChips.filter((chip) => chip.key !== "q").length;
+  const heading = filters.q ? `Results for “${filters.q}”` : filters.category ? categoryLabel(filters.category) : "All products";
 
   return (
-    <div className="browse-screen">
+    <div className="browse">
       <Navbar />
-
-      <main className="browse-page">
-        <section className="browse-intro" aria-labelledby="browse-title">
-          <div className="browse-intro-copy">
-            <span className="browse-eyebrow"><FiShoppingBag aria-hidden="true" /> Your campus marketplace</span>
-            <h1 id="browse-title">Campus essentials.<br />Everyday discoveries.</h1>
-            <p>
-              Discover food, essentials, and student-made products from trusted
-              sellers across CSUCC.
-            </p>
+      <main>
+        <section className="browse-banner" aria-labelledby="browse-title">
+          <div className="browse-wrap browse-banner-inner">
+            <div>
+              <p className="cm-eyebrow">Shop campus</p>
+              <h1 id="browse-title">{heading}</h1>
+              <p>{isInitialLoading ? "Finding products…" : `${plural(total, "product")} from CSUCC sellers`}</p>
+            </div>
+            <img src="/images/buyer/campusmarket-background.png" alt="" aria-hidden="true" />
           </div>
-
-          <Link className="browse-stalls-link" to="/stalls">
-            Meet your campus sellers <FiArrowRight aria-hidden="true" />
-          </Link>
         </section>
 
-        <section className="browse-controls" aria-label="Product filters">
-          <form className="browse-search" onSubmit={handleSearch} role="search">
-            <FiSearch aria-hidden="true" />
-            <label className="sr-only" htmlFor="browse-product-search">
-              Search marketplace products
-            </label>
-            <input
-              id="browse-product-search"
-              type="search"
-              placeholder="Search products or sellers"
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-            />
-            {searchInput && (
-              <button
-                type="button"
-                className="browse-search-clear"
-                onClick={() => {
-                  setSearchInput("");
-                  if (filters.q) commitFilters({ q: "" });
-                }}
-                aria-label="Clear search"
-              >
-                <FiX />
-              </button>
-            )}
-            <button type="submit" className="btn btn-primary">
-              Search <FiArrowRight aria-hidden="true" />
-            </button>
-          </form>
-            <CategoryFilter
-              categories={CATEGORIES}
-              selectedCategory={filters.category}
-              onSelectCategory={(category) => commitFilters({ category })}
-            />
+        <div className="browse-wrap browse-layout">
+          <aside className="browse-sidebar" aria-label="Product filters">
+            <FilterPanel filters={filters} locations={locations} onChange={commit} onClear={clearAll} activeCount={panelCount} />
+          </aside>
 
-            <form className="browse-filter-group" onSubmit={handleApplyPrice}>
-              <label className="browse-filter-label" htmlFor="minimum-price">
-                Price range
+          <section className="browse-results" aria-live="polite" aria-busy={loading}>
+            <div className="browse-toolbar">
+              <p className="browse-count"><strong>{isInitialLoading ? "…" : total}</strong> {total === 1 ? "result" : "results"}</p>
+              <button type="button" className="btn btn-outline btn-sm browse-filter-btn" onClick={() => setSheetOpen(true)}>
+                <SlidersHorizontal aria-hidden="true" /> Filters {panelCount > 0 && <span className="cm-chip-count">{panelCount}</span>}
+              </button>
+              <label className="browse-sort">
+                <span>Sort</span>
+                <select value={filters.sort} onChange={(e) => commit({ sort: e.target.value })}>
+                  {SORTS.map((sort) => <option key={sort.id} value={sort.id}>{sort.label}</option>)}
+                </select>
               </label>
-              <div className="browse-price-inputs">
-                <label>
-                  <span>Minimum</span>
-                  <div>
-                    <span>₱</span>
-                    <input
-                      id="minimum-price"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      inputMode="decimal"
-                      placeholder="0"
-                      value={priceDraft.min_price}
-                      onChange={(event) =>
-                        setPriceDraft((current) => ({
-                          ...current,
-                          min_price: event.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                </label>
-                <label>
-                  <span>Maximum</span>
-                  <div>
-                    <span>₱</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      inputMode="decimal"
-                      placeholder="Any"
-                      value={priceDraft.max_price}
-                      onChange={(event) =>
-                        setPriceDraft((current) => ({
-                          ...current,
-                          max_price: event.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                </label>
-              </div>
-              {priceError && <p className="browse-price-error">{priceError}</p>}
-              <button
-                type="submit"
-                className="btn btn-outline btn-sm browse-price-apply"
-              >
-                Apply price
-              </button>
-            </form>
-
-            {hasProductFilters && (
-              <button
-                type="button"
-                className="browse-clear-filters"
-                onClick={clearProductFilters}
-              >
-                <FiX /> Clear all filters
-              </button>
-            )}
-        </section>
-
-        <div className="browse-layout">
-          <section
-            className="browse-results"
-            aria-live="polite"
-            aria-busy={loading}
-          >
-            <div className="browse-results-toolbar">
-              <div>
-                <span className="browse-results-eyebrow">Explore the market</span>
-                <h2>{selectedCategory?.name || "All products"}</h2>
-                <p>
-                  {isInitialLoading
-                    ? "Finding products…"
-                    : `${total} ${productLabel} available`}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                className="browse-refresh-btn"
-                onClick={refetch}
-                disabled={loading}
-                aria-label="Refresh products"
-              >
-                <FiRefreshCw className={loading ? "spinning" : ""} />
-                Refresh
-              </button>
             </div>
 
-            {hasAnyCriteria && (
-              <div
-                className="browse-active-filters"
-                aria-label="Active filters"
-              >
-                {filters.q && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchInput("");
-                      commitFilters({ q: "" });
-                    }}
-                  >
-                    Search: “{filters.q}” <FiX />
+            {activeChips.length > 0 && (
+              <div className="browse-chips" aria-label="Active filters">
+                {activeChips.map((chip) => (
+                  <button key={chip.key} type="button" className="cm-chip cm-tone-green browse-chip" onClick={() => commit(chip.clear)} aria-label={`Remove filter ${chip.label}`}>
+                    {chip.label} <X aria-hidden="true" />
                   </button>
-                )}
-                {selectedCategory && (
-                  <button
-                    type="button"
-                    onClick={() => commitFilters({ category: "" })}
-                  >
-                    {selectedCategory.name} <FiX />
-                  </button>
-                )}
-                {(filters.min_price || filters.max_price) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPriceDraft({ min_price: "", max_price: "" });
-                      commitFilters({ min_price: "", max_price: "" });
-                    }}
-                  >
-                    ₱{filters.min_price || "0"} –{" "}
-                    {filters.max_price ? `₱${filters.max_price}` : "Any"}
-                    <FiX />
-                  </button>
-                )}
+                ))}
+                <button type="button" className="cm-link" onClick={clearAll}>Clear all</button>
               </div>
             )}
 
             {error && (
               <div className="browse-error" role="alert">
-                <FiAlertCircle />
-                <div>
-                  <strong>We couldn’t load the products.</strong>
-                  <span>{error}</span>
-                </div>
-                <button type="button" onClick={refetch}>
-                  Try again
-                </button>
+                <AlertCircle aria-hidden="true" />
+                <div><strong>We couldn't load products.</strong><span>{error}</span></div>
+                <button type="button" className="btn btn-outline btn-sm" onClick={refetch}>Try again</button>
               </div>
             )}
 
-            {isInitialLoading ? (
-              <SkeletonGrid count={12} />
-            ) : error ? null : products.length === 0 ? (
-              <div className="browse-empty-state">
-                <span>
-                  <FiSearch />
-                </span>
-                <h3>{hasAnyCriteria ? "No products matched your search" : "No products yet"}</h3>
-                <p>{hasAnyCriteria ? "Try a different keyword, category, or price range." : "Check back soon for new finds from campus sellers."}</p>
-                {hasAnyCriteria && (
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    onClick={() => {
-                      setSearchInput("");
-                      setPriceDraft({ min_price: "", max_price: "" });
-                      commitFilters({
-                        q: "",
-                        category: "",
-                        min_price: "",
-                        max_price: "",
-                      });
-                    }}
-                  >
-                    Reset everything
-                  </button>
-                )}
-              </div>
+            {isInitialLoading ? <SkeletonGrid count={9} /> : error ? null : products.length === 0 ? (
+              <EmptyState
+                illustration="search"
+                title={activeChips.length ? "Nothing matches those filters" : "No products yet"}
+                description={activeChips.length ? "Try another category, widen the price range, or turn off “Open now”." : "Campus sellers are setting up — check back soon, or open a stall yourself."}
+                action={activeChips.length ? { label: "Clear filters", onClick: clearAll } : { label: "Open your stall", to: "/open-store" }}
+              />
             ) : (
-              <div className="product-grid browse-product-grid">
-                {products.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
+              <div className="pc-grid browse-grid">
+                {products.map((product) => <ProductCard key={product.id} product={product} />)}
               </div>
             )}
 
             {hasMore && !isInitialLoading && (
-              <div className="browse-load-more">
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  onClick={loadMore}
-                  disabled={loading}
-                >
-                  {isLoadingMore ? (
-                    <>
-                      <span className="spinner spinner-dark" /> Loading products
-                    </>
-                  ) : (
-                    <>
-                      Load more <FiArrowRight />
-                    </>
-                  )}
+              <div className="browse-more">
+                <button type="button" className="btn btn-outline" onClick={loadMore} disabled={loading}>
+                  {isLoadingMore ? "Loading…" : <>Show more <ArrowDown aria-hidden="true" /></>}
                 </button>
+                <small>Showing {products.length} of {total}</small>
               </div>
             )}
           </section>
         </div>
       </main>
+      <Footer />
+
+      {sheetOpen && (
+        <div className="sheet-layer" role="presentation" onClick={() => setSheetOpen(false)}>
+          <section className="sheet browse-sheet" role="dialog" aria-modal="true" aria-label="Filters" onClick={(event) => event.stopPropagation()}>
+            <span className="sheet-grip" aria-hidden="true" />
+            <button type="button" className="sheet-close browse-sheet-close" onClick={() => setSheetOpen(false)} aria-label="Close filters"><X aria-hidden="true" /></button>
+            <FilterPanel filters={filters} locations={locations} onChange={commit} onClear={clearAll} activeCount={panelCount} />
+            <button type="button" className="btn btn-primary btn-lg browse-sheet-done" onClick={() => setSheetOpen(false)}>
+              Show {plural(total, "result")}
+            </button>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

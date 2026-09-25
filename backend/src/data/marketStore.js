@@ -12,6 +12,7 @@ import { cancellationDeadline, canBuyerCancel } from "../config/orderCancellatio
 import { getDb, query, transaction } from "../db/index.js";
 import { getRecommendedProductIds, getSimilarProductIds } from "../services/aiService.js";
 import { buyerOrderMessage, sellerCancelledMessage, sellerNewOrderMessage } from "../services/orderNotifications.js";
+import { isStallOpen } from "../services/openingHours.js";
 
 // ── Errors ────────────────────────────────────────────────────────────────────
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
@@ -355,6 +356,15 @@ export const stallStore = {
 };
 
 // ── Products ──────────────────────────────────────────────────────────────────
+// Whitelisted ORDER BY clauses for ?sort= (never interpolate user input).
+const PRODUCT_SORTS = {
+  default: "p.created_at, p.id",
+  newest: "p.created_at DESC, p.id",
+  price_asc: "p.price, p.id",
+  price_desc: "p.price DESC, p.id",
+  popular: "p.view_count DESC, p.created_at DESC, p.id",
+};
+
 /** Load the given product IDs that are publicly visible, keeping the given order. */
 const visibleProductsInOrder = async (ids, limit) => {
   if (!ids.length) return [];
@@ -366,6 +376,7 @@ export const productStore = {
   async listProducts({
     q: search = "", category, page = 1, limit = 20, stallId,
     activeOnly = true, publicOnly = true, featured = false, min_price, max_price,
+    sort, location, openNow = false,
   } = {}) {
     const { size, number, offset } = pageParams(page, limit);
     const params = [
@@ -374,16 +385,31 @@ export const productStore = {
       max_price == null || max_price === "" ? null : Number(max_price),
       Boolean(featured), category || null, stallId || null,
       search ? escapeLike(search) : null,
+      location || null,
     ];
     const where = `(NOT $1 OR (${PUBLIC_STALL})) AND (NOT $2 OR p.is_active)
       AND ($3::numeric IS NULL OR p.price >= $3) AND ($4::numeric IS NULL OR p.price <= $4)
       AND (NOT $5 OR s.tier = 'premium') AND ($6::text IS NULL OR p.category = $6)
       AND ($7::text IS NULL OR p.stall_id = $7)
-      AND ($8::text IS NULL OR (p.name || ' ' || p.description || ' ' || s.name) ILIKE '%' || $8 || '%')`;
+      AND ($8::text IS NULL OR (p.name || ' ' || p.description || ' ' || s.name) ILIKE '%' || $8 || '%')
+      AND ($9::text IS NULL OR s.location = $9)`;
+    const order = PRODUCT_SORTS[sort] || PRODUCT_SORTS.default;
     const from = "FROM products p JOIN stalls s ON s.id = p.stall_id LEFT JOIN users o ON o.id = s.owner_id";
+    if (openNow) {
+      // Opening hours are free text, so "open now" is decided in JS (campus time) before paging.
+      const rows = (await q(`${PRODUCT_SELECT} WHERE ${where} ORDER BY ${order}`, params)).filter((row) => isStallOpen(row.stalls));
+      return { data: rows.slice(offset, offset + size), total: rows.length, page: number };
+    }
     const [{ count }] = await q(`SELECT count(*) ${from} WHERE ${where}`, params);
-    const data = await q(`${PRODUCT_SELECT} WHERE ${where} ORDER BY p.created_at, p.id LIMIT $9 OFFSET $10`, [...params, size, offset]);
+    const data = await q(`${PRODUCT_SELECT} WHERE ${where} ORDER BY ${order} LIMIT $10 OFFSET $11`, [...params, size, offset]);
     return { data, total: count, page: number };
+  },
+
+  /** Distinct pickup locations of public stalls, for the Browse filter. */
+  async listLocations() {
+    const rows = await q(`SELECT DISTINCT s.location FROM stalls s LEFT JOIN users o ON o.id = s.owner_id
+      WHERE ${PUBLIC_STALL} AND s.location <> '' ORDER BY s.location`);
+    return rows.map((row) => row.location);
   },
 
   async getById(productId, actor) {

@@ -106,7 +106,7 @@
 .pc-stars { display: inline-flex; gap: 1px; }
 .pc-stars svg { width: 14px; height: 14px; color: var(--line-strong); fill: currentColor; }
 .pc-stars svg.is-on { color: var(--gold-500); }
-.pc-price { margin-top: auto; padding-top: .35rem; padding-right: 3.2rem; color: var(--green-700); font: 900 1.35rem/1.1 var(--font-display); letter-spacing: -.02em; }
+.pc-price { margin-top: auto; padding-top: .35rem; padding-right: 3.2rem; min-height: calc(46px + .35rem); display: flex; align-items: flex-end; color: var(--green-700); font: 900 1.35rem/1.1 var(--font-display); letter-spacing: -.02em; }
 .pc-fav, .pc-cart { position: absolute; display: grid; place-items: center; border: 0; border-radius: 50%; cursor: pointer; transition: transform var(--dur-fast) var(--ease-out), background-color var(--dur-fast), color var(--dur-fast), box-shadow var(--dur); }
 .pc-fav { top: .6rem; right: .6rem; width: 44px; height: 44px; color: var(--ink-600); background: rgba(255, 255, 255, .92); box-shadow: var(--shadow-1); }
 .pc-fav svg { width: 20px; height: 20px; }
@@ -223,7 +223,7 @@
   .pc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
   .pc-body { padding: .75rem .75rem .85rem; }
   .pc-name { font-size: .92rem; }
-  .pc-price { font-size: 1.1rem; padding-right: 2.9rem; }
+  .pc-price { font-size: 1.1rem; padding-right: 2.9rem; min-height: calc(44px + .35rem); }
   .pc-cart { width: 44px; height: 44px; right: .6rem; bottom: .7rem; }
   .pc-meta.pc-rating { display: none; }
   .cm-section-head { align-items: flex-start; flex-direction: column; gap: .25rem; }

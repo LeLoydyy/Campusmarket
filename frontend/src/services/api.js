@@ -55,6 +55,7 @@ export const productService = {
     return api.post("/products/image", data);
   },
   getAll: (params = {}) => api.get("/products", { params }),
+  getLocations: () => api.get("/products/locations"),
   getOne: (id) => api.get(`/products/${id}`),
   getRecommendations: (userId) =>
     api.get(`/products/recommendations/${userId}`),

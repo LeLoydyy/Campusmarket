@@ -15,8 +15,20 @@ export const getProducts = async (req, res, next) => {
       activeOnly: !mine, publicOnly: !mine,
       featured: req.query.featured === "true",
       min_price: req.query.min_price, max_price: req.query.max_price,
+      sort: req.query.sort,
+      location: req.query.location,
+      openNow: req.query.open_now === "true",
     });
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/products/locations — pickup locations for the Browse filter
+export const getPickupLocations = async (_req, res, next) => {
+  try {
+    res.json(await productStore.listLocations());
   } catch (err) {
     next(err);
   }
