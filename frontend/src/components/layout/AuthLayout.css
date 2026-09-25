@@ -1,0 +1,89 @@
+/* ── Auth (login / register / account status) ─────────────────────────────── */
+.auth2 { min-height: 100vh; display: grid; grid-template-columns: minmax(360px, 1fr) minmax(0, 1.1fr); background: var(--cream-50); }
+.auth2-brand { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 1.5rem; padding: 2rem clamp(1.5rem, 3vw, 3rem); overflow: hidden; color: #fff; background: var(--green-900) var(--texture-leaf-light); }
+.auth2-logo { display: inline-flex; align-self: flex-start; padding: .55rem .85rem; background: var(--cream-50); border-radius: 14px; box-shadow: var(--shadow-2); }
+.auth2-logo img { height: 34px; width: auto; }
+.auth2-brand-copy { display: grid; gap: .7rem; }
+.auth2-tagline { color: var(--gold-500); font: 900 1.1rem var(--font-display); letter-spacing: .02em; }
+.auth2-brand h2 { max-width: 460px; color: #fff; font: 900 clamp(1.7rem, 2.6vw, 2.4rem)/1.08 var(--font-display); letter-spacing: -.035em; }
+.auth2-brand ul { display: grid; gap: .55rem; margin-top: .4rem; list-style: none; }
+.auth2-brand li { display: flex; align-items: flex-start; gap: .55rem; color: rgba(255, 251, 242, .92); font-size: var(--text-sm); line-height: 1.45; }
+.auth2-brand li svg { flex: 0 0 auto; width: 19px; height: 19px; margin-top: .05rem; color: var(--gold-500); }
+.auth2-art { position: relative; flex: 1 1 auto; min-height: 180px; margin: 0; overflow: hidden; border-radius: 24px; box-shadow: 0 18px 40px rgba(0, 0, 0, .28); }
+.auth2-art img { width: 100%; height: 100%; object-fit: cover; object-position: 84% 58%; transform: scale(1.3); transform-origin: 84% 62%; }
+.auth2-art::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 5px rgba(245, 184, 46, .55); }
+.auth2-note { color: rgba(255, 251, 242, .85); font-size: var(--text-xs); }
+
+.auth2-form { display: flex; align-items: center; justify-content: center; padding: 2.5rem 1.25rem; }
+.auth2-form-inner { width: min(520px, 100%); }
+.auth2-logo--mobile { display: none; margin-bottom: 1.25rem; }
+.auth2 .auth-form-header { margin-bottom: 1.4rem; }
+.auth2 .auth-form-header h1 { font: 900 clamp(1.9rem, 3vw, 2.5rem)/1.05 var(--font-display); letter-spacing: -.035em; }
+.auth2 .auth-form-header p { margin-top: .4rem; color: var(--ink-600); font-size: 1rem; }
+.auth2 .auth-form { display: grid; gap: 1rem; }
+.auth2 .form-label { color: var(--ink-900); font: 700 var(--text-sm) var(--font-body); }
+.auth2 .form-input { min-height: 50px; color: var(--ink-900); background: var(--surface); border: 1.5px solid var(--line-strong); border-radius: 14px; font-size: 1rem; }
+.auth2 .form-input:focus { border-color: var(--green-700); box-shadow: 0 0 0 4px rgba(245, 184, 46, .35); outline: none; }
+.auth2 .auth-error { padding: .8rem 1rem; color: var(--coral-700); background: var(--coral-100); border: 1px solid var(--coral-300); border-radius: 14px; font-size: var(--text-sm); font-weight: 600; }
+.auth2 .auth-footer { margin-top: 1.25rem; color: var(--ink-600); font-size: var(--text-sm); text-align: center; }
+.auth2 .auth-footer a { color: var(--green-700); font-weight: 800; }
+
+/* Register: progress + role cards */
+.reg-progress { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin: -.3rem 0 1.2rem; list-style: none; }
+.reg-progress li { position: relative; display: flex; align-items: center; gap: .55rem; padding: .55rem .7rem; color: var(--ink-600); background: var(--surface); border-radius: var(--radius-pill); box-shadow: var(--shadow-1); font: 700 var(--text-sm) var(--font-body); }
+.reg-progress li span { width: 28px; height: 28px; display: grid; place-items: center; flex: 0 0 auto; color: var(--ink-600); background: var(--cream-100); border-radius: 50%; font-weight: 900; }
+.reg-progress li span svg { width: 15px; height: 15px; }
+.reg-progress li.is-current { color: var(--ink-900); box-shadow: 0 0 0 2px var(--gold-500), var(--shadow-1); }
+.reg-progress li.is-current span { color: var(--green-900); background: var(--gold-500); }
+.reg-progress li.is-done span { color: #fff; background: var(--green-700); }
+.reg-roles { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; border: 0; margin: 0; padding: 0; }
+.reg-roles legend { margin-bottom: .55rem; color: var(--ink-900); font: 800 var(--text-sm) var(--font-body); }
+.reg-role { position: relative; display: grid; gap: .5rem; padding: 1rem; background: var(--surface); border: 2px solid var(--line); border-radius: 18px; cursor: pointer; transition: border-color var(--dur-fast), box-shadow var(--dur), transform var(--dur-fast); }
+.reg-role:hover { border-color: var(--green-700); transform: translateY(-2px); }
+.reg-role input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.reg-role:has(input:focus-visible) { box-shadow: var(--focus-ring); }
+.reg-role.is-selected { background: var(--gold-100); border-color: var(--gold-500); box-shadow: var(--shadow-2); }
+.reg-role-icon { width: 46px; height: 46px; display: grid; place-items: center; color: #fff; background: var(--green-700); border-radius: 14px; }
+.reg-role.is-selected .reg-role-icon { color: var(--green-900); background: var(--gold-500); }
+.reg-role-icon svg { width: 22px; height: 22px; }
+.reg-role-text { display: grid; gap: .2rem; }
+.reg-role-text strong { color: var(--ink-900); font: 900 1.05rem var(--font-display); }
+.reg-role-text small { color: var(--ink-600); font-size: var(--text-xs); line-height: 1.45; }
+.reg-role-check { position: absolute; top: .75rem; right: .75rem; width: 26px; height: 26px; display: grid; place-items: center; color: transparent; border: 2px solid var(--line-strong); border-radius: 50%; }
+.reg-role.is-selected .reg-role-check { color: #fff; background: var(--green-700); border-color: var(--green-700); }
+.reg-role-check svg { width: 15px; height: 15px; }
+.reg-two { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+.reg-full { width: 100%; }
+.reg-intro { display: flex; gap: .6rem; padding: .85rem 1rem; color: var(--ink-900); background: var(--green-100); border-radius: 14px; font-size: var(--text-sm); line-height: 1.5; }
+.reg-intro svg { flex: 0 0 auto; width: 22px; height: 22px; color: var(--green-700); }
+.reg-store { display: grid; gap: .9rem; padding: 1rem; border: 2px dashed var(--gold-500); border-radius: 18px; background: #FFFDF6; }
+.reg-store legend { display: flex; align-items: center; gap: .4rem; padding: 0 .4rem; color: var(--ink-900); font: 800 var(--text-sm) var(--font-body); }
+.reg-store legend svg { width: 18px; height: 18px; color: var(--gold-700); }
+.reg-note { color: var(--ink-600); font-size: var(--text-xs); }
+.reg-actions { display: grid; grid-template-columns: auto 1fr; gap: .6rem; }
+
+@media (max-width: 920px) {
+  .auth2 { grid-template-columns: 1fr; }
+  .auth2-brand { display: none; }
+  .auth2-logo--mobile { display: inline-flex; box-shadow: none; padding: 0; background: none; }
+  .auth2-form { align-items: flex-start; padding-top: 1.5rem; }
+}
+@media (max-width: 520px) {
+  .reg-roles, .reg-two { grid-template-columns: 1fr; }
+  .reg-role { grid-template-columns: auto 1fr; align-items: center; }
+  .reg-role-text { padding-right: 1.5rem; }
+}
+
+/* Account status (pending verification) */
+.acct { display: grid; justify-items: center; gap: .7rem; margin-bottom: 1rem; padding: 1.3rem; background: var(--surface) var(--texture-leaf); border-radius: 22px; box-shadow: var(--shadow-1); text-align: center; }
+.acct-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; width: 100%; margin-top: .4rem; list-style: none; }
+.acct-steps li { display: grid; justify-items: center; gap: .35rem; color: var(--ink-600); font: 700 var(--text-xs)/1.3 var(--font-body); }
+.acct-steps li span { width: 38px; height: 38px; display: grid; place-items: center; color: var(--ink-600); background: var(--cream-100); border-radius: 50%; }
+.acct-steps li span svg { width: 18px; height: 18px; }
+.acct-steps li.is-done { color: var(--green-700); }
+.acct-steps li.is-done span { color: #fff; background: var(--green-700); }
+.acct-steps li.is-current { color: var(--ink-900); }
+.acct-steps li.is-current span { color: var(--green-900); background: var(--gold-500); box-shadow: 0 0 0 5px rgba(245, 184, 46, .3); }
+.acct-steps li.is-blocked { color: var(--coral-700); }
+.acct-steps li.is-blocked span { color: #fff; background: var(--coral-700); }
+.acct-lead { color: var(--ink-600); font-size: var(--text-sm); line-height: 1.6; }

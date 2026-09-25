@@ -3,6 +3,8 @@ import { Link, Navigate } from "react-router-dom";
 import AuthLayout from "../../components/layout/AuthLayout.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import api from "../../services/api.js";
+import Illustration from "../../components/ui/Illustration.jsx";
+import { Check, Clock3, ShoppingBag, Store } from "lucide-react";
 
 export default function AccountStatus() {
   const { user, loading, updateUser, logout } = useAuth();
@@ -22,7 +24,16 @@ export default function AccountStatus() {
     finally { setBusy(false); }
   };
   return <AuthLayout title={user.status === "rejected" ? "Update your campus credentials" : "Your registration is under review"} subtitle="Campus Marketplace · CSUCC">
-    <p>An administrator must verify your CSUCC membership before you can buy, sell, or message sellers. You can browse the marketplace while waiting.</p>
+    <section className={`acct acct--${user.status}`} aria-live="polite">
+      <Illustration name={user.status === "rejected" ? "search" : "bell"} size={130} />
+      <span className={`cm-chip cm-tone-${user.status === "rejected" ? "coral" : "gold"}`}>{user.status === "rejected" ? "Needs correction" : "Pending verification"}</span>
+      <ol className="acct-steps">
+        <li className="is-done"><span><Check aria-hidden="true" /></span>Account created</li>
+        <li className={user.status === "rejected" ? "is-blocked" : "is-current"}><span><Clock3 aria-hidden="true" /></span>CSUCC ID verification</li>
+        <li><span>{user.role === "seller" ? <Store aria-hidden="true" /> : <ShoppingBag aria-hidden="true" />}</span>{user.role === "seller" ? "Open your stall" : "Start buying"}</li>
+      </ol>
+    </section>
+    <p className="acct-lead">An administrator checks your ID against CSUCC records before you can buy, sell or message sellers. You can browse the marketplace while you wait.</p>
     {user.review_note && <p role="status"><strong>Administrator feedback:</strong> {user.review_note}</p>}
     {error && <p role="alert" className="auth-error">{error}</p>}
     {(!user.campus_id || user.status === "rejected") && <form className="auth-form" onSubmit={(e) => { e.preventDefault(); request(true); }}>
