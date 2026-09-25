@@ -1,335 +1,228 @@
 import "./AdminWorkspace.css";
-import { useState, useEffect, useCallback } from "react";
-import Sidebar from "../../components/common/Sidebar.jsx";
-import { EmptyState } from "../../components/common/Ui.jsx";
-import { adminService } from "../../services/api.js";
+import "./ManageUsers.css";
+import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { format } from "date-fns";
-import { FiSearch, FiUserX, FiUserCheck, FiRefreshCw } from "react-icons/fi";
+import { BadgeCheck, IdCard, RefreshCw, Search, ShieldCheck, UserCheck, UserX, X } from "lucide-react";
+import Sidebar from "../../components/common/Sidebar.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
+import { FilterChip, StatusChip } from "../../components/ui/Chip.jsx";
+import { SkeletonBlock } from "../../components/ui/Skeleton.jsx";
+import { adminService } from "../../services/api.js";
+import { plural } from "../../utils/marketplace.js";
 
-const ROLE_OPTIONS = ["all", "buyer", "seller", "admin"];
+const ROLES = ["all", "buyer", "seller", "admin"];
+const STATUSES = [
+  { value: "pending", label: "Pending review" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Needs correction" },
+  { value: "all", label: "Everyone" },
+];
+const PAGE_SIZE = 20;
+const cap = (text) => (text ? text.charAt(0).toUpperCase() + text.slice(1) : "");
+
+/** Side drawer for checking a registration against CSUCC records. */
+function ReviewDrawer({ user, onClose, onSubmit, busy }) {
+  const [note, setNote] = useState("");
+  const [checked, setChecked] = useState(false);
+  const panel = useRef(null);
+  useEffect(() => {
+    const previous = document.activeElement;
+    panel.current?.querySelector("button, input, textarea")?.focus();
+    const escape = (event) => { if (event.key === "Escape") onClose(); };
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("keydown", escape); previous?.focus?.(); };
+  }, [onClose]);
+  const noteOk = note.trim().length >= 5;
+  return (
+    <div className="mu-drawer-layer" role="presentation" onClick={onClose}>
+      <aside ref={panel} className="mu-drawer" role="dialog" aria-modal="true" aria-labelledby="review-title" onClick={(e) => e.stopPropagation()}>
+        <header className="mu-drawer-head">
+          <span className="mu-avatar mu-avatar--lg" aria-hidden="true">{user.name?.charAt(0).toUpperCase()}</span>
+          <div>
+            <p className="cm-eyebrow">Review credentials</p>
+            <h2 id="review-title">{user.name}</h2>
+            <p>{user.email}</p>
+          </div>
+          <button type="button" className="mu-drawer-close" onClick={onClose} aria-label="Close"><X aria-hidden="true" /></button>
+        </header>
+
+        <dl className="mu-facts">
+          <div><dt><IdCard aria-hidden="true" /> CSUCC ID number</dt><dd className={user.campus_id ? "mu-id" : "mu-missing"}>{user.campus_id || "Not provided"}</dd></div>
+          <div><dt>Affiliation</dt><dd>{cap(user.affiliation) || <span className="mu-missing">Not provided</span>}</dd></div>
+          <div><dt>College / program / office</dt><dd>{user.department || <span className="mu-missing">Not provided</span>}</dd></div>
+          <div><dt>Wants to</dt><dd>{user.role === "seller" ? "Sell (and buy)" : "Buy"}</dd></div>
+          <div><dt>Registered</dt><dd>{new Date(user.created_at).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })}</dd></div>
+        </dl>
+
+        {user.review_note && <p className="mu-prev-note"><strong>Previous note:</strong> {user.review_note}</p>}
+
+        <div className="mu-verify">
+          <p><ShieldCheck aria-hidden="true" /> Check the ID number and name against official CSUCC enrollment or personnel records before approving.</p>
+          <label className="mu-check">
+            <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
+            <span>I verified the ID, name and current CSUCC membership.</span>
+          </label>
+          <label className="mu-note">
+            <span>Note to the user <small>(required, 5+ characters)</small></span>
+            <textarea rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="How you verified, or what they need to correct." />
+          </label>
+        </div>
+
+        <footer className="mu-drawer-actions">
+          <button type="button" className="btn btn-primary" disabled={busy || !checked || !user.campus_id || !noteOk} onClick={() => onSubmit("approved", note, checked)}>
+            <BadgeCheck aria-hidden="true" /> Approve
+          </button>
+          <button type="button" className="btn btn-danger" disabled={busy || !noteOk} onClick={() => onSubmit("rejected", note, checked)}>
+            Request correction
+          </button>
+          {!user.campus_id && <p className="mu-hint">Approval needs an ID number — ask for a correction instead.</p>}
+        </footer>
+      </aside>
+    </div>
+  );
+}
 
 export default function ManageUsers() {
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
+  const [role, setRole] = useState("all");
+  const [status, setStatus] = useState("pending");
   const [page, setPage] = useState(1);
   const [banningId, setBanningId] = useState(null);
-  const [statusFilter, setStatusFilter] = useState("pending");
   const [review, setReview] = useState(null);
-  const [note, setNote] = useState("");
-  const [checked, setChecked] = useState(false);
   const [reviewing, setReviewing] = useState(false);
 
   const fetchUsers = useCallback(() => {
     setLoading(true);
-    const params = { page, limit: 20, q: search };
-    if (statusFilter !== "all") params.status = statusFilter;
-    if (roleFilter !== "all") params.role = roleFilter;
-
-    adminService
-      .getUsers(params)
-      .then(({ data }) => {
-        setUsers(data.data || []);
-        setTotal(data.total || 0);
-      })
-      .catch(() => toast.error("Failed to load users"))
+    const params = { page, limit: PAGE_SIZE, q: search };
+    if (status !== "all") params.status = status;
+    if (role !== "all") params.role = role;
+    adminService.getUsers(params)
+      .then(({ data }) => { setUsers(data.data || []); setTotal(data.total || 0); })
+      .catch(() => toast.error("Couldn't load users"))
       .finally(() => setLoading(false));
-  }, [page, search, roleFilter, statusFilter]);
-
+  }, [page, search, role, status]);
   useEffect(fetchUsers, [fetchUsers]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [search, roleFilter]);
-
-  const handleBan = async (userId, currentBanStatus) => {
-    const action = currentBanStatus ? "unban" : "ban";
-    if (!window.confirm(`Are you sure you want to ${action} this user?`))
-      return;
+  const toggleBan = async (user) => {
+    const action = user.is_banned ? "unban" : "ban";
+    if (!window.confirm(`${cap(action)} ${user.name}?`)) return;
     try {
-      setBanningId(userId);
-      const { data } = await adminService.banUser(userId, !currentBanStatus);
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === userId ? { ...u, is_banned: data.is_banned } : u,
-        ),
-      );
-      toast.success(`User ${action}ned successfully`);
+      setBanningId(user.id);
+      const { data } = await adminService.banUser(user.id, !user.is_banned);
+      setUsers((items) => items.map((item) => (item.id === user.id ? { ...item, is_banned: data.is_banned } : item)));
+      toast.success(`${user.name} ${action}ned`);
     } catch {
-      toast.error(`Failed to ${action} user`);
+      toast.error(`Couldn't ${action} this user`);
     } finally {
       setBanningId(null);
     }
   };
 
-  const submitReview = async (status) => {
+  const submitReview = async (decision, note, checked) => {
     setReviewing(true);
     try {
-      await adminService.reviewUser(review.id, { status, note, credentials_checked: checked });
-      setReview(null); fetchUsers(); toast.success(`Registration ${status}`);
-    } catch (error) { toast.error(error.response?.data?.error || "Review failed"); }
-    finally { setReviewing(false); }
+      await adminService.reviewUser(review.id, { status: decision, note: note.trim(), credentials_checked: checked });
+      toast.success(decision === "approved" ? `${review.name} approved` : `Correction requested from ${review.name}`);
+      setReview(null);
+      fetchUsers();
+    } catch (error) {
+      toast.error(error.response?.data?.error || "Review failed");
+    } finally {
+      setReviewing(false);
+    }
   };
 
-  const roleColor = { buyer: "gold", seller: "green", admin: "danger" };
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="dashboard-layout admin-shell">
       <Sidebar />
       <main className="dashboard-main">
-        <div className="topbar">
-          <div className="topbar-left">
-            <div className="topbar-titles">
-              <h1>Manage Users</h1>
-              <p>View, filter, and manage all platform accounts.</p>
+        <header className="topbar mu-topbar">
+          <div className="topbar-titles">
+            <h1>Registration & users</h1>
+            <p>Verify new CSUCC accounts and manage everyone on the platform.</p>
+          </div>
+          <button type="button" className="btn btn-outline btn-sm" onClick={fetchUsers} disabled={loading}><RefreshCw aria-hidden="true" /> Refresh</button>
+        </header>
+
+        <div className="dashboard-content mu-content">
+          <div className="mu-toolbar">
+            <label className="mu-search">
+              <Search aria-hidden="true" />
+              <span className="sr-only">Search by name or email</span>
+              <input type="search" placeholder="Search name or email" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+            </label>
+            <div className="mu-pills" role="group" aria-label="Registration status">
+              {STATUSES.map((item) => <FilterChip key={item.value} active={status === item.value} onClick={() => { setStatus(item.value); setPage(1); }}>{item.label}</FilterChip>)}
+            </div>
+            <div className="mu-pills" role="group" aria-label="Role">
+              {ROLES.map((item) => <FilterChip key={item} active={role === item} onClick={() => { setRole(item); setPage(1); }}>{item === "all" ? "All roles" : `${cap(item)}s`}</FilterChip>)}
             </div>
           </div>
-        </div>
 
-        <div className="dashboard-content">
-          {/* Toolbar */}
-          <div className="toolbar" style={{ marginBottom: "1.25rem" }}>
-            <div style={{ position: "relative", flex: 1, maxWidth: 340 }}>
-              <FiSearch
-                style={{
-                  position: "absolute",
-                  left: 12,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "var(--gray-400)",
-                }}
-              />
-              <input
-                className="form-input"
-                placeholder="Search by name or email..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                style={{ paddingLeft: "2.5rem" }}
-              />
-            </div>
-
-            <div className="role-filter-group">
-              {ROLE_OPTIONS.map((r) => (
-                <button
-                  key={r}
-                  className={`role-filter-btn ${roleFilter === r ? "active" : ""}`}
-                  onClick={() => {
-                    setRoleFilter(r);
-                    setPage(1);
-                  }}
-                >
-                  {r.charAt(0).toUpperCase() + r.slice(1)}
-                </button>
-              ))}
-            </div>
-
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={fetchUsers}
-              disabled={loading}
-            >
-              <FiRefreshCw size={14} className={loading ? "spin" : ""} />
-            </button>
-          </div>
-
-          <label className="form-label">Registration status
-            <select className="form-input" style={{ maxWidth: 280, marginBottom: "1rem" }} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
-              <option value="pending">Pending review</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="all">All registrations</option>
-            </select>
-          </label>
-          {review && <section className="card" style={{ padding: "1.5rem", marginBottom: "1rem" }} aria-labelledby="review-title">
-            <h2 id="review-title">Review {review.name}</h2>
-            <p>{review.role} · {review.affiliation || "Affiliation missing"} · {review.department || "Department missing"}</p>
-            <p><strong>CSUCC ID:</strong> {review.campus_id || "Not provided"}</p>
-            <p>Check this identity against authorized CSUCC enrollment or personnel records before approval.</p>
-            <label style={{ display: "flex", gap: ".5rem", margin: "1rem 0" }}><input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} /> I verified the ID, name, and current CSUCC membership.</label>
-            <label>Review note / reason<textarea className="form-input" value={note} minLength={5} maxLength={500} onChange={(e) => setNote(e.target.value)} placeholder="Record the verification method or explain what needs correction." /></label>
-            <div style={{ display: "flex", gap: ".75rem", marginTop: "1rem", flexWrap: "wrap" }}>
-              <button className="btn btn-primary" disabled={reviewing || !checked || !review.campus_id || note.trim().length < 5} onClick={() => submitReview("approved")}>Approve registration</button>
-              <button className="btn btn-danger" disabled={reviewing || note.trim().length < 5} onClick={() => submitReview("rejected")}>Request correction</button>
-              <button className="btn btn-outline" disabled={reviewing} onClick={() => setReview(null)}>Close</button>
-            </div>
-          </section>}
-          {/* Users table */}
           {loading ? (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.75rem",
-              }}
-            >
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div
-                  key={i}
-                  className="skeleton"
-                  style={{ height: 60, borderRadius: 10 }}
-                />
-              ))}
-            </div>
+            <div className="mu-card">{[0, 1, 2, 3].map((i) => <SkeletonBlock key={i} height={60} className="mu-skel" />)}</div>
           ) : users.length === 0 ? (
             <EmptyState
-              icon="👥"
-              title="No users found"
-              description="Try adjusting your search or filters"
+              illustration={status === "pending" ? "check" : "search"}
+              title={status === "pending" && !search ? "No registrations waiting" : "No users match"}
+              description={status === "pending" && !search ? "Every account has been reviewed. New sign-ups will appear here." : "Try another search, status or role."}
+              action={status !== "all" || search || role !== "all" ? { label: "Show everyone", onClick: () => { setStatus("all"); setRole("all"); setSearch(""); } } : undefined}
             />
           ) : (
-            <div className="card">
-              <div style={{ overflowX: "auto" }}>
-                <table className="users-table">
+            <section className="mu-card" aria-label="Users">
+              <div className="mu-table-wrap">
+                <table className="mu-table">
                   <thead>
-                    <tr>
-                      <th>User</th>
-                      <th>Email</th>
-                      <th>Role</th>
-                      <th>Status</th>
-                      <th>Joined</th>
-                      <th style={{ textAlign: "right" }}>Actions</th>
-                    </tr>
+                    <tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Role</th><th scope="col">Status</th><th scope="col">CSUCC ID</th><th scope="col">Joined</th><th scope="col"><span className="sr-only">Actions</span></th></tr>
                   </thead>
                   <tbody>
                     {users.map((user) => (
-                      <tr
-                        key={user.id}
-                        className={user.is_banned ? "banned-row" : ""}
-                      >
+                      <tr key={user.id} className={user.is_banned ? "is-banned" : ""}>
                         <td>
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "0.75rem",
-                            }}
-                          >
-                            <div className="user-avatar">
-                              {user.avatar_url ? (
-                                <img src={user.avatar_url} alt={user.name} />
-                              ) : (
-                                <span>
-                                  {user.name?.charAt(0).toUpperCase()}
-                                </span>
-                              )}
-                            </div>
-                            <span
-                              className="font-medium"
-                              style={{ fontSize: "0.875rem" }}
-                            >
-                              {user.name}
-                            </span>
+                          <span className="mu-person">
+                            <span className="mu-avatar" aria-hidden="true">{user.avatar_url ? <img src={user.avatar_url} alt="" /> : user.name?.charAt(0).toUpperCase()}</span>
+                            <strong>{user.name}</strong>
+                          </span>
+                        </td>
+                        <td>{user.email}</td>
+                        <td><span className={`cm-chip cm-chip--sm mu-role mu-role--${user.role}`}>{cap(user.role)}</span></td>
+                        <td>{user.is_banned ? <StatusChip status="banned" label="Banned" /> : <StatusChip status={user.status} label={user.status === "rejected" ? "Needs correction" : undefined} />}</td>
+                        <td className="mu-id-cell">{user.campus_id || "—"}</td>
+                        <td>{new Date(user.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}</td>
+                        <td>
+                          <div className="mu-actions">
+                            {user.status === "pending" && user.role !== "admin" && (
+                              <button type="button" className="btn btn-primary btn-sm" onClick={() => setReview(user)}><UserCheck aria-hidden="true" /> Review credentials</button>
+                            )}
+                            {user.role !== "admin" && (
+                              <button type="button" className={`btn btn-sm ${user.is_banned ? "btn-outline" : "btn-ghost mu-ban"}`} onClick={() => toggleBan(user)} disabled={banningId === user.id} aria-label={`${user.is_banned ? "Unban" : "Ban"} ${user.name}`}>
+                                {user.is_banned ? <><UserCheck aria-hidden="true" /> Unban</> : <><UserX aria-hidden="true" /> Ban</>}
+                              </button>
+                            )}
                           </div>
-                        </td>
-                        <td className="text-sm text-muted">{user.email}</td>
-                        <td>
-                          <span
-                            className={`badge badge-${roleColor[user.role] || "gray"}`}
-                          >
-                            {user.role}
-                          </span>
-                        </td>
-                        <td>
-                          <span
-                            className={`badge ${user.is_banned ? "badge-danger" : "badge-success"}`}
-                          >
-                            {user.is_banned ? "Banned" : user.status}
-                          </span>
-                        </td>
-                        <td className="text-sm text-muted">
-                          {format(new Date(user.created_at), "MMM d, yyyy")}
-                        </td>
-                        <td style={{ textAlign: "right" }}>
-                          {user.status === "pending" && user.role !== "admin" && <button className="btn btn-primary btn-sm" onClick={() => { setReview(user); setNote(""); setChecked(false); }}>Review credentials</button>}
-                          {user.role !== "admin" && (
-                            <button
-                              className={`btn btn-sm ${user.is_banned ? "btn-outline" : "btn-danger"}`}
-                              onClick={() => handleBan(user.id, user.is_banned)}
-                              disabled={banningId === user.id}
-                              style={{ fontSize: "0.8rem" }}
-                            >
-                              {banningId === user.id ? (
-                                <span
-                                  className="spinner"
-                                  style={{
-                                    width: 12,
-                                    height: 12,
-                                    borderWidth: 2,
-                                  }}
-                                />
-                              ) : user.is_banned ? (
-                                <>
-                                  <FiUserCheck size={13} /> Unban
-                                </>
-                              ) : (
-                                <>
-                                  <FiUserX size={13} /> Ban
-                                </>
-                              )}
-                            </button>
-                          )}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-
-              {/* Pagination */}
-              <div className="table-footer">
-                <p className="text-sm text-muted">
-                  Showing {users.length} of {total} users
-                </p>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "0.5rem",
-                    alignItems: "center",
-                  }}
-                >
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    disabled={page === 1}
-                    onClick={() => setPage((p) => p - 1)}
-                  >
-                    ← Prev
-                  </button>
-                  <span className="text-sm text-muted">Page {page}</span>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    disabled={users.length < 20}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    Next →
-                  </button>
+              <footer className="mu-footer">
+                <p>{plural(total, "user")} · page {page} of {pages}</p>
+                <div>
+                  <button type="button" className="btn btn-ghost btn-sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>← Previous</button>
+                  <button type="button" className="btn btn-ghost btn-sm" disabled={page >= pages} onClick={() => setPage((p) => p + 1)}>Next →</button>
                 </div>
-              </div>
-            </div>
+              </footer>
+            </section>
           )}
         </div>
       </main>
-
-      <style>{`
-        .toolbar { display: flex; align-items: center; gap: 0.875rem; flex-wrap: wrap; }
-        .role-filter-group { display: flex; border: 1.5px solid var(--gray-200); border-radius: var(--radius-md); overflow: hidden; }
-        .role-filter-btn { padding: 0.4rem 0.875rem; font-size: 0.8rem; font-weight: 500; color: var(--gray-600); background: #fff; transition: var(--transition-fast); border-right: 1px solid var(--gray-200); }
-        .role-filter-btn:last-child { border-right: none; }
-        .role-filter-btn.active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
-        .role-filter-btn:not(.active):hover { background: var(--gray-100); }
-        .users-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-        .users-table th { text-align: left; padding: 0.75rem 1rem; color: var(--gray-500); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--gray-200); background: var(--gray-50); }
-        .users-table td { padding: 0.875rem 1rem; border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
-        .users-table tr:last-child td { border-bottom: none; }
-        .users-table tr:hover td { background: var(--gray-50); }
-        .banned-row td { opacity: 0.6; }
-        .user-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--color-secondary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.875rem; flex-shrink: 0; overflow: hidden; }
-        .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
-        .table-footer { display: flex; align-items: center; justify-content: space-between; padding: 0.875rem 1rem; border-top: 1px solid var(--gray-100); }
-        .spin { animation: spin 0.7s linear infinite; }
-      `}</style>
+      {review && <ReviewDrawer user={review} busy={reviewing} onClose={() => setReview(null)} onSubmit={submitReview} />}
     </div>
   );
 }

@@ -1,399 +1,218 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import Sidebar from "../../components/common/Sidebar.jsx";
-import { StatCard } from "../../components/common/Ui.jsx";
-import { adminService, stallService } from "../../services/api.js";
 import toast from "react-hot-toast";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from "recharts";
+import { ArrowRight, CalendarDays, Check, ClipboardList, RefreshCw, Store, UserCheck, Users, Wallet, X } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import Sidebar from "../../components/common/Sidebar.jsx";
+import StatCard from "../../components/ui/StatCard.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
+import Illustration from "../../components/ui/Illustration.jsx";
+import { SkeletonBlock } from "../../components/ui/Skeleton.jsx";
+import { adminService, stallService } from "../../services/api.js";
+import { formatCurrency } from "../../utils/formatCurrency.js";
+import { plural } from "../../utils/marketplace.js";
 import "./AdminWorkspace.css";
-import {
-  FiUsers,
-  FiShoppingBag,
-  FiDollarSign,
-  FiActivity,
-  FiArrowRight,
-  FiCheck,
-  FiX,
-} from "react-icons/fi";
+import "./AdminDashboard.css";
+
+// Chart colours: palette only (green-700, gold-500, teal, coral).
+const CHART = { green: "#13703C", gold: "#F5B82E", teal: "#1E6B6B", coral: "#E8603C", grid: "#ECE4D2", ink: "#4A5A50" };
+const ROLE_COLORS = { buyer: CHART.green, seller: CHART.gold, admin: CHART.teal };
+const axisPeso = (value) => (value >= 1000 ? `₱${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}K` : `₱${Math.round(value)}`);
+const monthLabel = (month) => new Date(`${month}-01T12:00:00`).toLocaleDateString("en-PH", { month: "short", year: "2-digit" });
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [pendingStalls, setPendingStalls] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [approvingId, setApprovingId] = useState(null);
   const [error, setError] = useState(false);
+  const [actingId, setActingId] = useState(null);
 
-  const fetchData = () => {
+  const load = () => {
     setLoading(true);
     setError(false);
     Promise.all([adminService.getStats(), adminService.getPendingStalls()])
-      .then(([s, p]) => {
-        setStats(s.data);
-        setPendingStalls(p.data || []);
-      })
-      .catch(() => { setError(true); toast.error("Failed to load dashboard"); })
+      .then(([s, p]) => { setStats(s.data); setPendingStalls(p.data || []); })
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   };
+  useEffect(load, []);
 
-  useEffect(fetchData, []);
-
-  const handleStallAction = async (stallId, status) => {
+  const reviewStall = async (stallId, status) => {
     try {
-      setApprovingId(stallId);
+      setActingId(stallId);
       await stallService.updateStatus(stallId, status);
-      setPendingStalls((prev) => prev.filter((s) => s.id !== stallId));
-      toast.success(`Stall ${status} successfully`);
-      adminService.getStats().then(({ data }) => setStats(data)).catch(() => toast.error("Stall updated, but dashboard totals could not refresh."));
-    } catch {
-      toast.error("Failed to update stall");
+      setPendingStalls((items) => items.filter((stall) => stall.id !== stallId));
+      toast.success(status === "approved" ? "Stall approved" : "Stall rejected");
+      adminService.getStats().then(({ data }) => setStats(data)).catch(() => {});
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Couldn't update the stall");
     } finally {
-      setApprovingId(null);
+      setActingId(null);
     }
   };
 
-  const fmt = (p) =>
-    `₱${Number(p).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
+  const actions = stats ? [
+    { key: "registrations", count: stats.pending_registrations, label: "Registrations to verify", hint: "Check CSUCC ID numbers against school records", to: "/admin/users", icon: UserCheck },
+    { key: "stalls", count: stats.pending_stalls, label: "Stall applications", hint: "New stores waiting for approval", to: "/admin/stalls", icon: Store },
+    { key: "events", count: stats.pending_event_applications, label: "Event space requests", hint: "Sellers asking for a spot at a fair", to: "/admin/applications", icon: CalendarDays },
+  ] : [];
+  const openActions = actions.filter((item) => Number(item.count) > 0);
+  const sales = (stats?.sales_history || []).map((row) => ({ ...row, label: monthLabel(row.month) }));
+  const monthsWithSales = sales.filter((row) => Number(row.sales) > 0).length;
+  const onlineRevenue = Number(stats?.total_revenue || 0);
+  const posRevenue = Number(stats?.pos_revenue || 0);
+  const roles = (stats?.user_breakdown || []).filter((row) => row.value > 0);
 
   return (
     <div className="dashboard-layout admin-shell">
       <Sidebar />
       <main className="dashboard-main">
-        <div className="topbar">
-          <div className="topbar-left">
-            <div className="topbar-titles">
-              <h1>Admin Overview</h1>
-              <p>Platform health and management at a glance.</p>
-            </div>
+        <header className="topbar ad-topbar">
+          <div className="topbar-titles">
+            <h1>Admin overview</h1>
+            <p>What needs you today, and how the marketplace is doing.</p>
           </div>
-        </div>
+          <button type="button" className="btn btn-outline btn-sm" onClick={load} disabled={loading}><RefreshCw aria-hidden="true" /> Refresh</button>
+        </header>
 
-        <div className="dashboard-content">
-          {error && <div role="alert" className="card admin-panel"><p>Dashboard data could not be loaded.</p><button className="btn btn-outline" onClick={fetchData}>Retry</button></div>}
-          <div className="dashboard-hero">
-            <div className="hero-card card">
-              <div className="hero-card-inner">
-                <p className="eyebrow">Admin workspace</p>
-                <h2 className="hero-callout">
-                  Monitor marketplace health and approve seller stalls with
-                  confidence.
-                </h2>
-                <p className="hero-note">
-                  Manage users, track revenue, and keep your campus market
-                  running smoothly from one centralized admin hub.
-                </p>
-                <div className="hero-actions">
-                  <Link to="/admin/stalls" className="btn btn-outline">
-                    Review stalls
-                  </Link>
-                  <Link to="/admin/users" className="btn btn-ghost">
-                    Manage users
-                  </Link>
-                  <Link to="/admin/events" className="btn btn-ghost">Events & stall maps</Link>
+        <div className="dashboard-content ad-content">
+          {error && <EmptyState compact illustration="search" title="The dashboard didn't load" description="Check your connection and try again." action={{ label: "Retry", onClick: load }} />}
+
+          {/* ── Action items ─────────────────────────────────────────────── */}
+          <section className="ad-actions" aria-labelledby="actions-title">
+            <div className="ad-actions-head">
+              <div>
+                <p className="cm-eyebrow">Needs your attention</p>
+                <h2 id="actions-title">Action items</h2>
+              </div>
+              {!loading && openActions.length > 0 && <span className="ad-actions-total">{plural(openActions.reduce((s, a) => s + Number(a.count), 0), "item")} open</span>}
+            </div>
+            {loading ? <SkeletonBlock height={120} /> : openActions.length === 0 ? (
+              <div className="ad-clear">
+                <Illustration name="check" size={120} />
+                <div>
+                  <h3>All clear</h3>
+                  <p>No registrations, stalls or event requests are waiting. New ones will show up here.</p>
                 </div>
               </div>
-            </div>
-            <div className="info-panel">
-              <h3>Action items</h3>
-              <p>
-                Keep an eye on pending applications, platform activity, and
-                merchant growth to ensure a trusted campus marketplace.
-              </p>
-            </div>
-          </div>
+            ) : (
+              <ul className="ad-action-list">
+                {actions.map(({ key, count, label, hint, to, icon: Icon }) => (
+                  <li key={key}>
+                    <Link to={to} className={`ad-action ${Number(count) > 0 ? "is-open" : "is-done"}`}>
+                      <span className="ad-action-icon" aria-hidden="true"><Icon /></span>
+                      <span className="ad-action-text"><strong>{label}</strong><small>{Number(count) > 0 ? hint : "Nothing waiting"}</small></span>
+                      <span className="ad-action-count" aria-label={`${count} waiting`}>{Number(count) > 0 ? count : <Check aria-hidden="true" />}</span>
+                      <ArrowRight className="ad-action-arrow" aria-hidden="true" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
-          {/* Platform stats */}
-          <div className="stats-grid" style={{ marginBottom: "1.75rem" }}>
-            <StatCard
-              label="Total Users"
-              value={loading || error ? "—" : stats?.total_users?.toLocaleString() || 0}
-              icon={<FiUsers />}
-              color="info"
-            />
-            <StatCard
-              label="Active Stalls"
-              value={loading || error ? "—" : stats?.active_stalls || 0}
-              icon={<FiShoppingBag />}
-              color="green"
-            />
-            <StatCard
-              label="Total Events"
-              value={loading || error ? "—" : stats?.total_events?.toLocaleString() || 0}
-              icon={<FiActivity />}
-              color="gold"
-            />
-            <StatCard
-              label="Completed Order Sales"
-              value={loading || error ? "—" : fmt(stats?.total_revenue || 0)}
-              icon={<FiDollarSign />}
-              color="gray"
-            />
-          </div>
+          {/* ── KPIs ───────────────────────────────────────────────────── */}
+          <section className="ad-kpis" aria-label="Marketplace totals">
+            {loading || !stats ? [0, 1, 2, 3].map((i) => <SkeletonBlock key={i} height={128} />) : (
+              <>
+                <StatCard icon={Users} tone="teal" label="Registered accounts" value={stats.total_users} scope={`${plural(stats.pending_registrations, "account")} awaiting verification`} />
+                <StatCard icon={Store} tone="green" label="Approved stalls" value={stats.active_stalls} scope="Approved by an admin, open or temporarily closed" />
+                <StatCard icon={ClipboardList} tone="gold" label="Online orders" value={stats.total_orders} scope={`${plural(stats.completed_orders, "order")} completed or delivered · all time`} />
+                <StatCard icon={Wallet} tone="coral" label="Sales, all stalls" value={formatCurrency(onlineRevenue + posRevenue)} scope={`${formatCurrency(onlineRevenue)} online (completed/delivered) + ${formatCurrency(posRevenue)} POS · all time`} />
+              </>
+            )}
+          </section>
 
-          {!loading && !error && <div className="admin-charts">
-            <section className="card admin-chart"><h2>Sales overview</h2><p>Last six calendar months · completed and delivered online orders · PHP</p><ResponsiveContainer width="100%" height={240}><BarChart data={stats?.sales_history || []}><XAxis dataKey="month" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} width={65} /><Tooltip formatter={(value) => fmt(value)} /><Bar dataKey="sales" name="Sales" fill="#167342" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer>{!stats?.sales_history?.some((month) => month.sales > 0) && <p>No completed sales in this period.</p>}</section>
-            <section className="card admin-chart"><h2>User breakdown</h2><p>{stats?.total_users || 0} registered accounts · all time</p>{stats?.total_users > 0 && <ResponsiveContainer width="100%" height={220}><PieChart><Pie data={stats?.user_breakdown || []} dataKey="value" nameKey="name" innerRadius={60} outerRadius={90}>{["#167342", "#287ec1", "#9270bd"].map((color) => <Cell key={color} fill={color} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer>}<div className="admin-breakdown">{stats?.user_breakdown?.map((item, index) => <span key={item.name}><i style={{ background: ["#167342", "#287ec1", "#9270bd"][index] }} />{item.name}: {item.value} ({stats.total_users ? Math.round(item.value / stats.total_users * 100) : 0}%)</span>)}</div></section>
-          </div>}
-          <div className="admin-grid">
-            {/* Pending stall approvals */}
-            <div className="card">
-              <div className="card-header">
-                <h2 className="card-title">
-                  Stall Approvals
-                  {pendingStalls.length > 0 && (
-                    <span
-                      className="badge badge-warning"
-                      style={{ marginLeft: 8 }}
-                    >
-                      {pendingStalls.length} pending
-                    </span>
-                  )}
-                </h2>
-                <Link to="/admin/stalls" className="btn btn-ghost btn-sm">
-                  View all <FiArrowRight size={14} />
-                </Link>
+          <div className="ad-grid">
+            <section className="ad-card" aria-labelledby="sales-title">
+              <div className="ad-card-head">
+                <div>
+                  <p className="cm-eyebrow">Sales overview</p>
+                  <h2 id="sales-title">Last 6 months</h2>
+                  <p className="ad-scope">Completed & delivered online orders across all stalls, by calendar month (POS sales not included)</p>
+                </div>
               </div>
-
-              {error ? <p role="status" style={{ padding: "1.25rem" }}>Approval queue unavailable. Retry loading above.</p> : loading ? (
-                <div
-                  style={{
-                    padding: "0 1.25rem 1.25rem",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 10,
-                  }}
-                >
-                  {[1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className="skeleton"
-                      style={{ height: 72, borderRadius: 10 }}
-                    />
-                  ))}
-                </div>
-              ) : pendingStalls.length === 0 ? (
-                <div className="empty-state" style={{ padding: "2rem" }}>
-                  <div
-                    className="empty-state-icon"
-                    style={{ fontSize: "2rem" }}
-                  >
-                    ✅
-                  </div>
-                  <p style={{ color: "var(--gray-500)", fontSize: "0.9rem" }}>
-                    All caught up! No pending stalls.
-                  </p>
-                </div>
+              {loading ? <SkeletonBlock height={260} /> : monthsWithSales === 0 ? (
+                <EmptyState compact illustration="sprout" title="No completed sales yet" description="Monthly totals appear once buyers' orders are completed or delivered." />
               ) : (
-                <div
-                  style={{
-                    padding: "0 1.25rem 1.25rem",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "0.75rem",
-                  }}
-                >
-                  {pendingStalls.map((stall) => (
-                    <div key={stall.id} className="approval-card">
-                      <div className="approval-info">
-                        <p
-                          className="font-semibold"
-                          style={{ fontSize: "0.9rem" }}
-                        >
-                          {stall.name}
-                        </p>
-                        <p className="text-xs text-muted">
-                          by {stall.users?.name} · {stall.users?.email}
-                        </p>
-                        {stall.description && (
-                          <p
-                            className="text-xs"
-                            style={{
-                              color: "var(--gray-600)",
-                              marginTop: 2,
-                              overflow: "hidden",
-                              display: "-webkit-box",
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: "vertical",
-                            }}
-                          >
-                            {stall.description}
-                          </p>
-                        )}
-                      </div>
-                      <div className="approval-actions">
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() =>
-                            handleStallAction(stall.id, "approved")
-                          }
-                          disabled={approvingId !== null}
-                        >
-                          {approvingId === stall.id ? (
-                            <span
-                              className="spinner"
-                              style={{ width: 12, height: 12, borderWidth: 2 }}
-                            />
-                          ) : (
-                            <>
-                              <FiCheck size={13} /> Approve
-                            </>
-                          )}
-                        </button>
-                        <button
-                          className="btn btn-danger btn-sm"
-                          onClick={() =>
-                            handleStallAction(stall.id, "rejected")
-                          }
-                          disabled={approvingId !== null}
-                        >
-                          <FiX size={13} /> Reject
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                <>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={sales} margin={{ top: 10, right: 8, left: -6, bottom: 0 }}>
+                      <CartesianGrid stroke={CHART.grid} vertical={false} />
+                      <XAxis dataKey="label" tick={{ fill: CHART.ink, fontSize: 13 }} axisLine={false} tickLine={false} />
+                      <YAxis tickFormatter={axisPeso} tick={{ fill: CHART.ink, fontSize: 13 }} axisLine={false} tickLine={false} width={56} allowDecimals={false} />
+                      <Tooltip formatter={(v) => [formatCurrency(v), "Sales"]} cursor={{ fill: "rgba(245,184,46,.15)" }} contentStyle={{ borderRadius: 14, border: "none", boxShadow: "0 10px 24px rgba(11,61,36,.14)" }} />
+                      <Bar dataKey="sales" radius={[10, 10, 4, 4]} maxBarSize={56}>
+                        {sales.map((row, i) => <Cell key={row.month} fill={i === sales.length - 1 ? CHART.gold : CHART.green} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                  {monthsWithSales === 1 && <p className="ad-scope ad-note">Early days — only one month has completed sales so far. The current month is highlighted in gold.</p>}
+                </>
+              )}
+            </section>
+
+            <section className="ad-card" aria-labelledby="users-title">
+              <div className="ad-card-head">
+                <div>
+                  <p className="cm-eyebrow">Community</p>
+                  <h2 id="users-title">Who's on Campus Market</h2>
+                  <p className="ad-scope">All registered accounts, any status</p>
+                </div>
+              </div>
+              {loading ? <SkeletonBlock height={260} /> : roles.length === 0 ? (
+                <EmptyState compact illustration="chat" title="No accounts yet" />
+              ) : (
+                <div className="ad-donut">
+                  <ResponsiveContainer width="100%" height={210}>
+                    <PieChart>
+                      <Pie data={roles} dataKey="value" nameKey="name" innerRadius={62} outerRadius={92} paddingAngle={3} stroke="none">
+                        {roles.map((row) => <Cell key={row.name} fill={ROLE_COLORS[row.name] || CHART.coral} />)}
+                      </Pie>
+                      <Tooltip formatter={(v, name) => [v, `${name}s`]} contentStyle={{ borderRadius: 14, border: "none", boxShadow: "0 10px 24px rgba(11,61,36,.14)" }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <ul className="ad-legend">
+                    {roles.map((row) => (
+                      <li key={row.name}>
+                        <i style={{ background: ROLE_COLORS[row.name] || CHART.coral }} aria-hidden="true" />
+                        <span>{row.name.charAt(0).toUpperCase() + row.name.slice(1)}s</span>
+                        <b>{row.value}</b>
+                        <small>{Math.round((row.value / stats.total_users) * 100)}%</small>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
-            </div>
-
-            {/* Quick nav cards */}
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
-            >
-              <h2
-                style={{
-                  fontSize: "1rem",
-                  fontWeight: 700,
-                  color: "var(--gray-800)",
-                }}
-              >
-                Quick Actions
-              </h2>
-              {[
-                {
-                  to: "/admin/users",
-                  icon: "👥",
-                  label: "Manage Users",
-                  desc: "View, ban, or unban accounts",
-                  color: "info",
-                },
-                {
-                  to: "/admin/stalls",
-                  icon: "🏪",
-                  label: "Manage Stalls",
-                  desc: "Approve, reject, suspend stalls",
-                  color: "green",
-                },
-              ].map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className="quick-nav-card card card-hover"
-                >
-                  <div
-                    className={`quick-nav-icon quick-nav-icon--${item.color}`}
-                  >
-                    {item.icon}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <p className="font-semibold">{item.label}</p>
-                    <p className="text-sm text-muted">{item.desc}</p>
-                  </div>
-                  <FiArrowRight className="text-muted" />
-                </Link>
-              ))}
-
-              {/* Platform metrics box */}
-              <div className="card" style={{ padding: "1.25rem" }}>
-                <h3
-                  className="font-semibold"
-                  style={{ marginBottom: "0.875rem", fontSize: "0.9rem" }}
-                >
-                  Platform Metrics
-                </h3>
-                {[
-                  {
-                    label: "User interactions",
-                    value: loading
-                      ? "—"
-                      : stats?.total_interactions?.toLocaleString() || 0,
-                  },
-                  {
-                    label: "Avg completed order value",
-                    value: loading
-                      ? "—"
-                      : fmt(
-                          (stats?.total_revenue || 0) /
-                            Math.max(stats?.completed_orders || 1, 1),
-                        ),
-                  },
-                  {
-                    label: "Stalls per user",
-                    value: loading
-                      ? "—"
-                      : stats?.total_users
-                        ? (
-                            (stats.active_stalls / stats.total_users) *
-                            100
-                          ).toFixed(1) + "%"
-                        : "—",
-                  },
-                ].map((m) => (
-                  <div key={m.label} className="metric-row">
-                    <span className="text-sm text-muted">{m.label}</span>
-                    <span
-                      className="font-semibold"
-                      style={{ fontSize: "0.9rem" }}
-                    >
-                      {m.value}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            </section>
           </div>
+
+          {/* ── Stall approvals ───────────────────────────────────────────── */}
+          <section className="ad-card" aria-labelledby="approvals-title">
+            <div className="ad-card-head">
+              <div>
+                <p className="cm-eyebrow">Quick review</p>
+                <h2 id="approvals-title">Stalls waiting for approval</h2>
+              </div>
+              <Link to="/admin/stalls" className="cm-link">All stalls <ArrowRight aria-hidden="true" /></Link>
+            </div>
+            {loading ? <SkeletonBlock height={120} /> : pendingStalls.length === 0 ? (
+              <EmptyState compact illustration="store" title="No stalls waiting" description="New stall applications will appear here for a quick approve or reject." />
+            ) : (
+              <ul className="ad-approvals">
+                {pendingStalls.slice(0, 5).map((stall) => (
+                  <li key={stall.id}>
+                    <span className="ad-approval-logo">{stall.logo_url ? <img src={stall.logo_url} alt="" /> : <Store aria-hidden="true" />}</span>
+                    <span className="ad-approval-text"><strong>{stall.name}</strong><small>{stall.location || "No location yet"} · applied {new Date(stall.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}</small></span>
+                    <button type="button" className="btn btn-primary btn-sm" disabled={actingId === stall.id} onClick={() => reviewStall(stall.id, "approved")}><Check aria-hidden="true" /> Approve</button>
+                    <button type="button" className="btn btn-outline btn-sm ad-reject" disabled={actingId === stall.id} onClick={() => reviewStall(stall.id, "rejected")}><X aria-hidden="true" /> Reject</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
       </main>
-
-      <style>{`
-        .card-header { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 1.25rem 1rem; }
-        .card-title { font-size: 1rem; font-weight: 700; color: var(--gray-900); display: flex; align-items: center; }
-        .admin-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 1.5rem; }
-        .approval-card { display: flex; align-items: flex-start; gap: 0.875rem; padding: 0.875rem; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); }
-        .approval-info { flex: 1; min-width: 0; }
-        .approval-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
-        .quick-nav-card { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.25rem; text-decoration: none; color: inherit; }
-        .quick-nav-icon { font-size: 1.5rem; width: 44px; height: 44px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .quick-nav-icon--info  { background: var(--color-info-light); }
-        .quick-nav-icon--green { background: var(--color-secondary-light); }
-        .metric-row { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--gray-100); }
-        .metric-row:last-child { border-bottom: none; }
-
-        /* dashboard-hero / hero-card / info-panel were referenced but never
-           defined anywhere — banner rendered as plain unstyled text/links */
-        .dashboard-hero { display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-3); margin-bottom: 1.75rem; }
-        .hero-card { padding: 0; overflow: hidden; }
-        .hero-card-inner {
-          background: linear-gradient(135deg, var(--cm-primary) 0%, var(--cm-primary-hover) 100%);
-          color: #fff; padding: var(--space-3); display: flex; flex-direction: column; gap: 0.5rem; height: 100%;
-        }
-        .eyebrow { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.85; }
-        .hero-callout { font-size: 1.35rem; font-weight: 800; line-height: 1.3; }
-        .hero-note { font-size: 0.875rem; opacity: 0.9; line-height: 1.6; margin-bottom: 0.25rem; }
-        .hero-actions { display: flex; gap: 0.625rem; flex-wrap: wrap; margin-top: 0.5rem; }
-        .hero-actions .btn-outline { border-color: rgba(255,255,255,0.6); color: #fff; }
-        .hero-actions .btn-outline:hover { background: rgba(255,255,255,0.15); }
-        .hero-actions .btn-ghost { color: rgba(255,255,255,0.85); }
-        .hero-actions .btn-ghost:hover { background: rgba(255,255,255,0.1); color: #fff; }
-        .info-panel {
-          background: var(--cm-accent-light); border: 1px solid var(--cm-accent);
-          border-radius: var(--radius-lg); padding: var(--space-3);
-          display: flex; flex-direction: column; gap: 0.5rem; justify-content: center;
-        }
-        .info-panel h3 { font-size: 0.9rem; font-weight: 700; color: #92600A; }
-        .info-panel p { font-size: 0.825rem; color: #92600A; line-height: 1.55; opacity: 0.9; }
-
-        @media (max-width: 1024px) { .admin-grid { grid-template-columns: 1fr; } }
-        @media (max-width: 900px) { .dashboard-hero { grid-template-columns: 1fr; } }
-      `}</style>
     </div>
   );
 }

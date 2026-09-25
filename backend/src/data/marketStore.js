@@ -1160,7 +1160,12 @@ export const adminStore = {
              (SELECT coalesce(sum(total), 0) FROM orders WHERE status IN ('completed', 'delivered')) AS total_revenue,
              (SELECT count(*) FROM orders WHERE status IN ('completed', 'delivered')) AS completed_orders,
              (SELECT count(*) FROM user_behavior) AS total_interactions,
-             (SELECT count(*) FROM events) AS total_events`);
+             (SELECT count(*) FROM events) AS total_events,
+             (SELECT coalesce(sum(total), 0) FROM pos_sales) AS pos_revenue,
+             (SELECT count(*) FROM pos_sales) AS pos_sales,
+             (SELECT count(*) FROM users WHERE status = 'pending' AND role <> 'admin') AS pending_registrations,
+             (SELECT count(*) FROM stalls WHERE status = 'pending') AS pending_stalls,
+             (SELECT count(*) FROM seller_applications WHERE lower(status) = 'pending') AS pending_event_applications`);
     const roles = await q("SELECT role, count(*) AS value FROM users GROUP BY role");
     const monthly = await q(`
       SELECT to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM') AS month, sum(total) AS sales
@@ -1168,6 +1173,7 @@ export const adminStore = {
     return {
       ...stats,
       total_revenue: money(stats.total_revenue),
+      pos_revenue: money(stats.pos_revenue),
       user_breakdown: ["buyer", "seller", "admin"].map((role) => ({ name: role, value: roles.find((row) => row.role === role)?.value || 0 })),
       sales_history: Array.from({ length: 6 }, (_, index) => {
         const date = new Date(); date.setUTCDate(1); date.setUTCMonth(date.getUTCMonth() - 5 + index);
