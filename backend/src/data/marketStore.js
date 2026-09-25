@@ -1117,3 +1117,28 @@ export const adminStore = {
     return q("SELECT * FROM stalls WHERE status = 'pending' ORDER BY created_at");
   },
 };
+
+// ── Public marketplace stats (home page) ──────────────────────────────────────
+export const statsStore = {
+  /**
+   * Counts for the home page plus recent orders reduced to product + time.
+   * Nothing here identifies a buyer: no names, ids, amounts or stall owners.
+   */
+  async publicSummary() {
+    const [counts] = await q(`
+      SELECT (SELECT count(*) FROM stalls s LEFT JOIN users o ON o.id = s.owner_id WHERE ${PUBLIC_STALL}) AS active_stalls,
+             (SELECT count(*) FROM products p JOIN stalls s ON s.id = p.stall_id LEFT JOIN users o ON o.id = s.owner_id
+               WHERE p.is_active AND ${PUBLIC_STALL}) AS products,
+             (SELECT count(DISTINCT buyer_id) FROM (
+                SELECT buyer_id FROM orders WHERE status <> 'cancelled'
+                UNION SELECT buyer_id FROM pos_sales) b) AS students_served`);
+    const recent = await q(`
+      SELECT i.name AS product_name, coalesce(i.image_url, p.image_url) AS image_url, o.created_at AS ordered_at
+      FROM orders o
+      JOIN LATERAL (SELECT * FROM order_items WHERE order_id = o.id ORDER BY id LIMIT 1) i ON TRUE
+      LEFT JOIN products p ON p.id = i.product_id
+      WHERE o.status <> 'cancelled' AND o.created_at > now() - interval '14 days'
+      ORDER BY o.created_at DESC LIMIT 12`);
+    return { ...counts, recent_orders: recent };
+  },
+};

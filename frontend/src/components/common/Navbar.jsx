@@ -1,98 +1,78 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { ChevronDown, LogOut, MessageSquare, Search, ShoppingCart } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useCart } from "../../context/CartContext.jsx";
-import { useNotifications } from "../../context/NotificationContext.jsx";
 import NotificationBell from "../notifications/NotificationBell.jsx";
-import {
-  FiBell,
-  FiCalendar,
-  FiChevronDown,
-  FiGrid,
-  FiHeart,
-  FiHome,
-  FiLock,
-  FiLogOut,
-  FiMapPin,
-  FiMenu,
-  FiMessageSquare,
-  FiPackage,
-  FiSearch,
-  FiShoppingBag,
-  FiShoppingCart,
-  FiX,
-} from "react-icons/fi";
+import MobileTabBar from "./MobileTabBar.jsx";
+import { accountLinks } from "./accountLinks.js";
 import "./Navbar.css";
 
 const NAV_LINKS = [
-  { to: "/", label: "Home", icon: FiHome },
-  { to: "/stalls", label: "Stalls", icon: FiMapPin },
-  { to: "/browse", label: "Products", icon: FiShoppingBag },
-  { to: "/events", label: "Events", icon: FiCalendar },
+  { to: "/", label: "Home" },
+  { to: "/stalls", label: "Stalls" },
+  { to: "/browse", label: "Products" },
+  { to: "/events", label: "Events" },
 ];
 
-const ROLE_LABELS = {
-  buyer: "Buyer",
-  seller: "Seller",
-  admin: "Administrator",
-  super_admin: "Super Administrator",
-};
+// Pages with their own scoped search field: the navbar hides its search there,
+// so every screen has exactly one search bar.
+const PAGES_WITH_OWN_SEARCH = ["/events", "/orders", "/messages"];
+
+const ROLE_LABELS = { buyer: "Buyer", seller: "Seller", admin: "Administrator", super_admin: "Super Administrator" };
+
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const { count } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
-  const userMenuRef = useRef(null);
-  const { unread: unreadNotifications } = useNotifications();
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [params] = useSearchParams();
+  const menuRef = useRef(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(() => (location.pathname === "/browse" ? params.get("q") || "" : ""));
+  const [bump, setBump] = useState(0);
+  const lastCount = useRef(count);
 
+  const cartCount = Number(count) || 0;
   const displayName = user?.name?.trim() || "Campus user";
-  const firstName = displayName.split(/\s+/)[0];
-  const userInitial = displayName.charAt(0).toUpperCase();
-  const roleLabel = ROLE_LABELS[user?.role] || "Member";
-  const numericCartCount = Number(count) || 0;
-  const cartCount = numericCartCount > 99 ? "99+" : numericCartCount;
+  const initial = displayName.charAt(0).toUpperCase();
+  const showSearch = !PAGES_WITH_OWN_SEARCH.some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`));
 
-  const isActiveRoute = (path) => {
-    if (path === "/") return location.pathname === "/";
-    return (
-      location.pathname === path || location.pathname.startsWith(`${path}/`)
-    );
-  };
+  const isActive = (path) => (path === "/" ? location.pathname === "/" : location.pathname === path || location.pathname.startsWith(`${path}/`));
+
+  // Keep the field in step with Browse's ?q= so the one search bar reflects the results shown.
+  useEffect(() => {
+    if (location.pathname === "/browse") setSearchTerm(params.get("q") || "");
+  }, [location.pathname, params]);
+
+  useEffect(() => { setMenuOpen(false); }, [location.pathname, location.search]);
 
   useEffect(() => {
-    setMobileOpen(false);
-    setDropdownOpen(false);
-  }, [location.pathname, location.search]);
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Bounce the cart badge when something is added.
+  useEffect(() => {
+    if (cartCount > (Number(lastCount.current) || 0)) setBump((value) => value + 1);
+    lastCount.current = cartCount;
+  }, [cartCount]);
 
   useEffect(() => {
-    if (!dropdownOpen) return undefined;
-
-    const handlePointerDown = (event) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
-        setDropdownOpen(false);
-      }
-    };
-
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") setDropdownOpen(false);
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [dropdownOpen]);
+    if (!menuOpen) return undefined;
+    const close = (event) => { if (!menuRef.current?.contains(event.target)) setMenuOpen(false); };
+    const escape = (event) => { if (event.key === "Escape") setMenuOpen(false); };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("pointerdown", close); document.removeEventListener("keydown", escape); };
+  }, [menuOpen]);
 
   const handleLogout = () => {
-    setDropdownOpen(false);
-    setMobileOpen(false);
+    setMenuOpen(false);
     logout();
     navigate("/login");
   };
@@ -100,339 +80,81 @@ export default function Navbar() {
   const handleSearch = (event) => {
     event.preventDefault();
     const query = searchTerm.trim();
-    setMobileOpen(false);
-    navigate(query ? `/browse?q=${encodeURIComponent(query)}` : "/browse");
+    const next = new URLSearchParams(location.pathname === "/browse" ? params : undefined);
+    if (query) next.set("q", query); else next.delete("q");
+    navigate(`/browse${next.toString() ? `?${next}` : ""}`);
   };
 
   return (
-    <header className="navbar-shell">
-      <nav className="navbar" aria-label="Primary navigation">
-        <div className="navbar-inner container">
-          <Link to="/" className="navbar-brand" aria-label="Campus Market home">
-            <img
-              src="/images/buyer/campusmarket-logo.png"
-              alt="Campus Market"
-              className="navbar-brand-logo"
-            />
+    <>
+      <header className={`nb ${scrolled ? "is-scrolled" : ""}`}>
+        <div className="nb-inner">
+          <Link to="/" className="nb-brand" aria-label="Campus Market home">
+            <img src="/images/buyer/campusmarket-logo.png" alt="Campus Market" />
           </Link>
 
-          <div className="navbar-links" aria-label="Marketplace pages">
+          <nav className="nb-links" aria-label="Marketplace">
             {NAV_LINKS.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className={`nav-link ${isActiveRoute(link.to) ? "active" : ""}`}
-                aria-current={isActiveRoute(link.to) ? "page" : undefined}
-              >
+              <Link key={link.to} to={link.to} className={`nb-link ${isActive(link.to) ? "is-active" : ""}`} aria-current={isActive(link.to) ? "page" : undefined}>
                 {link.label}
               </Link>
             ))}
-          </div>
+          </nav>
 
-          <form className="navbar-search" onSubmit={handleSearch} role="search">
-            <FiSearch aria-hidden="true" />
-            <label className="sr-only" htmlFor="navbar-search-input">
-              Search products, stalls, or events
-            </label>
-            <input
-              id="navbar-search-input"
-              type="search"
-              placeholder="Search campus marketplace"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-            />
-            <button type="submit" aria-label="Submit search">
-              <FiSearch aria-hidden="true" />
-            </button>
-          </form>
+          {showSearch && (
+            <form className="nb-search" onSubmit={handleSearch} role="search">
+              <Search aria-hidden="true" />
+              <label className="sr-only" htmlFor="nb-search-input">Search products and stalls</label>
+              <input id="nb-search-input" type="search" placeholder="Search food, merch, stalls…" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} />
+              <button type="submit" className="nb-search-go">Search</button>
+            </form>
+          )}
 
-          <div className="navbar-actions">
+          <div className="nb-actions">
             {user?.role === "buyer" && (
-              <div className="navbar-utilities" aria-label="Buyer shortcuts">
-                <Link
-                  to="/cart"
-                  className="icon-btn"
-                  aria-label={`Cart, ${numericCartCount} items`}
-                  title="Cart"
-                >
-                  <FiShoppingCart />
-                  {numericCartCount > 0 && (
-                    <span className="cart-badge">{cartCount}</span>
-                  )}
+              <>
+                <Link to="/cart" className="nb-icon nb-hide-mobile" aria-label={`Cart, ${cartCount} ${cartCount === 1 ? "item" : "items"}`} title="Cart">
+                  <ShoppingCart aria-hidden="true" />
+                  {cartCount > 0 && <span key={bump} className={`cart-badge nb-badge ${bump ? "is-bumped" : ""}`}>{cartCount > 99 ? "99+" : cartCount}</span>}
                 </Link>
-                <Link
-                  to="/messages"
-                  className="icon-btn"
-                  aria-label="Messages"
-                  title="Messages"
-                >
-                  <FiMessageSquare />
-                </Link>
+                <Link to="/messages" className="nb-icon nb-hide-mobile" aria-label="Messages" title="Messages"><MessageSquare aria-hidden="true" /></Link>
                 <NotificationBell />
-              </div>
+              </>
             )}
 
             {user ? (
-              <div className="user-menu" ref={userMenuRef}>
-                <button
-                  type="button"
-                  className="user-avatar-btn"
-                  onClick={() => setDropdownOpen((open) => !open)}
-                  aria-haspopup="menu"
-                  aria-expanded={dropdownOpen}
-                  aria-controls="account-dropdown"
-                >
-                  {user.avatar_url ? (
-                    <img src={user.avatar_url} alt="" className="avatar-img" />
-                  ) : (
-                    <span className="avatar-initials" aria-hidden="true">
-                      {userInitial}
-                    </span>
-                  )}
-                  <span className="user-info-nav">
-                    <span className="user-name-nav">{firstName}</span>
-                    <span className="user-role-nav">{roleLabel}</span>
+              <div className="nb-user" ref={menuRef}>
+                <button type="button" className="nb-user-btn" onClick={() => setMenuOpen((open) => !open)} aria-haspopup="menu" aria-expanded={menuOpen} aria-label={`Account menu for ${displayName}`}>
+                  <span className="nb-avatar" aria-hidden="true">{user.avatar_url ? <img src={user.avatar_url} alt="" /> : initial}</span>
+                  <span className="nb-user-text">
+                    <strong>{displayName.split(/\s+/)[0]}</strong>
+                    <small>{ROLE_LABELS[user.role] || "Member"}</small>
                   </span>
-                  <FiChevronDown
-                    className={`user-menu-chevron ${dropdownOpen ? "open" : ""}`}
-                    aria-hidden="true"
-                  />
+                  <ChevronDown className={`nb-chevron ${menuOpen ? "is-open" : ""}`} aria-hidden="true" />
                 </button>
-
-                {dropdownOpen && (
-                  <div id="account-dropdown" className="dropdown" role="menu">
-                    <div className="dropdown-header">
-                      <span className="dropdown-avatar" aria-hidden="true">
-                        {userInitial}
-                      </span>
-                      <div>
-                        <p>{displayName}</p>
-                        <span>{user.email}</span>
-                      </div>
+                {menuOpen && (
+                  <div className="nb-menu" role="menu">
+                    <div className="nb-menu-head">
+                      <span className="nb-avatar nb-avatar--lg" aria-hidden="true">{initial}</span>
+                      <div><strong>{displayName}</strong><small>{user.email}</small></div>
                     </div>
-
-                    <div className="dropdown-separator" />
-                    {user.status !== "approved" && <Link to="/account-status" className="dropdown-item" role="menuitem">Registration approval status</Link>}
-                    {user.role === "buyer" && user.status === "approved" && <Link to="/open-store" className="dropdown-item" role="menuitem">Open a campus store</Link>}
-
-                    {user.role === "buyer" && (
-                      <>
-                        <Link
-                          to="/orders"
-                          className="dropdown-item"
-                          role="menuitem"
-                        >
-                          <FiPackage /> My orders
-                        </Link>
-                        <Link
-                          to="/favorites"
-                          className="dropdown-item"
-                          role="menuitem"
-                        >
-                          <FiHeart /> Favorites
-                        </Link>
-                        <Link
-                          to="/messages"
-                          className="dropdown-item"
-                          role="menuitem"
-                        >
-                          <FiMessageSquare /> Messages
-                        </Link>
-                      </>
-                    )}
-
-                    {user.role === "seller" && (
-                      <Link
-                        to="/seller"
-                        className="dropdown-item"
-                        role="menuitem"
-                      >
-                        <FiGrid /> Seller dashboard
-                      </Link>
-                    )}
-
-                    {(user.role === "admin" || user.role === "super_admin") && (
-                      <Link
-                        to="/admin"
-                        className="dropdown-item"
-                        role="menuitem"
-                      >
-                        <FiGrid /> Admin panel
-                      </Link>
-                    )}
-
-                    <Link to="/account/password" className="dropdown-item" role="menuitem">
-                      <FiLock /> Change password
-                    </Link>
-
-                    <div className="dropdown-separator" />
-                    <button
-                      type="button"
-                      className="dropdown-item danger"
-                      onClick={handleLogout}
-                      role="menuitem"
-                    >
-                      <FiLogOut /> Log out
-                    </button>
+                    {accountLinks(user).map(({ to, label, icon: Icon }) => (
+                      <Link key={to} to={to} className="nb-menu-item" role="menuitem"><Icon aria-hidden="true" /> {label}</Link>
+                    ))}
+                    <button type="button" className="nb-menu-item is-danger" role="menuitem" onClick={handleLogout}><LogOut aria-hidden="true" /> Log out</button>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="auth-btns">
-                <Link to="/login" className="btn btn-ghost btn-sm">
-                  Log in
-                </Link>
-                <Link to="/register" className="btn btn-primary btn-sm">
-                  Create account
-                </Link>
+              <div className="nb-auth">
+                <Link to="/login" className="btn btn-ghost btn-sm nb-hide-mobile">Log in</Link>
+                <Link to="/register" className="btn btn-primary btn-sm">Join</Link>
               </div>
             )}
-
-            <button
-              type="button"
-              className="mobile-menu-btn"
-              onClick={() => setMobileOpen((open) => !open)}
-              aria-label={
-                mobileOpen ? "Close navigation menu" : "Open navigation menu"
-              }
-              aria-expanded={mobileOpen}
-              aria-controls="mobile-navigation"
-            >
-              {mobileOpen ? <FiX /> : <FiMenu />}
-            </button>
           </div>
         </div>
-      </nav>
-
-      {mobileOpen && (
-        <>
-          <button
-            type="button"
-            className="mobile-menu-backdrop"
-            onClick={() => setMobileOpen(false)}
-            aria-label="Close navigation menu"
-          />
-          <div id="mobile-navigation" className="mobile-menu">
-            <form
-              className="mobile-search"
-              onSubmit={handleSearch}
-              role="search"
-            >
-              <FiSearch aria-hidden="true" />
-              <input
-                type="search"
-                placeholder="Search the marketplace"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                aria-label="Search products, stalls, or events"
-                autoFocus
-              />
-              <button type="submit" aria-label="Submit search">
-                <FiSearch />
-              </button>
-            </form>
-
-            <div className="mobile-nav-section">
-              <span className="mobile-nav-label">Explore</span>
-              {NAV_LINKS.map((link) => {
-                const LinkIcon = link.icon;
-                const active = isActiveRoute(link.to);
-                return (
-                  <Link
-                    key={link.to}
-                    to={link.to}
-                    className={`mobile-nav-link ${active ? "active" : ""}`}
-                    aria-current={active ? "page" : undefined}
-                  >
-                    <LinkIcon />
-                    <span>{link.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-
-            {user?.role === "buyer" && (
-              <div className="mobile-nav-section">
-                <span className="mobile-nav-label">Your account</span>
-                <Link to="/cart" className="mobile-nav-link">
-                  <FiShoppingCart />
-                  <span>Cart</span>
-                  {numericCartCount > 0 && (
-                    <strong className="mobile-link-count">{cartCount}</strong>
-                  )}
-                </Link>
-                <Link to="/orders" className="mobile-nav-link">
-                  <FiPackage />
-                  <span>My orders</span>
-                </Link>
-                <Link to="/favorites" className="mobile-nav-link">
-                  <FiHeart />
-                  <span>Favorites</span>
-                </Link>
-                <Link to="/messages" className="mobile-nav-link">
-                  <FiMessageSquare />
-                  <span>Messages</span>
-                </Link>
-                <Link to="/notifications" className="mobile-nav-link">
-                  <FiBell />
-                  <span>Notifications</span>
-                  {unreadNotifications > 0 && <span className="notif-bell-badge notif-bell-badge--inline">{unreadNotifications}</span>}
-                </Link>
-              </div>
-            )}
-
-            {user?.role === "seller" && (
-              <Link
-                to="/seller"
-                className="mobile-nav-link mobile-dashboard-link"
-              >
-                <FiGrid />
-                <span>Seller dashboard</span>
-              </Link>
-            )}
-
-            {(user?.role === "admin" || user?.role === "super_admin") && (
-              <Link
-                to="/admin"
-                className="mobile-nav-link mobile-dashboard-link"
-              >
-                <FiGrid />
-                <span>Admin panel</span>
-              </Link>
-            )}
-
-            <div className="mobile-menu-footer">
-              {user ? (
-                <>
-                  <div className="mobile-user-summary">
-                    <span className="avatar-initials">{userInitial}</span>
-                    <div>
-                      <strong>{displayName}</strong>
-                      <span>{roleLabel}</span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="mobile-logout-btn"
-                    onClick={handleLogout}
-                  >
-                    <FiLogOut /> Log out
-                  </button>
-                </>
-              ) : (
-                <div className="mobile-auth-actions">
-                  <Link to="/login" className="btn btn-outline">
-                    Log in
-                  </Link>
-                  <Link to="/register" className="btn btn-primary">
-                    Create account
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-    </header>
+      </header>
+      <MobileTabBar onLogout={handleLogout} bump={bump} />
+    </>
   );
 }

@@ -171,3 +171,8 @@ export const stallService = {
 };
 
 export default api;
+
+export const statsService = {
+  // Home page counts and an anonymous "just ordered" feed
+  getPublic: () => api.get("/stats/public"),
+};

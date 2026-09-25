@@ -16,6 +16,7 @@ import orderRoutes from "./routes/order.routes.js";
 import eventRoutes from "./routes/event.routes.js";
 import posRoutes from "./routes/pos.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
+import statsRoutes from "./routes/stats.routes.js";
 import { productPhotoDirectory } from "./middleware/productPhoto.js";
 import { ready } from "./data/marketStore.js";
 import { databaseLabel } from "./db/index.js";
@@ -76,6 +77,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/stalls", stallRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/stats", statsRoutes);
 app.use("/api", eventRoutes);
 
 // ── 404 handler ──────────────────────────────────────────────────────────────
