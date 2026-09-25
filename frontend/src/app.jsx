@@ -30,6 +30,7 @@ const StallDetails = lazy(() => import("./pages/buyer/StallDetails.jsx"));
 // Seller pages
 const SellerDashboard = lazy(() => import("./pages/seller/Dashboard.jsx"));
 const MyStall = lazy(() => import("./pages/seller/Mystall.jsx"));
+const StallBranding = lazy(() => import("./pages/seller/StallBranding.jsx"));
 const ManageProducts = lazy(() => import("./pages/seller/ManageProducts.jsx"));
 const SellerOrders = lazy(() => import("./pages/seller/SellerOrders.jsx"));
 const Analytics = lazy(() => import("./pages/seller/Analytics.jsx"));
@@ -208,6 +209,15 @@ export default function App() {
           element={
             <ProtectedRoute role="seller">
               <MyStall />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/seller/stall/branding"
+          element={
+            <ProtectedRoute role="seller">
+              <StallBranding />
             </ProtectedRoute>
           }
         />

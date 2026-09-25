@@ -1,5 +1,5 @@
 /**
- * photoStorage.js — where uploaded product photos are kept.
+ * photoStorage.js — where uploaded photos (products, stall logos and covers) are kept.
  *
  *  PHOTO_STORAGE=supabase → Supabase Storage (public bucket). Use this in production:
  *                           most hosts wipe the local disk on every deploy/restart.
@@ -25,13 +25,14 @@ const supabaseConfig = () => {
   return { url, key, bucket: process.env.SUPABASE_PHOTO_BUCKET || "product-images" };
 };
 
-const saveToSupabase = async (buffer, filename, contentType) => {
+const authHeaders = (key) => ({ apikey: key, Authorization: `Bearer ${key}` });
+
+const saveToSupabase = async (buffer, objectPath, contentType) => {
   const { url, key, bucket } = supabaseConfig();
-  const response = await fetch(`${url}/storage/v1/object/${bucket}/products/${filename}`, {
+  const response = await fetch(`${url}/storage/v1/object/${bucket}/${objectPath}`, {
     method: "POST",
     headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
+      ...authHeaders(key),
       "Content-Type": contentType,
       "Cache-Control": "max-age=86400",
       "x-upsert": "false",
@@ -43,9 +44,10 @@ const saveToSupabase = async (buffer, filename, contentType) => {
     const detail = await response.text().catch(() => "");
     throw Object.assign(new Error(`Supabase Storage upload failed (${response.status}): ${detail.slice(0, 200)}`), { status: 502 });
   }
-  return `${url}/storage/v1/object/public/${bucket}/products/${filename}`;
+  return `${url}/storage/v1/object/public/${bucket}/${objectPath}`;
 };
 
+// Local files stay in one flat directory so URLs keep the /api/product-images/<uuid>.<ext> shape.
 const saveToDisk = async (buffer, filename) => {
   await fs.mkdir(productPhotoDirectory, { recursive: true });
   await fs.writeFile(path.join(productPhotoDirectory, filename), buffer, { flag: "wx" });
@@ -53,11 +55,43 @@ const saveToDisk = async (buffer, filename) => {
 };
 
 /**
- * Store a validated photo and return the URL to save on the product.
+ * Store a validated photo and return its public URL.
  * @param {Buffer} buffer
  * @param {{ extension: "png" | "jpg" | "webp", contentType: string }} type
+ * @param {"products" | "stalls"} folder  Supabase folder (local disk ignores it)
  */
-export const savePhoto = (buffer, { extension, contentType }) => {
+export const savePhoto = (buffer, { extension, contentType }, folder = "products") => {
   const filename = `${randomUUID()}.${extension}`;
-  return usingSupabaseStorage() ? saveToSupabase(buffer, filename, contentType) : saveToDisk(buffer, filename);
+  return usingSupabaseStorage() ? saveToSupabase(buffer, `${folder}/${filename}`, contentType) : saveToDisk(buffer, filename);
+};
+
+const LOCAL_URL = /^\/api\/product-images\/([a-f0-9-]+\.(?:png|jpg|webp))$/;
+
+/**
+ * Best-effort removal of a photo this app stored, e.g. a replaced stall logo.
+ * Anything else (built-in /images/... files, external links) is left alone,
+ * and failures are only logged: a leftover file must never block the user.
+ */
+export const deletePhoto = async (photoUrl) => {
+  if (!photoUrl) return;
+  try {
+    const local = LOCAL_URL.exec(photoUrl);
+    if (local) {
+      await fs.rm(path.join(productPhotoDirectory, local[1]), { force: true });
+      return;
+    }
+    if (!usingSupabaseStorage()) return;
+    const { url, key, bucket } = supabaseConfig();
+    const prefix = `${url}/storage/v1/object/public/${bucket}/`;
+    if (!photoUrl.startsWith(prefix)) return;
+    const response = await fetch(`${url}/storage/v1/object/${bucket}`, {
+      method: "DELETE",
+      headers: { ...authHeaders(key), "Content-Type": "application/json" },
+      body: JSON.stringify({ prefixes: [photoUrl.slice(prefix.length)] }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) console.warn(`[photos] Could not delete ${photoUrl}: ${response.status}`);
+  } catch (error) {
+    console.warn(`[photos] Could not delete ${photoUrl}: ${error.message}`);
+  }
 };

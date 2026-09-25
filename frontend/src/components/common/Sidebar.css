@@ -196,6 +196,8 @@
 @media (max-width: 768px) {
   .cm-sidebar { width: min(286px, 88vw); }
   .cm-sidebar-mobile-trigger { display: grid; }
+  /* Leave room for the fixed menu button so it doesn't cover page titles. */
+  .dashboard-layout .topbar { height: auto; min-height: var(--navbar-height); padding-top: .6rem; padding-bottom: .6rem; padding-left: 66px; }
   .cm-sidebar-close { display: grid; }
   .cm-sidebar--open { transform: translateX(0); }
   .sidebar-overlay { display: block; }

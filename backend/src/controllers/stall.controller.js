@@ -1,4 +1,44 @@
 import { stallStore, authStore } from "../data/marketStore.js";
+import { readImageUpload } from "../middleware/productPhoto.js";
+import { deletePhoto, savePhoto } from "../services/photoStorage.js";
+
+const BRANDING_FIELDS = { logo: "logo_url", cover: "banner_url" };
+
+// PUT /api/stalls/my/branding/:kind  (multipart "image"; kind = logo | cover)
+export const uploadStallBranding = async (req, res, next) => {
+  try {
+    const field = BRANDING_FIELDS[req.params.kind];
+    if (!field) return res.status(404).json({ error: "Unknown stall image." });
+    if (!(await stallStore.getMy(req.user.id))) return res.status(404).json({ error: "Create your stall first." });
+    const image = await readImageUpload(req, res);
+    if (!image) return;
+    const url = await savePhoto(image.buffer, image.type, "stalls");
+    let result;
+    try {
+      result = await stallStore.setBranding(req.user.id, field, url);
+    } catch (error) {
+      await deletePhoto(url); // don't leave an orphaned upload behind
+      throw error;
+    }
+    await deletePhoto(result.previous);
+    res.json(result.stall);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE /api/stalls/my/branding/:kind
+export const removeStallBranding = async (req, res, next) => {
+  try {
+    const field = BRANDING_FIELDS[req.params.kind];
+    if (!field) return res.status(404).json({ error: "Unknown stall image." });
+    const result = await stallStore.setBranding(req.user.id, field, "");
+    await deletePhoto(result.previous);
+    res.json(result.stall);
+  } catch (err) {
+    next(err);
+  }
+};
 
 export const getStalls = async (req, res, next) => {
   try {

@@ -157,6 +157,15 @@ export const stallService = {
 
   update: (stallId, data) => api.put(`/stalls/${stallId}`, data),
 
+  // kind: "logo" | "cover"
+  uploadBranding: (kind, file) => {
+    const data = new FormData();
+    data.append("image", file);
+    return api.put(`/stalls/my/branding/${kind}`, data);
+  },
+
+  removeBranding: (kind) => api.delete(`/stalls/my/branding/${kind}`),
+
   updateStatus: (stallId, status) =>
     api.put(`/stalls/${stallId}/status`, { status }),
 };

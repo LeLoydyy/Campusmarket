@@ -18,15 +18,15 @@ const NAVIGATION = {
 
 const GROUP_LABELS = {
   seller: [
-    ["Workspace", ["Dashboard", "My Stall", "Products", "Point of Sale", "Orders"]],
+    ["Workspace", ["Dashboard", "My Stall", "Stall Branding", "Products", "Point of Sale", "Orders"]],
     ["Growth", ["Events & Reservations", "Analytics", "Messages"]],
-    ["Account", ["Reviews", "Settings"]],
+    ["Account", ["Reviews", "Settings", "Password"]],
   ],
   admin: [
     ["Overview", ["Dashboard", "Analytics", "Reports"]],
-    ["Management", ["Registration & Users", "Stores & Plans"]],
+    ["Management", ["Registration & Users", "Stores & Plans", "Event Applications"]],
     ["Operations", ["Events", "Stall Map", "Reservations", "Complaints"]],
-    ["Account", ["Settings"]],
+    ["Account", ["Settings", "Password"]],
   ],
   buyer: [["Marketplace", []]],
 };
@@ -167,7 +167,8 @@ export default function Sidebar({ open, isOpen: legacyOpen, onClose }) {
                   <NavLink
                     key={to}
                     to={to}
-                    end={to === homePath}
+                    // Exact match when another link lives under this path (e.g. My Stall → Stall Branding)
+                    end={to === homePath || navItems.some((item) => item.to.startsWith(`${to}/`))}
                     className={({ isActive }) =>
                       `cm-sidebar-link ${isActive ? "active" : ""}`
                     }

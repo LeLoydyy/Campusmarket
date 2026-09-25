@@ -26,6 +26,7 @@ import {
   LogOut,
   Search,
   KeyRound,
+  Palette,
 } from "lucide-react";
 
 export const BUYER_NAV = [
@@ -41,6 +42,7 @@ export const BUYER_NAV = [
 export const SELLER_NAV = [
   { to: "/seller", label: "Dashboard", icon: LayoutDashboard },
   { to: "/seller/stall", label: "My Stall", icon: Store },
+  { to: "/seller/stall/branding", label: "Stall Branding", icon: Palette },
   { to: "/seller/products", label: "Products", icon: Package },
   { to: "/seller/pos", label: "Point of Sale", icon: ShoppingCart },
   { to: "/seller/orders", label: "Orders", icon: ClipboardList },

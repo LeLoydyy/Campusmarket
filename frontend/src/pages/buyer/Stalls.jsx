@@ -56,7 +56,7 @@ const titleCase = (value) =>
     .replace(/[-_]+/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 
-const normalizeStall = (record, index) => {
+export const normalizeStall = (record, index) => {
   const stall = record?.stalls || record?.stall || record || {};
   const category = normalizeCategory(stall.category || record?.category);
   const products = Array.isArray(stall.products)
@@ -119,7 +119,7 @@ const normalizeStall = (record, index) => {
   };
 };
 
-function StallCard({ stall }) {
+export function StallCard({ stall }) {
   const content = (
     <>
       <div

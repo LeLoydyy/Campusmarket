@@ -11,7 +11,9 @@ import {
   FiExternalLink,
   FiImage,
   FiMapPin,
+  FiPauseCircle,
   FiPhone,
+  FiPlayCircle,
   FiRefreshCw,
   FiSave,
   FiShoppingBag,
@@ -30,7 +32,6 @@ const EMPTY_FORM = {
   name: "",
   description: "",
   category: "food",
-  logo_url: "",
   contact_number: "",
   location: "",
   operating_hours: "",
@@ -46,20 +47,10 @@ const toForm = (stall) => ({
   name: stall?.name || "",
   description: stall?.description || "",
   category: CATEGORIES.includes(stall?.category) ? stall.category : "food",
-  logo_url: stall?.logo_url || "",
   contact_number: stall?.contact_number || "",
   location: stall?.location || "",
   operating_hours: stall?.operating_hours || "",
 });
-
-const isValidImageUrl = (value) => {
-  if (!value.trim() || value.startsWith("/images/")) return true;
-  try {
-    return ["http:", "https:"].includes(new URL(value).protocol);
-  } catch {
-    return false;
-  }
-};
 
 const formatDate = (value) => {
   if (!value) return "Not available";
@@ -113,6 +104,7 @@ export default function MyStall() {
       stall.description,
       stall.category,
       stall.logo_url,
+      stall.banner_url,
       stall.contact_number,
       stall.location,
       stall.operating_hours,
@@ -126,7 +118,6 @@ export default function MyStall() {
   const handleChange = ({ target: { name, value } }) => {
     setForm((previous) => ({ ...previous, [name]: value }));
     setErrors((previous) => ({ ...previous, [name]: "" }));
-    if (name === "logo_url") setLogoFailed(false);
   };
 
   const validate = () => {
@@ -139,9 +130,6 @@ export default function MyStall() {
     }
     if (!CATEGORIES.includes(form.category)) {
       nextErrors.category = "Choose a valid category.";
-    }
-    if (!isValidImageUrl(form.logo_url)) {
-      nextErrors.logo_url = "Enter a valid http or https image URL.";
     }
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -209,11 +197,20 @@ export default function MyStall() {
               try { const { data } = await stallService.update(stall.id, { is_active: !stall.is_active }); setStall(data); toast.success(data.is_active ? "Store is open on the marketplace" : "Store is temporarily closed"); }
               catch (error) { toast.error(error.response?.data?.error || "Could not update store availability"); }
               finally { setSaving(false); }
-            }}>{stall.is_active ? "Close store for now" : "Open store"}</button>}
+            }} aria-label={stall.is_active ? "Close store for now" : "Open store"} title={stall.is_active ? "Close store for now" : "Open store"}>
+              {stall.is_active ? <FiPauseCircle /> : <FiPlayCircle />} {stall.is_active ? "Close store for now" : "Open store"}
+            </button>}
+            {stall && !editing && (
+              <Link className="btn btn-outline btn-sm" to="/seller/stall/branding" aria-label="Logo & cover" title="Logo & cover">
+                <FiImage /> Logo & cover
+              </Link>
+            )}
             {stall && !editing && (
               <button
                 className="btn btn-primary btn-sm"
                 onClick={() => setEditing(true)}
+                aria-label="Edit profile"
+                title="Edit profile"
               >
                 <FiEdit2 /> Edit profile
               </button>
@@ -284,7 +281,11 @@ export default function MyStall() {
               {!editing ? (
                 <div className="my-stall-grid">
                   <section className="my-stall-profile">
-                    <div className="my-stall-cover" aria-hidden="true" />
+                    <div
+                      className="my-stall-cover"
+                      aria-hidden="true"
+                      style={stall.banner_url ? { backgroundImage: `url(${stall.banner_url})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+                    />
                     <div className="my-stall-profile-body">
                       <div className="my-stall-identity">
                         <div className="my-stall-logo">
@@ -358,6 +359,9 @@ export default function MyStall() {
                       <li className={stall.logo_url ? "done" : ""}>
                         <FiCheckCircle /> Stall logo
                       </li>
+                      <li className={stall.banner_url ? "done" : ""}>
+                        <FiCheckCircle /> Cover photo
+                      </li>
                       <li className={stall.description ? "done" : ""}>
                         <FiCheckCircle /> Description
                       </li>
@@ -371,6 +375,11 @@ export default function MyStall() {
                         <FiCheckCircle /> Operating hours
                       </li>
                     </ul>
+                    {(!stall.logo_url || !stall.banner_url) && (
+                      <Link className="btn btn-outline" to="/seller/stall/branding">
+                        Add logo & cover photo
+                      </Link>
+                    )}
                     {completion < 100 && (
                       <button
                         className="btn btn-outline"
@@ -482,25 +491,21 @@ export default function MyStall() {
                         />
                       </div>
                       <div className="my-stall-field wide">
-                        <label htmlFor="stall-logo">Logo URL</label>
+                        <label>Logo & cover photo</label>
                         <div className="my-stall-logo-input">
                           <FiImage />
-                          <input
-                            id="stall-logo"
-                            name="logo_url"
-                            value={form.logo_url}
-                            onChange={handleChange}
-                            placeholder="https://example.com/logo.jpg"
-                          />
+                          <span>
+                            Upload your stall images on the{" "}
+                            <Link to="/seller/stall/branding">Stall Branding</Link> page.
+                          </span>
                         </div>
-                        {errors.logo_url && <small>{errors.logo_url}</small>}
                       </div>
                     </div>
 
                     <aside className="my-stall-preview">
                       <small>Live preview</small>
                       <div className="my-stall-preview-logo">
-                        {renderLogo(form.logo_url, form.name, true)}
+                        {renderLogo(stall.logo_url, form.name, true)}
                       </div>
                       <h3>{form.name.trim() || "Your stall name"}</h3>
                       <span>{CATEGORY_LABELS[form.category]}</span>

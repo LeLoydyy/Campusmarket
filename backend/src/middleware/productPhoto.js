@@ -13,20 +13,27 @@ const detectImage = (buffer, mimetype) => {
   return null;
 };
 
+/**
+ * Read one image from the multipart field "image" (max 5 MB; JPG, PNG or WebP).
+ * Resolves { buffer, type }, or null after already sending a 400 response.
+ */
+export const readImageUpload = (req, res) => new Promise((resolve) => {
+  parsePhoto(req, res, (error) => {
+    const reject = (message) => { res.status(400).json({ error: message }); resolve(null); };
+    if (error) return reject(error.code === "LIMIT_FILE_SIZE" ? "Choose a photo smaller than 5 MB." : "Upload one photo at a time.");
+    if (!req.file) return reject("Choose a photo.");
+    const type = detectImage(req.file.buffer, req.file.mimetype);
+    if (!type) return reject("Choose a JPG, PNG, or WebP photo.");
+    resolve({ buffer: req.file.buffer, type });
+  });
+});
+
 export const uploadProductPhoto = async (req, res, next) => {
   try {
     const stall = await stallStore.getMy(req.user.id);
     if (!stall || !["approved", "active"].includes(stall.status)) return res.status(403).json({ error: "An approved stall is required to upload product photos." });
-    parsePhoto(req, res, async (error) => {
-      if (error) return res.status(400).json({ error: error.code === "LIMIT_FILE_SIZE" ? "Choose a photo smaller than 5 MB." : "Upload one product photo at a time." });
-      if (!req.file) return res.status(400).json({ error: "Choose a product photo." });
-      const type = detectImage(req.file.buffer, req.file.mimetype);
-      if (!type) return res.status(400).json({ error: "Choose a JPG, PNG, or WebP photo." });
-      try {
-        res.status(201).json({ image_url: await savePhoto(req.file.buffer, type) });
-      } catch (saveError) {
-        next(saveError);
-      }
-    });
+    const image = await readImageUpload(req, res);
+    if (!image) return;
+    res.status(201).json({ image_url: await savePhoto(image.buffer, image.type) });
   } catch (error) { next(error); }
 };

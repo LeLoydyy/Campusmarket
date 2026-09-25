@@ -314,6 +314,20 @@ export const stallStore = {
     });
   },
 
+  /**
+   * Set or clear (url = "") the owner's stall logo or cover photo.
+   * Returns the updated stall and the replaced URL, so the caller can delete the old file.
+   */
+  async setBranding(ownerId, field, url) {
+    if (!["logo_url", "banner_url"].includes(field)) fail("Unknown stall image.");
+    return tx(async (run) => {
+      const [stall] = await run(`SELECT id, ${field} AS previous FROM stalls WHERE owner_id = $1 FOR UPDATE`, [ownerId]);
+      if (!stall) fail("Create your stall first.", 404);
+      await run(`UPDATE stalls SET ${field} = $2 WHERE id = $1`, [stall.id, url]);
+      return { stall: await getStallDetails(run, "s.id = $1", [stall.id]), previous: stall.previous };
+    });
+  },
+
   async setPlan(stallId, tier, actorId) {
     return tx(async (run) => {
       const [stall] = await run("SELECT id FROM stalls WHERE id = $1 FOR UPDATE", [stallId]);
