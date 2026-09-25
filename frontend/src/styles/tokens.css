@@ -1,0 +1,126 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Campus Market design tokens — "campus fair" theme.
+   Every colour in the app comes from here. Contrast notes (WCAG AA, 4.5:1 for
+   normal text) are next to the colours that have usage rules.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Brand greens */
+  --green-900: #0B3D24;   /* contrast sections, footer, sidebars. White text 12.6:1 */
+  --green-700: #13703C;   /* primary actions. White text 6.1:1 */
+  --green-500: #1F9D55;   /* icons, fills, success marks. White text only 3.5:1 → not for button text */
+  --green-100: #E3F4E9;   /* subtle tints */
+
+  /* Gold */
+  --gold-700: #8A5A00;    /* gold-toned TEXT on light backgrounds (5.9:1 on cream) */
+  --gold-500: #F5B82E;    /* accent CTAs, highlights, badges. Use ink/green-900 text on it, never white */
+  --gold-100: #FFF3D1;    /* warm tints */
+
+  /* Neutrals */
+  --cream-50: #FFFBF2;    /* page background */
+  --cream-100: #F7F0E1;   /* sunken surfaces, table heads */
+  --surface: #FFFFFF;     /* cards */
+  --line: #ECE4D2;        /* hairlines where a divider is really needed */
+  --line-strong: #D8CDB4; /* form field borders */
+  --ink-900: #14201A;     /* headings. 16:1 on cream */
+  --ink-600: #4A5A50;     /* body and secondary text — never lighter for readable text. 7:1 on cream */
+  --ink-400: #7D8A81;     /* placeholders, disabled, decorative icons only (not for readable text) */
+
+  /* Accents */
+  --teal-700: #1E6B6B;    /* electronics, info. White text 6.3:1 */
+  --teal-100: #DDEFEF;
+  --coral-700: #B8401F;   /* coral TEXT (5.5:1 on white) */
+  --coral-500: #E8603C;   /* urgency fills/borders only: low stock, sale, errors */
+  --coral-300: #F6A58C;   /* accessories */
+  --coral-100: #FDE8E0;
+
+  /* Category colours (palette-derived only) */
+  --cat-food-bg: var(--gold-100);        --cat-food-fg: var(--gold-700);        --cat-food-solid: var(--gold-500);
+  --cat-clothing-bg: var(--green-100);   --cat-clothing-fg: var(--green-700);   --cat-clothing-solid: var(--green-700);
+  --cat-electronics-bg: var(--teal-100); --cat-electronics-fg: var(--teal-700); --cat-electronics-solid: var(--teal-700);
+  --cat-accessories-bg: var(--coral-100);--cat-accessories-fg: var(--coral-700);--cat-accessories-solid: var(--coral-300);
+  --cat-student-bg: var(--gold-500);     --cat-student-fg: var(--green-900);    --cat-student-solid: var(--gold-500);
+  --cat-other-bg: var(--cream-100);      --cat-other-fg: var(--ink-600);        --cat-other-solid: #9AA59E;
+
+  /* Type */
+  --font-display: "Inter", "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-body: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --text-xs: 0.8125rem;   /* 13px — smallest readable text */
+  --text-sm: 0.875rem;    /* 14px — body minimum */
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+
+  /* Shape & depth */
+  --radius-card: 18px;
+  --radius-pill: 999px;
+  --shadow-1: 0 1px 2px rgba(11, 61, 36, 0.06), 0 2px 8px rgba(11, 61, 36, 0.05);
+  --shadow-2: 0 2px 4px rgba(11, 61, 36, 0.06), 0 10px 24px rgba(11, 61, 36, 0.09);
+  --shadow-3: 0 6px 12px rgba(11, 61, 36, 0.08), 0 22px 44px rgba(11, 61, 36, 0.14);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 150ms;
+  --dur: 220ms;
+
+  /* Focus */
+  --focus-ring: 0 0 0 3px var(--cream-50), 0 0 0 5px var(--gold-500);
+
+  /* Texture: faint leaf/grain for hero and contrast sections (inline SVG, no request). */
+  --texture-leaf: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%2313703C' stroke-opacity='.07' stroke-width='1.4'%3E%3Cpath d='M20 40c10-14 28-16 34-4-12 8-26 10-34 4zM20 40l30-6'/%3E%3Cpath d='M84 92c8-12 24-14 30-3-10 7-22 9-30 3zM84 92l26-5'/%3E%3Cpath d='M78 22c4-9 15-11 19-3-7 5-15 6-19 3z'/%3E%3C/g%3E%3Cg fill='%2314201A' fill-opacity='.035'%3E%3Ccircle cx='8' cy='10' r='1'/%3E%3Ccircle cx='64' cy='70' r='1'/%3E%3Ccircle cx='104' cy='48' r='1'/%3E%3Ccircle cx='36' cy='100' r='1'/%3E%3C/g%3E%3C/svg%3E");
+  --texture-leaf-light: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%23F5B82E' stroke-opacity='.10' stroke-width='1.4'%3E%3Cpath d='M20 40c10-14 28-16 34-4-12 8-26 10-34 4zM20 40l30-6'/%3E%3Cpath d='M84 92c8-12 24-14 30-3-10 7-22 9-30 3zM84 92l26-5'/%3E%3Cpath d='M78 22c4-9 15-11 19-3-7 5-15 6-19 3z'/%3E%3C/g%3E%3C/svg%3E");
+
+  /* ── Legacy variables, re-pointed at the tokens so older CSS follows the theme ── */
+  --cm-primary: var(--green-700);
+  --cm-primary-hover: var(--green-900);
+  --cm-primary-light: var(--green-100);
+  --cm-secondary: var(--green-700);
+  --cm-secondary-light: var(--green-100);
+  --cm-accent: var(--gold-500);
+  --cm-accent-light: var(--gold-100);
+  --cm-bg: var(--cream-50);
+  --cm-surface: var(--cream-50);
+  --cm-card: var(--surface);
+  --cm-border: var(--line);
+  --cm-text: var(--ink-900);
+  --cm-text-secondary: var(--ink-600);
+  --cm-text-muted: var(--ink-600);
+  --cm-success: var(--green-500);
+  --cm-success-light: var(--green-100);
+  --cm-warning: var(--gold-500);
+  --cm-warning-light: var(--gold-100);
+  --cm-danger: var(--coral-700);
+  --cm-danger-light: var(--coral-100);
+  --cm-info: var(--teal-700);
+  --cm-info-light: var(--teal-100);
+  --color-primary: var(--green-700);
+  --color-primary-hover: var(--green-900);
+  --color-primary-light: var(--green-100);
+  --color-secondary: var(--green-700);
+  --color-secondary-hover: var(--green-900);
+  --color-secondary-light: var(--green-100);
+  --color-danger: var(--coral-700);
+  --color-danger-light: var(--coral-100);
+  --color-success: var(--green-700);
+  --color-success-light: var(--green-100);
+  --color-warning: var(--gold-700);
+  --color-warning-light: var(--gold-100);
+  --color-info: var(--teal-700);
+  --color-info-light: var(--teal-100);
+  --gray-50: #FFFDF8;
+  --gray-100: var(--cream-100);
+  --gray-200: var(--line);
+  --gray-300: var(--line-strong);
+  --gray-400: var(--ink-400);
+  --gray-500: var(--ink-600);
+  --gray-600: var(--ink-600);
+  --gray-700: #33433A;
+  --gray-800: var(--ink-900);
+  --gray-900: var(--ink-900);
+  --font-sans: var(--font-body);
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --shadow-lg: var(--shadow-3);
+  --shadow-xl: var(--shadow-3);
+  --transition-fast: all var(--dur-fast) var(--ease-out);
+  --transition-normal: all var(--dur) var(--ease-out);
+}

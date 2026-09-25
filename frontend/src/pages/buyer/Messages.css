@@ -1,5 +1,5 @@
 /* Seller-specific layout. Buyer message styles remain in global.css. */
-.seller-messages-shell { background: #f7f9f8; }
+.seller-messages-shell { background: var(--gray-50); }
 .seller-messages-main { min-width: 0; }
 .seller-messages-main .seller-messages-header {
   height: auto;
@@ -42,7 +42,7 @@
 }
 
 .seller-messages-shell .conversation-panel-header strong { font-size: .9375rem; }
-.seller-messages-shell .conversation-panel-header > div > span { font-size: .75rem; }
+.seller-messages-shell .conversation-panel-header > div > span { font-size: var(--text-xs); }
 .seller-messages-shell .conversation-search input,
 .seller-messages-shell .conversation-copy strong,
 .seller-messages-shell .chat-partner-copy strong,
@@ -51,8 +51,8 @@
 .seller-messages-shell .conversation-copy small { font-size: .8125rem; }
 .seller-messages-shell .conversation-copy time,
 .seller-messages-shell .chat-partner-copy span,
-.seller-messages-shell .chat-bubble > span { font-size: .75rem; }
-.seller-messages-shell .message-welcome-state small { font-size: .6875rem; }
+.seller-messages-shell .chat-bubble > span { font-size: var(--text-xs); }
+.seller-messages-shell .message-welcome-state small { font-size: var(--text-xs); }
 .seller-messages-shell .message-welcome-state h2 { font-size: 1.25rem; }
 .seller-messages-shell .message-welcome-state p {
   max-width: 400px;
@@ -63,7 +63,7 @@
   width: calc(100% - 3rem); max-width: 1500px;
   height: calc(100vh - 115px); min-height: 520px;
   margin: 1rem auto 2rem; border-radius: 17px;
-  box-shadow: 0 7px 24px rgba(15,23,42,.035);
+  box-shadow: 0 7px 24px rgba(11, 61, 36, .035);
 }
 
 @media (max-width: 720px) {

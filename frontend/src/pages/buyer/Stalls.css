@@ -7,9 +7,9 @@
   min-height: 270px;
   align-items: center;
   padding: 2rem;
-  background: linear-gradient(90deg, #edf8f1 35%, rgba(237,248,241,.75) 62%, rgba(237,248,241,.1)),
+  background: linear-gradient(90deg, var(--green-100) 35%, rgba(227, 244, 233, .75) 62%, rgba(227, 244, 233, .1)),
     url('/images/seller/seller-banner.png') right center / auto 100% no-repeat;
-  background-color: #edf8f1;
+  background-color: var(--green-100);
   border-radius: 24px;
 }
 .market-stalls-shell .market-stalls-hero::after { content: none; }
@@ -18,7 +18,7 @@
   display: inline-flex;
   align-items: center;
   gap: .5rem;
-  font-size: .7rem;
+  font-size: var(--text-xs);
   letter-spacing: .09em;
   margin-bottom: .75rem;
 }
@@ -30,7 +30,7 @@
 .market-stalls-shell .market-stalls-summary { align-self: flex-end; min-width: 260px; }
 .market-stalls-shell .market-stalls-summary > div { padding: 1rem; background: rgba(255,255,255,.94); }
 .market-stalls-shell .market-stalls-summary svg { width: 20px; height: 20px; }
-.market-stalls-shell .market-stalls-summary span { font-size: .75rem; }
+.market-stalls-shell .market-stalls-summary span { font-size: var(--text-xs); }
 .market-stalls-shell .market-stalls-summary strong { font-size: 1.5rem; }
 
 .market-stalls-shell .market-stalls-controls {
@@ -40,54 +40,54 @@
   margin: 1.25rem 0 1.75rem;
   border-radius: 18px;
 }
-.market-stalls-shell .market-stalls-search { min-height: 46px; gap: .65rem; padding: .6rem .8rem; background: #f6f9f7; border-color: #e1e9e4; }
+.market-stalls-shell .market-stalls-search { min-height: 46px; gap: .65rem; padding: .6rem .8rem; background: var(--green-100); border-color: var(--line); }
 .market-stalls-shell .market-stalls-search > svg { width: 18px; height: 18px; }
 .market-stalls-shell .market-stalls-search input { font-size: .875rem; }
 .market-stalls-shell .market-stalls-search button { width: 28px; height: 28px; }
 .market-stalls-shell .market-stalls-categories { grid-column: 1 / -1; grid-row: 2; gap: .5rem; padding: 2px; scrollbar-width: thin; }
-.market-stalls-shell .market-stalls-categories button { min-height: 38px; padding: .5rem .9rem; font-size: .8125rem; border-radius: 999px; background: #f2f6f3; }
-.market-stalls-shell .market-stalls-categories button.active { background: #0f7b3e; }
-.market-stalls-shell .market-stalls-categories button span { font-size: .6875rem; min-width: 20px; }
+.market-stalls-shell .market-stalls-categories button { min-height: 38px; padding: .5rem .9rem; font-size: .8125rem; border-radius: 999px; background: var(--green-100); }
+.market-stalls-shell .market-stalls-categories button.active { background: var(--green-700); }
+.market-stalls-shell .market-stalls-categories button span { font-size: var(--text-xs); min-width: 20px; }
 .market-stalls-shell .market-stalls-sort { grid-column: 2; grid-row: 1; border: 0; padding: 0; gap: .5rem; }
-.market-stalls-shell .market-stalls-sort > span { font-size: .75rem; }
+.market-stalls-shell .market-stalls-sort > span { font-size: var(--text-xs); }
 .market-stalls-shell .market-stalls-sort svg { width: 16px; height: 16px; }
-.market-stalls-shell .market-stalls-sort select { min-height: 44px; max-width: none; font-size: .8125rem; padding: .5rem; border: 1px solid #e1e9e4; border-radius: 10px; }
-.market-stalls-shell :is(a, button, select):focus-visible { outline: 2px solid #0f7b3e; outline-offset: 3px; }
+.market-stalls-shell .market-stalls-sort select { min-height: 44px; max-width: none; font-size: .8125rem; padding: .5rem; border: 1px solid var(--line); border-radius: 10px; }
+.market-stalls-shell :is(a, button, select):focus-visible { outline: 2px solid var(--green-700); outline-offset: 3px; }
 .market-stalls-shell .market-stalls-heading { align-items: center; margin-bottom: 1rem; }
-.market-stalls-shell .market-stalls-heading small { font-size: .6875rem; }
+.market-stalls-shell .market-stalls-heading small { font-size: var(--text-xs); }
 .market-stalls-shell .market-stalls-heading h2 { font-size: 1.25rem; margin-top: .25rem; }
 .market-stalls-shell .market-stalls-heading p { font-size: .8125rem; }
-.market-stalls-reset { display: flex; align-items: center; gap: .4rem; padding: .5rem; color: #0f7b3e; font-size: .8125rem; }
+.market-stalls-reset { display: flex; align-items: center; gap: .4rem; padding: .5rem; color: var(--green-700); font-size: .8125rem; }
 
 .market-stalls-directory { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 1.5rem; align-items: start; }
 .market-stalls-shell .market-stalls-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
-.market-stalls-shell .market-stall-card { display: flex; flex-direction: column; text-decoration: none; border-color: #dce8df; border-radius: 20px; }
-.market-stalls-shell .market-stall-cover { height: 180px; flex: 0 0 auto; background-color: #e8f3ec; }
-.market-stall-storefront { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .5rem; color: #36754e; overflow: hidden; }
-.market-stall-storefront::before { content: ''; position: absolute; inset: 0 0 auto; height: 18px; background: repeating-linear-gradient(90deg, #0f7b3e 0 28px, #fff3c8 28px 56px); border-bottom: 3px solid rgba(15,123,62,.1); }
+.market-stalls-shell .market-stall-card { display: flex; flex-direction: column; text-decoration: none; border-color: var(--line); border-radius: 20px; }
+.market-stalls-shell .market-stall-cover { height: 180px; flex: 0 0 auto; background-color: var(--green-100); }
+.market-stall-storefront { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .5rem; color: var(--green-700); overflow: hidden; }
+.market-stall-storefront::before { content: ''; position: absolute; inset: 0 0 auto; height: 18px; background: repeating-linear-gradient(90deg, var(--green-700) 0 28px, var(--gold-100) 28px 56px); border-bottom: 3px solid rgba(19, 112, 60, .1); }
 .market-stall-storefront > svg { width: 60px; height: 60px; stroke-width: 1.2; }
-.market-stall-storefront > span { font-size: .75rem; letter-spacing: .03em; }
+.market-stall-storefront > span { font-size: var(--text-xs); letter-spacing: .03em; }
 .market-stall-storefront > .market-stall-brand { width: 70%; height: 75%; object-fit: contain; }
 .market-stalls-shell .market-stall-logo { left: 1.25rem; width: 64px; height: 64px; bottom: -22px; }
 .market-stalls-shell .market-stall-logo span { font-size: 1.4rem; }
-.market-stalls-shell .market-stall-verified { top: 1.7rem; right: .75rem; padding: .35rem .6rem; font-size: .6875rem; gap: .3rem; }
+.market-stalls-shell .market-stall-verified { top: 1.7rem; right: .75rem; padding: .35rem .6rem; font-size: var(--text-xs); gap: .3rem; }
 .market-stalls-shell .market-stall-verified svg { width: 14px; height: 14px; }
 .market-stalls-shell .market-stall-card-body { flex: 1; display: flex; flex-direction: column; padding: 2.15rem 1.25rem 1.25rem; }
-.market-stalls-shell .market-stall-title-row span { font-size: .6875rem; }
+.market-stalls-shell .market-stall-title-row span { font-size: var(--text-xs); }
 .market-stalls-shell .market-stall-title-row h2 { font-size: 1.25rem; margin-top: .35rem; white-space: normal; overflow-wrap: anywhere; }
 .market-stalls-shell .market-stall-title-row > svg { display: none; }
 .market-stalls-shell .market-stall-seller { font-size: .8125rem; margin-top: .3rem; }
 .market-stalls-shell .market-stall-tagline { min-height: 0; font-size: .875rem; line-height: 1.6; margin: .85rem 0; }
-.market-stall-location { display: flex; align-items: flex-start; gap: .35rem; font-size: .75rem; line-height: 1.5; color: #617569; margin-bottom: .5rem; }
+.market-stall-location { display: flex; align-items: flex-start; gap: .35rem; font-size: var(--text-xs); line-height: 1.5; color: var(--ink-600); margin-bottom: .5rem; }
 .market-stall-location svg { width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px; }
 .market-stalls-shell .market-stall-footer { flex-wrap: wrap; margin-top: auto; padding-top: .8rem; }
-.market-stalls-shell :is(.market-stall-rating, .market-stall-products) { font-size: .75rem; gap: .3rem; }
+.market-stalls-shell :is(.market-stall-rating, .market-stall-products) { font-size: var(--text-xs); gap: .3rem; }
 .market-stalls-shell .market-stall-rating strong { font-size: .8125rem; }
-.market-stalls-shell .market-stall-rating small { font-size: .75rem; }
+.market-stalls-shell .market-stall-rating small { font-size: var(--text-xs); }
 .market-stalls-shell .market-stall-footer svg { width: 15px; height: 15px; }
-.market-stall-visit { display: flex; align-items: center; justify-content: space-between; margin-top: 1rem; padding: .75rem 1rem; background: #edf7f0; color: #0d7039; border-radius: 10px; font-size: .875rem; font-weight: 700; }
+.market-stall-visit { display: flex; align-items: center; justify-content: space-between; margin-top: 1rem; padding: .75rem 1rem; background: var(--green-100); color: var(--green-700); border-radius: 10px; font-size: .875rem; font-weight: 700; }
 .market-stall-visit svg { width: 18px; height: 18px; }
-.market-stall-card:hover .market-stall-visit { background: #0f7b3e; color: white; }
+.market-stall-card:hover .market-stall-visit { background: var(--green-700); color: white; }
 .market-stalls-shell .market-stalls-grid--single { grid-template-columns: minmax(0, 1fr); }
 .market-stalls-grid--single .market-stall-card { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(0, 1fr); min-height: 340px; }
 .market-stalls-grid--single .market-stall-cover { height: 100%; min-height: 300px; }
@@ -95,19 +95,19 @@
 .market-stalls-grid--single .market-stall-card-body { padding: 1.5rem; }
 .market-stalls-grid--single .market-stall-storefront > svg { width: 90px; height: 90px; }
 
-.market-stalls-guide { border: 1px solid #dce8df; border-radius: 20px; background: #f0f7f2; padding: 1.5rem; color: #53665b; }
-.market-stalls-guide-icon { display: grid; place-items: center; width: 44px; height: 44px; background: #fff3c8; color: #0f7b3e; border-radius: 12px; margin-bottom: 1rem; }
-.market-stalls-guide h2 { font-size: 1.125rem; color: #173e28; margin: 0 0 .5rem; }
+.market-stalls-guide { border: 1px solid var(--line); border-radius: 20px; background: var(--green-100); padding: 1.5rem; color: var(--ink-600); }
+.market-stalls-guide-icon { display: grid; place-items: center; width: 44px; height: 44px; background: var(--gold-100); color: var(--green-700); border-radius: 12px; margin-bottom: 1rem; }
+.market-stalls-guide h2 { font-size: 1.125rem; color: var(--green-900); margin: 0 0 .5rem; }
 .market-stalls-guide p { font-size: .8125rem; line-height: 1.6; }
 .market-stalls-guide ol { display: grid; gap: 1rem; list-style: none; margin: 1.5rem 0; padding: 0; }
 .market-stalls-guide li { display: flex; gap: .7rem; align-items: flex-start; }
-.market-stalls-guide li > svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px; color: #0f7b3e; }
+.market-stalls-guide li > svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px; color: var(--green-700); }
 .market-stalls-guide li div { display: grid; gap: .25rem; }
-.market-stalls-guide li strong { color: #244e34; font-size: .8125rem; }
-.market-stalls-guide li span { font-size: .75rem; line-height: 1.5; }
-.market-stalls-guide > a { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding-top: 1rem; border-top: 1px solid #d5e4da; color: #0f7b3e; font-size: .8125rem; font-weight: 700; }
+.market-stalls-guide li strong { color: var(--green-700); font-size: .8125rem; }
+.market-stalls-guide li span { font-size: var(--text-xs); line-height: 1.5; }
+.market-stalls-guide > a { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding-top: 1rem; border-top: 1px solid var(--line); color: var(--green-700); font-size: .8125rem; font-weight: 700; }
 .market-stalls-shell .market-stalls-state p { font-size: .875rem; }
-.market-stalls-shell .market-stalls-state small { font-size: .75rem; }
+.market-stalls-shell .market-stalls-state small { font-size: var(--text-xs); }
 
 @media (max-width: 1100px) {
   .market-stalls-directory { grid-template-columns: minmax(0, 1fr); }
@@ -115,7 +115,7 @@
 }
 @media (max-width: 700px) {
   .market-stalls-shell .market-stalls-page { width: calc(100% - 2rem); }
-  .market-stalls-shell .market-stalls-hero { padding: 1.5rem; gap: 1.5rem; background-image: linear-gradient(135deg, #edf8f1, #fff8dd); }
+  .market-stalls-shell .market-stalls-hero { padding: 1.5rem; gap: 1.5rem; background-image: linear-gradient(135deg, var(--green-100), var(--gold-100)); }
   .market-stalls-shell .market-stalls-summary { align-self: stretch; min-width: 0; }
   .market-stalls-shell .market-stalls-controls { grid-template-columns: minmax(0, 1fr); }
   .market-stalls-shell .market-stalls-sort { grid-column: 1; grid-row: 3; justify-content: space-between; }
