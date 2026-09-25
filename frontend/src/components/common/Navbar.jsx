@@ -17,7 +17,7 @@ const NAV_LINKS = [
 
 // Pages with their own scoped search field: the navbar hides its search there,
 // so every screen has exactly one search bar.
-const PAGES_WITH_OWN_SEARCH = ["/events", "/orders", "/messages"];
+const PAGES_WITH_OWN_SEARCH = ["/events", "/orders", "/messages", "/stalls"];
 
 const ROLE_LABELS = { buyer: "Buyer", seller: "Seller", admin: "Administrator", super_admin: "Super Administrator" };
 

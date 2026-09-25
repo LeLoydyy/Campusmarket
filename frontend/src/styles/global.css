@@ -230,7 +230,7 @@ ul { list-style: none; }
 .badge-gray { background: var(--gray-100); color: var(--gray-600); }
 .badge-gold { background: var(--cm-accent-light); color: var(--gold-700); }
 
-.status-pending, .status-pending { background: var(--cm-warning-light); color: var(--cm-warning); }
+.status-pending, .status-pending { background: var(--cm-warning-light); color: var(--gold-700); }
 .status-processing, .status-confirmed { background: var(--cm-info-light); color: var(--cm-info); }
 .status-completed, .status-delivered, .status-approved { background: var(--cm-success-light); color: var(--cm-success); }
 .status-cancelled, .status-rejected { background: var(--cm-danger-light); color: var(--cm-danger); }
@@ -3824,7 +3824,7 @@ ul { list-style: none; }
 .cart-quantity-control button:hover:not(:disabled) { color: var(--cm-primary); background: var(--cm-primary-light); }
 .cart-quantity-control button:disabled { color: var(--gray-300); cursor: not-allowed; }
 .cart-quantity-control output { display: grid; place-items: center; color: var(--cm-text); font-size: var(--text-xs); font-weight: 700; }
-.cart-quantity-wrap small { color: var(--cm-warning); font-size: var(--text-xs); font-weight: 600; }
+.cart-quantity-wrap small { color: var(--gold-700); font-size: var(--text-xs); font-weight: 600; }
 
 .cart-action-spinner { width: 13px; height: 13px; border-width: 2px; }
 
@@ -5086,7 +5086,7 @@ ul { list-style: none; }
 .notifications-filters button:hover { color: var(--cm-primary); background: var(--cm-primary-light); }
 .notifications-filters button.active { color: #fff; background: var(--cm-primary); }
 .notifications-filters button span { min-width: 17px; padding: 0.04rem 0.25rem; color: inherit; background: rgba(30, 107, 107, 0.16); border-radius: var(--radius-full); font-size: 0.6875rem; text-align: center; }
-.notifications-filters button.active span { background: rgba(255,255,255,0.2); }
+.notifications-filters button.active span { color: var(--green-900); background: var(--gold-500); }
 
 .notification-list { display: grid; gap: 0.55rem; }
 .notification-item { position: relative; display: grid; grid-template-columns: 42px minmax(0,1fr) auto auto; align-items: center; gap: 0.75rem; padding: 0.9rem; color: inherit; background: #fff; border: 1px solid var(--cm-border); border-radius: 15px; box-shadow: 0 4px 16px rgba(11, 61, 36, 0.025); transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease; }

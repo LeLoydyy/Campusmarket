@@ -24,11 +24,12 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               duration: 3500,
               style: {
                 borderRadius: "10px",
-                fontFamily: "Inter, sans-serif",
+                fontFamily: "Plus Jakarta Sans, sans-serif",
                 fontSize: "0.9rem",
+                color: "#14201A",
               },
-              success: { iconTheme: { primary: "#3B6D11", secondary: "#fff" } },
-              error:   { iconTheme: { primary: "#DC2626", secondary: "#fff" } },
+              success: { iconTheme: { primary: "#13703C", secondary: "#fff" } },
+              error:   { iconTheme: { primary: "#B8401F", secondary: "#fff" } },
             }}
           />
         </CartProvider>

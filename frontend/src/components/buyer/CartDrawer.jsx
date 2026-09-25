@@ -106,7 +106,7 @@ const CartDrawer = ({ items, total, onRemove, onUpdateQty, onCheckout }) => {
           overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
         .cart-item-name:hover { color: var(--color-primary); }
-        .cart-item-price { font-size: 0.78rem; color: var(--gray-500); }
+        .cart-item-price { font-size: var(--text-xs); color: var(--gray-500); }
 
         .cart-item-qty {
           display: inline-flex; align-items: center; gap: 0.5rem;

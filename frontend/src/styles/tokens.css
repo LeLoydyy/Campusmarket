@@ -84,7 +84,7 @@
   --cm-text: var(--ink-900);
   --cm-text-secondary: var(--ink-600);
   --cm-text-muted: var(--ink-600);
-  --cm-success: var(--green-500);
+  --cm-success: var(--green-700);   /* text-safe; green-500 fails AA as text */
   --cm-success-light: var(--green-100);
   --cm-warning: var(--gold-500);
   --cm-warning-light: var(--gold-100);

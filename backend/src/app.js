@@ -39,7 +39,8 @@ app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 // ── Rate limiting ────────────────────────────────────────────────────────────
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 300,
+  // Campus Wi-Fi often puts many students behind one IP; raise RATE_LIMIT_MAX if needed.
+  max: Number(process.env.RATE_LIMIT_MAX) || 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests, please try again later." },

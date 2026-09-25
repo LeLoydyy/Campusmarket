@@ -63,7 +63,7 @@
 .seller-application-note { display: flex; align-items: flex-start; gap: .55rem; padding: .85rem; color: var(--gold-700); background: var(--gold-100); border-color: var(--gold-500); }
 .seller-application-note > svg { flex: 0 0 auto; margin-top: .08rem; }
 .seller-application-note strong { display: block; font-size: var(--text-xs); }
-.seller-application-note p { margin-top: .2rem; font-size: var(--text-xs); line-height: 1.5; opacity: .82; }
+.seller-application-note p { margin-top: .2rem; color: var(--ink-900); font-size: var(--text-xs); line-height: 1.5; }
 
 @keyframes seller-application-spin { to { transform: rotate(360deg); } }
 

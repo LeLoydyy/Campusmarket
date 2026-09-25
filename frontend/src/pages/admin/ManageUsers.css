@@ -66,3 +66,5 @@
 .mu-drawer-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: auto; padding-top: .5rem; }
 .mu-drawer-actions .btn { flex: 1 1 160px; }
 .mu-hint { flex-basis: 100%; color: var(--coral-700); font-size: var(--text-xs); font-weight: 700; }
+/* Grid children may shrink so the table scrolls inside its card, not the page. */
+.mu-content > * { min-width: 0; }

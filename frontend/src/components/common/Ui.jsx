@@ -79,7 +79,7 @@ export function StatCard({ label, value, icon, color = "gold", delta }) {
         }
         .stat-label { font-size: 0.8rem; color: var(--gray-500); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
         .stat-value { font-size: 1.6rem; font-weight: 700; color: var(--gray-900); line-height: 1.2; margin-top: 2px; }
-        .stat-delta { font-size: 0.75rem; margin-top: 2px; font-weight: 500; }
+        .stat-delta { font-size: var(--text-xs); margin-top: 2px; font-weight: 500; }
         .stat-delta.up   { color: var(--color-success); }
         .stat-delta.down { color: var(--color-danger); }
       `}</style>

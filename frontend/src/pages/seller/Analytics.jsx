@@ -26,6 +26,7 @@ import {
   YAxis,
 } from "recharts";
 import { format } from "date-fns";
+import { CHART } from "../../utils/chartColors.js";
 import "./Analytics.css";
 
 const PERIOD_OPTIONS = [
@@ -35,12 +36,12 @@ const PERIOD_OPTIONS = [
 ];
 
 const CHART_COLORS = [
-  "#0f7b3e",
-  "#f0bd27",
-  "#3b82f6",
-  "#e86747",
-  "#8b5cf6",
-  "#64748b",
+  CHART.green,
+  CHART.gold,
+  CHART.teal,
+  CHART.coral,
+  "#F6A58C",
+  "#9AA59E",
 ];
 
 const extractObject = (payload, key) =>
@@ -414,18 +415,18 @@ export default function Analytics() {
                     <CartesianGrid
                       vertical={false}
                       strokeDasharray="3 3"
-                      stroke="#e8eeea"
+                      stroke={CHART.grid}
                     />
                     <XAxis
                       dataKey="date"
-                      tick={{ fontSize: 10, fill: "#7d8d83" }}
+                      tick={{ fontSize: 13, fill: CHART.ink }}
                       tickLine={false}
                       axisLine={false}
                       minTickGap={18}
                     />
                     <YAxis
                       yAxisId="revenue"
-                      tick={{ fontSize: 10, fill: "#7d8d83" }}
+                      tick={{ fontSize: 13, fill: CHART.ink }}
                       tickLine={false}
                       axisLine={false}
                       tickFormatter={formatCompactCurrency}
@@ -434,16 +435,16 @@ export default function Analytics() {
                       yAxisId="orders"
                       orientation="right"
                       allowDecimals={false}
-                      tick={{ fontSize: 10, fill: "#7d8d83" }}
+                      tick={{ fontSize: 13, fill: CHART.ink }}
                       tickLine={false}
                       axisLine={false}
                     />
                     <Tooltip
                       contentStyle={{
                         borderRadius: 12,
-                        border: "1px solid #e1e8e4",
+                        border: `1px solid ${CHART.grid}`,
                         boxShadow: "0 10px 28px rgba(15,52,34,.1)",
-                        fontSize: 12,
+                        fontSize: 13,
                       }}
                       formatter={(value, name) => [
                         name === "Revenue" ? formatCurrency(value) : value,
@@ -454,13 +455,13 @@ export default function Analytics() {
                       yAxisId="revenue"
                       type="monotone"
                       dataKey="Revenue"
-                      stroke="#0f7b3e"
+                      stroke={CHART.green}
                       strokeWidth={2.5}
                       dot={false}
                       activeDot={{
                         r: 4,
-                        fill: "#0f7b3e",
-                        stroke: "#fff",
+                        fill: CHART.green,
+                        stroke: CHART.surface,
                         strokeWidth: 2,
                       }}
                     />
@@ -468,7 +469,7 @@ export default function Analytics() {
                       yAxisId="orders"
                       type="monotone"
                       dataKey="Orders"
-                      stroke="#e5aa08"
+                      stroke={CHART.gold}
                       strokeWidth={2}
                       strokeDasharray="5 4"
                       dot={false}
@@ -507,12 +508,12 @@ export default function Analytics() {
                       <CartesianGrid
                         horizontal={false}
                         strokeDasharray="3 3"
-                        stroke="#e8eeea"
+                        stroke={CHART.grid}
                       />
                       <XAxis
                         type="number"
                         allowDecimals={false}
-                        tick={{ fontSize: 10, fill: "#7d8d83" }}
+                        tick={{ fontSize: 13, fill: CHART.ink }}
                         tickLine={false}
                         axisLine={false}
                       />
@@ -520,20 +521,20 @@ export default function Analytics() {
                         type="category"
                         dataKey="name"
                         width={108}
-                        tick={{ fontSize: 10, fill: "#596b60" }}
+                        tick={{ fontSize: 13, fill: CHART.ink }}
                         tickLine={false}
                         axisLine={false}
                       />
                       <Tooltip
                         contentStyle={{
                           borderRadius: 12,
-                          border: "1px solid #e1e8e4",
-                          fontSize: 12,
+                          border: `1px solid ${CHART.grid}`,
+                          fontSize: 13,
                         }}
                       />
                       <Bar
                         dataKey="Sold"
-                        fill="#0f7b3e"
+                        fill={CHART.green}
                         radius={[0, 5, 5, 0]}
                         maxBarSize={18}
                       />
@@ -590,8 +591,8 @@ export default function Analytics() {
                           ]}
                           contentStyle={{
                             borderRadius: 12,
-                            border: "1px solid #e1e8e4",
-                            fontSize: 12,
+                            border: `1px solid ${CHART.grid}`,
+                            fontSize: 13,
                           }}
                         />
                       </PieChart>

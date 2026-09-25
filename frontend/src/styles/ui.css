@@ -245,3 +245,13 @@
 .ostep-item.is-done .ostep-label { color: var(--green-700); }
 .ostep-cancelled { display: flex; align-items: center; gap: .5rem; padding: .7rem .9rem; color: var(--coral-700); background: var(--coral-100); border-radius: 14px; font-size: var(--text-sm); font-weight: 700; }
 .ostep-cancelled svg { width: 18px; height: 18px; flex: 0 0 auto; }
+
+/* Dashboard layout is a flex row: let the main column shrink so wide tables
+   scroll inside their cards instead of stretching the whole page. */
+.dashboard-main { min-width: 0; }
+
+/* Horizontal scroll boxes must also be the containing block, or absolutely
+   positioned children (e.g. .sr-only labels in table headers) escape the clip
+   and widen the whole page. */
+.mu-table-wrap, .sd-table-wrap, .smap-scroll, .home-rail, .browse-chips, .bev-tabs,
+.analytics-table-wrap, .data-table-scroll, .manage-products-table-wrap, .orders-table-wrap { position: relative; }
