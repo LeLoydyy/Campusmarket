@@ -15,6 +15,7 @@ import stallRoutes from "./routes/stall.routes.js";
 import orderRoutes from "./routes/order.routes.js";
 import eventRoutes from "./routes/event.routes.js";
 import posRoutes from "./routes/pos.routes.js";
+import notificationRoutes from "./routes/notification.routes.js";
 import { productPhotoDirectory } from "./middleware/productPhoto.js";
 import { ready } from "./data/marketStore.js";
 import { databaseLabel } from "./db/index.js";
@@ -41,6 +42,8 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests, please try again later." },
+  // Open tabs poll this every few seconds; it needs a login and is a single indexed query.
+  skip: (req) => req.method === "GET" && req.path === "/api/notifications/summary",
 });
 app.use(limiter);
 
@@ -72,6 +75,7 @@ app.use("/api/behavior", behaviorRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/stalls", stallRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api", eventRoutes);
 
 // ── 404 handler ──────────────────────────────────────────────────────────────

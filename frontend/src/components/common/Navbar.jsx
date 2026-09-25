@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useCart } from "../../context/CartContext.jsx";
+import { useNotifications } from "../../context/NotificationContext.jsx";
+import NotificationBell from "../notifications/NotificationBell.jsx";
 import {
   FiBell,
   FiCalendar,
@@ -42,6 +44,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const userMenuRef = useRef(null);
+  const { unread: unreadNotifications } = useNotifications();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -165,14 +168,7 @@ export default function Navbar() {
                 >
                   <FiMessageSquare />
                 </Link>
-                <Link
-                  to="/notifications"
-                  className="icon-btn"
-                  aria-label="Notifications"
-                  title="Notifications"
-                >
-                  <FiBell />
-                </Link>
+                <NotificationBell />
               </div>
             )}
 
@@ -380,6 +376,7 @@ export default function Navbar() {
                 <Link to="/notifications" className="mobile-nav-link">
                   <FiBell />
                   <span>Notifications</span>
+                  {unreadNotifications > 0 && <span className="notif-bell-badge notif-bell-badge--inline">{unreadNotifications}</span>}
                 </Link>
               </div>
             )}

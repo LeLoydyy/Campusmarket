@@ -17,7 +17,7 @@ import Navbar from "../../components/common/Navbar.jsx";
 import { useCart } from "../../context/CartContext.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import orderService from "../../services/orderService.js";
-import notificationService from "../../services/notificationService.js";
+import { useNotifications } from "../../context/NotificationContext.jsx";
 import toast from "react-hot-toast";
 
 const NOTES_LIMIT = 300;
@@ -33,6 +33,7 @@ const getProduct = (item) => item.products || item.product || item;
 export default function Checkout() {
   const { items, total, clearCart } = useCart();
   const { user } = useAuth();
+  const { refresh: refreshNotifications } = useNotifications();
   const navigate = useNavigate();
 
   const [fulfillment, setFulfillment] = useState("pickup");
@@ -66,14 +67,8 @@ export default function Checkout() {
         fulfillment,
         delivery_notes: notes.trim(),
       });
-      notificationService
-        .add(user.id, {
-          type: "order",
-          title: "Order placed successfully",
-          body: "Your order was sent to the campus seller. Track its progress in Your Orders.",
-          link: "/orders",
-        })
-        .catch(() => {});
+      // The server records "Order placed"; load it quietly (no pop-up for your own action).
+      refreshNotifications({ announce: false });
       await clearCart();
       toast.success("Order placed successfully");
       navigate("/orders");

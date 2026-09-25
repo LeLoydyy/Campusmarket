@@ -198,6 +198,23 @@ ALTER TABLE seller_applications ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ
 CREATE UNIQUE INDEX IF NOT EXISTS seller_applications_active_key
   ON seller_applications (seller_id, event_id) WHERE status IN ('pending', 'approved', 'reserved');
 
+-- In-app notifications (order progress for buyers, new orders for sellers).
+-- `status` is the order stage the notification announces; the order itself may have moved on.
+CREATE TABLE IF NOT EXISTS notifications (
+  id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  user_id    TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  type       TEXT NOT NULL DEFAULT 'order',
+  order_id   TEXT REFERENCES orders (id) ON DELETE CASCADE,
+  status     TEXT,
+  title      TEXT NOT NULL,
+  body       TEXT NOT NULL DEFAULT '',
+  link       TEXT,
+  read_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS notifications_user_idx ON notifications (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS notifications_unread_idx ON notifications (user_id) WHERE read_at IS NULL;
+
 CREATE TABLE IF NOT EXISTS audit_log (
   id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   actor_id   TEXT,
@@ -237,3 +254,4 @@ ALTER TABLE events              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE event_stalls        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE seller_applications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_log           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications       ENABLE ROW LEVEL SECURITY;

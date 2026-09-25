@@ -11,6 +11,7 @@ import { getPlan } from "../config/plans.js";
 import { cancellationDeadline, canBuyerCancel } from "../config/orderCancellation.js";
 import { getDb, query, transaction } from "../db/index.js";
 import { getRecommendedProductIds, getSimilarProductIds } from "../services/aiService.js";
+import { buyerOrderMessage, sellerCancelledMessage, sellerNewOrderMessage } from "../services/orderNotifications.js";
 
 // ── Errors ────────────────────────────────────────────────────────────────────
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
@@ -626,6 +627,7 @@ export const orderStore = {
           [order.id, line.product_id, line.name, line.image_url, line.quantity, line.unit_price],
         );
       }
+      await notifyOrderParties(run, order, lines, "created");
       return { ...order, items: lines };
     });
   },
@@ -664,8 +666,89 @@ export const orderStore = {
          WHERE id = $1 RETURNING ${ORDER_COLUMNS}`,
         [orderId, status],
       );
+      await notifyOrderParties(run, updated, withItems.items, buyerCancellation ? "buyer_cancelled" : "status_changed");
       return { ...updated, items: withItems.items };
     });
+  },
+};
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+const NOTIFICATION_ORDER = `CASE WHEN o.id IS NULL THEN NULL ELSE json_build_object(
+    'id', o.id, 'status', o.status, 'fulfillment', o.fulfillment, 'total', o.total, 'created_at', o.created_at,
+    'stall_name', st.name, 'stall_logo', st.logo_url, 'stall_location', st.location,
+    'item_count', (SELECT coalesce(sum(quantity), 0) FROM order_items WHERE order_id = o.id),
+    'first_item', (SELECT json_build_object('name', i.name, 'image_url', coalesce(i.image_url, p.image_url))
+                   FROM order_items i LEFT JOIN products p ON p.id = i.product_id
+                   WHERE i.order_id = o.id ORDER BY i.id LIMIT 1)
+  ) END`;
+
+const insertNotification = (run, { userId, orderId, status, title, body, link }) =>
+  run("INSERT INTO notifications (user_id, type, order_id, status, title, body, link) VALUES ($1, 'order', $2, $3, $4, $5, $6)",
+    [userId, orderId, status, title, body, link]);
+
+/**
+ * Tell the right people about an order change, inside the same transaction:
+ * created → buyer ("Order placed") + seller ("New order");
+ * status_changed → buyer; buyer_cancelled → seller.
+ */
+const notifyOrderParties = async (run, order, lines, event) => {
+  const [info] = await run(
+    `SELECT st.name AS stall_name, st.location AS stall_location, b.name AS buyer_name
+     FROM orders o LEFT JOIN stalls st ON st.id = o.stall_id JOIN users b ON b.id = o.buyer_id WHERE o.id = $1`,
+    [order.id],
+  );
+  const context = {
+    stallName: info?.stall_name, stallLocation: info?.stall_location, buyerName: info?.buyer_name,
+    itemCount: lines.reduce((sum, line) => sum + Number(line.quantity), 0),
+  };
+  if (event !== "buyer_cancelled") {
+    await insertNotification(run, { userId: order.buyer_id, orderId: order.id, status: order.status, link: "/orders", ...buyerOrderMessage(order, context) });
+  }
+  if (event === "created") {
+    await insertNotification(run, { userId: order.seller_id, orderId: order.id, status: order.status, link: "/seller/orders", ...sellerNewOrderMessage(order, context) });
+  }
+  if (event === "buyer_cancelled") {
+    await insertNotification(run, { userId: order.seller_id, orderId: order.id, status: order.status, link: "/seller/orders", ...sellerCancelledMessage(order, context) });
+  }
+};
+
+export const notificationStore = {
+  async list(userId, { limit = 30 } = {}) {
+    const size = Math.min(100, Math.max(1, Number(limit) || 30));
+    return q(
+      `SELECT n.id, n.type, n.order_id, n.status, n.title, n.body, n.link, n.read_at, n.created_at,
+              (n.read_at IS NOT NULL) AS read, ${NOTIFICATION_ORDER} AS "order"
+       FROM notifications n
+       LEFT JOIN orders o ON o.id = n.order_id
+       LEFT JOIN stalls st ON st.id = o.stall_id
+       WHERE n.user_id = $1
+       ORDER BY n.created_at DESC, n.id DESC LIMIT $2`,
+      [userId, size],
+    );
+  },
+
+  /** Cheap polling check: unread count plus the newest notification's id. */
+  async summary(userId) {
+    const [row] = await q(
+      `SELECT (SELECT count(*) FROM notifications WHERE user_id = $1 AND read_at IS NULL) AS unread,
+              (SELECT id FROM notifications WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT 1) AS latest_id`,
+      [userId],
+    );
+    return row;
+  },
+
+  async markRead(userId, notificationId) {
+    const [row] = await q(
+      "UPDATE notifications SET read_at = coalesce(read_at, now()) WHERE id = $1 AND user_id = $2 RETURNING id",
+      [notificationId, userId],
+    );
+    if (!row) fail("Notification not found", 404);
+    return true;
+  },
+
+  async markAllRead(userId) {
+    await q("UPDATE notifications SET read_at = now() WHERE user_id = $1 AND read_at IS NULL", [userId]);
+    return true;
   },
 };
 
