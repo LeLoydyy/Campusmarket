@@ -1,3 +1,4 @@
+import Illustration from "../ui/Illustration.jsx";
 // ── SkeletonCard ─────────────────────────────────────────────────────────────
 export function SkeletonCard() {
   return (
@@ -87,11 +88,13 @@ export function StatCard({ label, value, icon, color = "gold", delta }) {
 }
 
 // ── EmptyState ────────────────────────────────────────────────────────────────
+// Older call sites pass an emoji icon; map it onto the shared illustrations.
+const EMOJI_ILLUSTRATIONS = { "📋": "box", "🏪": "store", "👥": "chat", "📅": "calendar", "🔍": "search", "✅": "check" };
 export function EmptyState({ icon = "📭", title, description, action }) {
   return (
-    <div className="empty-state">
-      <div className="empty-state-icon">{icon}</div>
-      {title && <h3>{title}</h3>}
+    <div className="cm-empty cm-empty--compact">
+      <Illustration name={EMOJI_ILLUSTRATIONS[icon] || "bag"} size={120} />
+      {title && <h2>{title}</h2>}
       {description && <p>{description}</p>}
       {action}
     </div>
