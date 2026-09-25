@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { Bell, BellRing, CheckCheck, ChevronRight, Inbox, XCircle } from "lucide-react";
+import { Bell, BellRing, CheckCheck } from "lucide-react";
+import EmptyState from "../../components/ui/EmptyState.jsx";
 import toast from "react-hot-toast";
 import Navbar from "../../components/common/Navbar.jsx";
 import OrderNotificationCard from "../../components/notifications/OrderNotificationCard.jsx";
@@ -115,32 +115,11 @@ export default function Notifications() {
         {loading && notifications.length === 0 ? (
           <NotificationSkeleton />
         ) : error && notifications.length === 0 ? (
-          <section className="notification-state is-error" role="alert">
-            <span><XCircle /></span>
-            <h2>Notifications unavailable</h2>
-            <p>{error}</p>
-            <button type="button" className="btn btn-outline" onClick={() => refresh({ announce: false })}>Try again</button>
-          </section>
+          <EmptyState illustration="bell" title="Notifications unavailable" description={error} action={{ label: "Try again", onClick: () => refresh({ announce: false }) }} />
         ) : notifications.length === 0 ? (
-          <section className="notification-state">
-            <div className="notification-empty-art" aria-hidden="true">
-              <span><Bell /></span>
-              <i><CheckCheck /></i>
-            </div>
-            <span className="notifications-eyebrow">Nothing new</span>
-            <h2>You're all caught up</h2>
-            <p>When you order from a stall, you'll follow every step here — from confirmed to ready for pickup.</p>
-            <Link to="/browse" className="btn btn-primary btn-lg">
-              Explore the market <ChevronRight size={17} />
-            </Link>
-          </section>
+          <EmptyState illustration="bell" title="You're all caught up" description="When you order from a stall, you'll follow every step here — from confirmed to ready for pickup." action={{ label: "Explore the market", to: "/browse" }} />
         ) : visible.length === 0 ? (
-          <section className="notification-state compact">
-            <span><Inbox /></span>
-            <h2>No notifications in this view</h2>
-            <p>Choose another filter to see your other updates.</p>
-            <button type="button" className="btn btn-outline" onClick={() => setFilter("all")}>View all notifications</button>
-          </section>
+          <EmptyState compact illustration="check" title="Nothing in this view" description="Choose another filter to see your other updates." action={{ label: "View all notifications", onClick: () => setFilter("all") }} />
         ) : (
           <section className="notification-card-list" aria-live="polite">
             {visible.map((notification, index) => (

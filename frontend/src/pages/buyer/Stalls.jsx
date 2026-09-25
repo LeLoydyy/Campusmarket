@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import Navbar from "../../components/common/Navbar.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
 import { stallService } from "../../services/api.js";
 import "./Stalls.css";
 
@@ -409,32 +410,9 @@ export default function Stalls() {
             </button>
           </section>
         ) : stalls.length === 0 ? (
-          <section className="market-stalls-state">
-            <span>
-              <Store aria-hidden="true" />
-            </span>
-            <small>Directory</small>
-            <h2>No active stalls yet</h2>
-            <p>
-              Approved campus sellers will appear here once their stalls are
-              ready.
-            </p>
-          </section>
+          <EmptyState illustration="store" title="No stalls are open yet" description="Approved campus sellers appear here once their stalls are ready. Have something to sell?" action={{ label: "Open your stall", to: "/open-store" }} secondaryAction={{ label: "Browse products", to: "/browse" }} />
         ) : filteredStalls.length === 0 ? (
-          <section className="market-stalls-state compact">
-            <span>
-              <Search aria-hidden="true" />
-            </span>
-            <h2>No stalls matched your search</h2>
-            <p>Try a different keyword or browse all stall categories.</p>
-            <button
-              type="button"
-              className="btn btn-outline"
-              onClick={clearFilters}
-            >
-              Clear filters
-            </button>
-          </section>
+          <EmptyState compact illustration="search" title="No stalls match" description="Try a different keyword or category." action={{ label: "Clear filters", onClick: clearFilters }} />
         ) : (
           <section aria-label="Stall directory results">
             <div className="market-stalls-heading">

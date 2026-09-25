@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import Navbar from "../../components/common/Navbar.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
 import ProductCard from "../../components/common/ProductCard.jsx";
 import { productService, stallService } from "../../services/api.js";
 
@@ -368,31 +369,9 @@ export default function StallDetails() {
               </div>
 
               {products.length === 0 ? (
-                <div className="stall-details-state compact">
-                  <span>
-                    <Package aria-hidden="true" />
-                  </span>
-                  <h2>No products listed yet</h2>
-                  <p>
-                    This seller is still preparing their catalog. Check back
-                    soon.
-                  </p>
-                </div>
+                <EmptyState compact illustration="store" title="No products listed yet" description="This seller is still stocking their shelves. Meanwhile, see what other stalls have." action={{ label: "Browse all products", to: "/browse" }} />
               ) : visibleProducts.length === 0 ? (
-                <div className="stall-details-state compact">
-                  <span>
-                    <Search aria-hidden="true" />
-                  </span>
-                  <h2>No matching products</h2>
-                  <p>Try another search term or browse every category.</p>
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    onClick={clearFilters}
-                  >
-                    Clear filters
-                  </button>
-                </div>
+                <EmptyState compact illustration="search" title="No matching products" description="Try another search term or category." action={{ label: "Clear filters", onClick: clearFilters }} />
               ) : (
                 <div className="stall-products-grid">
                   {visibleProducts.map((product) => (

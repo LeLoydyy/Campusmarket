@@ -44,10 +44,10 @@
 .my-stall-info-grid article > svg { width: 16px; height: 16px; flex: 0 0 auto; margin-top: .1rem; color: var(--cm-primary, var(--green-700)); }
 .my-stall-info-grid article div { min-width: 0; }
 .my-stall-info-grid small,.my-stall-info-grid strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.my-stall-info-grid small { color: var(--ink-600)); font-size: var(--text-xs); }
+.my-stall-info-grid small { color: var(--ink-600); font-size: var(--text-xs); }
 .my-stall-info-grid strong { margin-top: .12rem; color: var(--cm-text, var(--ink-900)); font-size: var(--text-xs); font-weight: 700; }
 .my-stall-profile footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1rem; padding-top: .85rem; border-top: 1px solid var(--cm-border, var(--line)); }
-.my-stall-profile footer > span { color: var(--ink-600)); font-size: var(--text-xs); }
+.my-stall-profile footer > span { color: var(--ink-600); font-size: var(--text-xs); }
 .my-stall-profile footer a { display: inline-flex; align-items: center; gap: .3rem; color: var(--cm-primary, var(--green-700)); font-size: var(--text-xs); font-weight: 700; }
 .my-stall-profile footer a:hover { text-decoration: underline; }
 
@@ -59,7 +59,7 @@
 .my-stall-completion i { display: block; height: 100%; background: linear-gradient(90deg,var(--cm-primary, var(--green-700)),var(--green-500)); border-radius: inherit; transition: width .35s ease; }
 .my-stall-sidebar-card > p { margin-top: .55rem; color: var(--cm-text-secondary, var(--ink-600)); font-size: var(--text-xs); line-height: 1.5; }
 .my-stall-sidebar-card ul { display: grid; gap: .45rem; margin-top: .8rem; padding-top: .75rem; border-top: 1px solid var(--cm-border, var(--line)); list-style: none; }
-.my-stall-sidebar-card li { display: flex; align-items: center; gap: .4rem; color: var(--ink-600)); font-size: var(--text-xs); }
+.my-stall-sidebar-card li { display: flex; align-items: center; gap: .4rem; color: var(--ink-600); font-size: var(--text-xs); }
 .my-stall-sidebar-card li svg { color: var(--ink-600); }
 .my-stall-sidebar-card li.done { color: var(--cm-text-secondary, var(--ink-600)); }
 .my-stall-sidebar-card li.done svg { color: var(--cm-primary, var(--green-700)); }
@@ -69,7 +69,7 @@
 .my-stall-form-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1rem 1.15rem; border-bottom: 1px solid var(--cm-border, var(--line)); }
 .my-stall-form-heading small { color: var(--cm-primary, var(--green-700)); font-size: var(--text-xs); font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
 .my-stall-form-heading h2 { margin-top: .12rem; color: var(--cm-text, var(--ink-900)); font-size: 1.05rem; font-weight: 780; }
-.my-stall-form-heading p { margin-top: .2rem; color: var(--ink-600)); font-size: var(--text-xs); }
+.my-stall-form-heading p { margin-top: .2rem; color: var(--ink-600); font-size: var(--text-xs); }
 .my-stall-form-heading > button { width: 30px; height: 30px; display: grid; place-items: center; color: var(--cm-text-secondary, var(--ink-600)); border-radius: 8px; }
 .my-stall-form-heading > button:hover { background: var(--cm-surface, var(--gray-50)); }
 .my-stall-form-layout { display: grid; grid-template-columns: minmax(0,1fr) 250px; gap: 1rem; padding: 1.15rem; }
@@ -83,13 +83,13 @@
 .my-stall-field input:focus,.my-stall-field textarea:focus,.my-stall-field select:focus,.my-stall-logo-input:focus-within { border-color: rgba(19, 112, 60, .5); box-shadow: 0 0 0 3px rgba(11, 61, 36, .08); }
 .my-stall-field .invalid,.my-stall-field:has(> small) .my-stall-logo-input { border-color: var(--coral-500); }
 .my-stall-field > small { color: var(--coral-700); font-size: var(--text-xs); }
-.my-stall-field > em { position: absolute; right: .55rem; bottom: .35rem; color: var(--ink-600)); font-size: var(--text-xs); font-style: normal; }
-.my-stall-logo-input { display: flex; align-items: center; overflow: hidden; color: var(--ink-600)); border: 1px solid var(--cm-border, var(--line)); border-radius: 9px; }
+.my-stall-field > em { position: absolute; right: .55rem; bottom: .35rem; color: var(--ink-600); font-size: var(--text-xs); font-style: normal; }
+.my-stall-logo-input { display: flex; align-items: center; overflow: hidden; color: var(--ink-600); border: 1px solid var(--cm-border, var(--line)); border-radius: 9px; }
 .my-stall-logo-input > svg { margin-left: .65rem; flex: 0 0 auto; }
 .my-stall-logo-input input { min-width: 0; border: 0; box-shadow: none !important; }
 
 .my-stall-preview { min-width: 0; align-self: start; padding: 1rem; text-align: center; background: var(--cm-surface, var(--gray-50)); border: 1px solid var(--cm-border, var(--line)); border-radius: 13px; }
-.my-stall-preview > small { color: var(--ink-600)); font-size: var(--text-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.my-stall-preview > small { color: var(--ink-600); font-size: var(--text-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .my-stall-preview-logo { width: 78px; height: 78px; display: grid; place-items: center; overflow: hidden; margin: .8rem auto .65rem; color: var(--cm-primary, var(--green-700)); background: #fff; border: 1px solid var(--cm-border, var(--line)); border-radius: 20px; }
 .my-stall-preview-logo img { width: 100%; height: 100%; object-fit: cover; }
 .my-stall-preview-logo svg { width: 25px; height: 25px; }

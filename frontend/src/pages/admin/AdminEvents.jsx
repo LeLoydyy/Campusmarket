@@ -8,6 +8,7 @@ import eventService from "../../services/eventService.js";
 import toast from "react-hot-toast";
 import { CalendarDays, MapPin, ArrowUpRight, Plus, Search, Store, CalendarCheck, LayoutGrid, ArrowRight } from "lucide-react";
 import "./AdminWorkspace.css";
+import EmptyState from "../../components/ui/EmptyState.jsx";
 
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 const eventStatus = (event) => {
@@ -72,7 +73,7 @@ export default function AdminEvents() {
             <div className="admin-event-cover"><div className="admin-cover-fallback"><CalendarDays size={46} strokeWidth={1} /><span>CAMPUS MARKET EVENTS</span></div>{e.image_url && <img src={e.image_url} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} />}<span className={"admin-event-status status-" + eventStatus(e).toLowerCase()}><i />{eventStatus(e)}</span><div className="admin-date-tile"><span>{prettyDate(e.date, { month: "short" })}</span><strong>{prettyDate(e.date, { day: "numeric" })}</strong></div></div>
             <div className="admin-event-body"><p className="admin-event-date"><CalendarDays size={14} />{prettyDate(e.date)}</p><h3>{e.name}</h3><p className="admin-event-location"><MapPin size={15} />{e.location}</p><p className="admin-event-description">{e.description || "A new opportunity to connect your campus community."}</p><div className="admin-event-footer"><span><LayoutGrid size={16} /><strong>{e.stall_count || 0}</strong> {e.stall_count === 1 ? "space" : "spaces"}</span><Link to={"/admin/events/" + e.id + "/map"}>Manage layout <ArrowUpRight size={17} /><span className="sr-only"> for {e.name}</span></Link></div></div>
           </article>)}</div>
-          {!visibleEvents.length && <div className="admin-events-empty"><CalendarDays size={36} /><h3>{events.length ? "No events found" : "Your next campus event starts here"}</h3><p>{events.length ? "Try a different search or filter to find your event." : "Create an event, then organize its spaces with the stall map."}</p>{events.length > 0 && <button className="btn btn-outline" onClick={() => { setQuery(""); setFilter("All events"); }}>Clear filters</button>}</div>}
+          {!visibleEvents.length && <EmptyState illustration={events.length ? "search" : "calendar"} title={events.length ? "No events found" : "Your next campus event starts here"} description={events.length ? "Try a different search or filter to find your event." : "Create an event, then organize its spaces with the stall map."} action={events.length ? { label: "Clear filters", onClick: () => { setQuery(""); setFilter("All events"); } } : { label: "Create event", onClick: () => { setCreating(true); window.scrollTo({ top: 0, behavior: "smooth" }); } }} />}
           <p className="admin-directory-count" role="status">Showing {visibleEvents.length} of {events.length} events</p>
         </section>
       </>}

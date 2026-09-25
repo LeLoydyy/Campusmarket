@@ -19,7 +19,7 @@
 .seller-settings-card-heading > span,.seller-settings-aside section > span { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; color: var(--cm-primary, var(--green-700)); background: var(--cm-primary-light, var(--green-100)); border-radius: 9px; }
 .seller-settings-card-heading > span.gold { color: var(--gold-700); background: var(--gold-100); }
 .seller-settings-card-heading h2 { color: var(--cm-text, var(--ink-900)); font-size: .86rem; font-weight: 760; }
-.seller-settings-card-heading p { margin-top: .1rem; color: var(--ink-600)); font-size: var(--text-xs); }
+.seller-settings-card-heading p { margin-top: .1rem; color: var(--ink-600); font-size: var(--text-xs); }
 .seller-settings-fields { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; padding: .25rem 1rem 1rem; }
 .seller-settings-fields label { display: grid; align-content: start; gap: .32rem; }
 .seller-settings-fields label.wide { grid-column: 1 / -1; }
@@ -27,8 +27,8 @@
 .seller-settings-fields input { width: 100%; padding: .65rem .7rem; color: var(--cm-text, var(--ink-900)); background: #fff; border: 1px solid var(--cm-border, var(--line)); border-radius: 9px; outline: 0; font: inherit; font-size: var(--text-xs); }
 .seller-settings-fields input:focus,.seller-settings-image-field:focus-within { border-color: rgba(19, 112, 60, .5); box-shadow: 0 0 0 3px rgba(11, 61, 36, .08); }
 .seller-settings-fields input:disabled { color: var(--cm-text-muted, var(--ink-600)); background: var(--cm-surface, var(--gray-50)); }
-.seller-settings-fields label > small { color: var(--ink-600)); font-size: var(--text-xs); }
-.seller-settings-image-field { display: flex; align-items: center; overflow: hidden; color: var(--ink-600)); border: 1px solid var(--cm-border, var(--line)); border-radius: 9px; }
+.seller-settings-fields label > small { color: var(--ink-600); font-size: var(--text-xs); }
+.seller-settings-image-field { display: flex; align-items: center; overflow: hidden; color: var(--ink-600); border: 1px solid var(--cm-border, var(--line)); border-radius: 9px; }
 .seller-settings-image-field > svg { margin-left: .65rem; flex: 0 0 auto; }
 .seller-settings-image-field input { min-width: 0; border: 0; box-shadow: none !important; }
 .seller-settings-form-error { margin: 0 1rem .7rem; padding: .55rem .65rem; color: var(--coral-700); background: var(--coral-100); border-radius: 8px; font-size: var(--text-xs); }
@@ -41,7 +41,7 @@
 .seller-settings-toggle:last-child { border-bottom: 0; }
 .seller-settings-toggle > span { min-width: 0; display: grid; }
 .seller-settings-toggle strong { color: var(--cm-text, var(--ink-900)); font-size: var(--text-xs); }
-.seller-settings-toggle small { margin-top: .1rem; color: var(--ink-600)); font-size: var(--text-xs); }
+.seller-settings-toggle small { margin-top: .1rem; color: var(--ink-600); font-size: var(--text-xs); }
 .seller-settings-toggle input { position: absolute; opacity: 0; pointer-events: none; }
 .seller-settings-toggle > i { width: 36px; height: 21px; padding: 3px; flex: 0 0 auto; background: var(--cream-100); border-radius: 999px; transition: background .18s; }
 .seller-settings-toggle > i b { width: 15px; height: 15px; display: block; background: #fff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,.15); transition: transform .18s; }
@@ -52,10 +52,10 @@
 .seller-settings-aside section { padding: 1rem; }
 .seller-settings-aside section > span { margin-bottom: .65rem; }
 .seller-settings-aside h3 { color: var(--cm-text, var(--ink-900)); font-size: var(--text-xs); font-weight: 740; }
-.seller-settings-aside p { margin-top: .25rem; color: var(--ink-600)); font-size: var(--text-xs); line-height: 1.5; }
+.seller-settings-aside p { margin-top: .25rem; color: var(--ink-600); font-size: var(--text-xs); line-height: 1.5; }
 .seller-settings-aside dl { display: grid; gap: .45rem; margin-top: .75rem; padding-top: .65rem; border-top: 1px solid var(--cm-border, var(--line)); }
 .seller-settings-aside dl > div { display: flex; justify-content: space-between; gap: .5rem; }
-.seller-settings-aside dt { color: var(--ink-600)); font-size: var(--text-xs); }
+.seller-settings-aside dt { color: var(--ink-600); font-size: var(--text-xs); }
 .seller-settings-aside dd { color: var(--cm-text-secondary, var(--ink-600)); font-size: var(--text-xs); font-weight: 700; text-transform: capitalize; }
 .seller-settings-aside section.danger > span { color: var(--coral-700); background: var(--coral-100); }
 .seller-settings-aside section.danger button { display: inline-flex; align-items: center; gap: .3rem; margin-top: .7rem; padding: .45rem .6rem; color: var(--coral-700); background: var(--coral-100); border: 1px solid var(--coral-300); border-radius: 8px; font-size: var(--text-xs); font-weight: 700; }

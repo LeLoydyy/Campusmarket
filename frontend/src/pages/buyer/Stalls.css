@@ -4,13 +4,17 @@
 }
 
 .market-stalls-shell .market-stalls-hero {
-  min-height: 270px;
+  min-height: 240px;
   align-items: center;
   padding: 2rem;
-  background: linear-gradient(90deg, var(--green-100) 35%, rgba(227, 244, 233, .75) 62%, rgba(227, 244, 233, .1)),
-    url('/images/seller/seller-banner.png') right center / auto 100% no-repeat;
-  background-color: var(--green-100);
-  border-radius: 24px;
+  /* Same 3D Campus Market art as Home/Browse, faded in from the right (no watercolour). */
+  background:
+    linear-gradient(90deg, #FFF7E3 38%, rgba(255, 247, 227, .82) 55%, rgba(255, 247, 227, 0) 78%),
+    url('/images/buyer/campusmarket-background.png') 88% 55% / cover no-repeat;
+  background-color: #FFF7E3;
+  border: 0;
+  border-radius: 26px;
+  box-shadow: var(--shadow-2);
 }
 .market-stalls-shell .market-stalls-hero::after { content: none; }
 .market-stalls-shell .market-stalls-hero-copy { max-width: 650px; }

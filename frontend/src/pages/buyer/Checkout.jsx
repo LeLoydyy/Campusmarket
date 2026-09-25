@@ -14,6 +14,7 @@ import {
   Truck,
 } from "lucide-react";
 import Navbar from "../../components/common/Navbar.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
 import { useCart } from "../../context/CartContext.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import orderService from "../../services/orderService.js";
@@ -92,23 +93,13 @@ export default function Checkout() {
       <div className="checkout-shell">
         <Navbar />
         <main className="checkout-page checkout-page-empty">
-          <section
-            className="checkout-empty"
-            aria-labelledby="empty-checkout-title"
-          >
-            <span className="checkout-empty-icon" aria-hidden="true">
-              <ShoppingBag />
-            </span>
-            <span className="checkout-eyebrow">Your bag is waiting</span>
-            <h1 id="empty-checkout-title">Nothing to check out yet</h1>
-            <p>
-              Add something from a campus seller, then come back here to
-              complete your order.
-            </p>
-            <Link to="/browse" className="btn btn-primary btn-lg">
-              Browse products <ChevronRight size={17} aria-hidden="true" />
-            </Link>
-          </section>
+          <h1 className="sr-only">Checkout</h1>
+          <EmptyState
+            illustration="bag"
+            title="Nothing to check out yet"
+            description="Add something from a campus seller, then come back here to complete your order."
+            action={{ label: "Browse products", to: "/browse" }}
+          />
         </main>
       </div>
     );

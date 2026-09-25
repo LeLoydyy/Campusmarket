@@ -5,7 +5,6 @@ import {
   FiAlertCircle,
   FiBarChart2,
   FiDollarSign,
-  FiPackage,
   FiRefreshCw,
   FiShoppingBag,
   FiStar,
@@ -27,6 +26,7 @@ import {
 } from "recharts";
 import { format } from "date-fns";
 import { CHART } from "../../utils/chartColors.js";
+import EmptyState from "../../components/ui/EmptyState.jsx";
 import "./Analytics.css";
 
 const PERIOD_OPTIONS = [
@@ -130,13 +130,16 @@ function AnalyticsMetric({
   );
 }
 
-function ChartEmpty({ icon, title, description }) {
+function ChartEmpty({ title, description }) {
   return (
-    <div className="analytics-chart-empty">
-      {icon}
-      <strong>{title}</strong>
-      <p>{description}</p>
-    </div>
+    <EmptyState
+      compact
+      className="analytics-chart-empty"
+      illustration="sprout"
+      title={title}
+      description={description}
+      action={{ label: "Manage products", to: "/seller/products" }}
+    />
   );
 }
 
@@ -402,7 +405,6 @@ export default function Analytics() {
                 <div className="analytics-chart-skeleton analytics-shimmer" />
               ) : timeline.length === 0 ? (
                 <ChartEmpty
-                  icon={<FiTrendingUp />}
                   title="No activity for this period"
                   description="Revenue and order trends will appear after buyers complete purchases."
                 />
@@ -494,7 +496,6 @@ export default function Analytics() {
                   <div className="analytics-chart-skeleton analytics-shimmer" />
                 ) : productChart.length === 0 ? (
                   <ChartEmpty
-                    icon={<FiPackage />}
                     title="No product sales yet"
                     description="Your best-selling products will appear here."
                   />
@@ -556,7 +557,6 @@ export default function Analytics() {
               ) : categoryChart.length === 0 ? (
                 <div className="analytics-small-chart">
                   <ChartEmpty
-                    icon={<FiBarChart2 />}
                     title="No category revenue yet"
                     description="Category contribution appears after products are sold."
                   />
@@ -639,7 +639,7 @@ export default function Analytics() {
                   <span>Detailed results</span>
                   <h2>Product performance</h2>
                 </div>
-                <small>{topProducts.length} products</small>
+                <small>{topProducts.length} {topProducts.length === 1 ? "product" : "products"}</small>
               </div>
               <div className="analytics-table-wrap">
                 <table className="seller-analytics-table">

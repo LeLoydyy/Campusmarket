@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Sidebar from "../../components/common/Sidebar.jsx";
 import api, { productService, stallService } from "../../services/api.js";
+import EmptyState from "../../components/ui/EmptyState.jsx";
 import "./PointOfSale.css";
 
 const money = (amount) => new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(amount);
@@ -65,7 +66,7 @@ export default function PointOfSale() {
     <div className="topbar"><div><h1>Point of sale</h1><p>Record campus counter sales and keep stock up to date.</p></div></div>
     <div className="dashboard-content pos-page">
       {error && <p className="pos-error" role="alert">{error}</p>}
-      {loading ? <p role="status">Loading your store…</p> : !stall || stall.status !== "approved" || !stall.is_active ? <p>Open your approved store in My Stall before recording sales.</p> : <>
+      {loading ? <p role="status">Loading your store…</p> : !stall || stall.status !== "approved" || !stall.is_active ? <EmptyState illustration="store" title="Your counter opens with your stall" description="Once your stall is approved and open in My Stall, you can record cash sales here." action={{ label: "Go to My Stall", to: "/seller/stall" }} /> : <>
         <p className="pos-plan">{stall.name} · {stall.plan?.name || "Free"} plan · POS included</p>
         <div className="pos-layout">
           <section className="card pos-panel" aria-label="Products">
@@ -77,7 +78,7 @@ export default function PointOfSale() {
           </section>
           <section className="card pos-panel" aria-label="Current sale">
             <h2>Current sale</h2>
-            <form onSubmit={findBuyer} className="pos-buyer-search"><label>Buyer’s exact email or CSUCC ID<input required minLength={3} className="form-input" value={buyerQuery} disabled={busy} onChange={(e) => { setBuyerQuery(e.target.value); setBuyer(null); }} /></label><button className="btn btn-outline" disabled={busy || findingBuyer}>{findingBuyer ? "Finding…" : "Find verified buyer"}</button></form>
+            <form onSubmit={findBuyer} className="pos-buyer-search"><label>Buyer’s exact email or CSUCC ID<input id="pos-buyer" required minLength={3} className="form-input" value={buyerQuery} disabled={busy} onChange={(e) => { setBuyerQuery(e.target.value); setBuyer(null); }} /></label><button className="btn btn-outline" disabled={busy || findingBuyer}>{findingBuyer ? "Finding…" : "Find verified buyer"}</button></form>
             {buyer && <p className="pos-plan">Verified buyer: {buyer.name}</p>}
             {!lines.length && <p>Select products to start a sale.</p>}
             {lines.map((line) => <div className="pos-line" key={line.id}><div><strong>{line.name}</strong><span>{money(line.price)} each</span></div><label className="sr-only" htmlFor={`qty-${line.id}`}>Quantity for {line.name}</label><input id={`qty-${line.id}`} type="number" min={0} max={line.stock} step={1} value={line.quantity} disabled={busy} onChange={(e) => changeCart(line.id, Math.min(line.stock, Math.max(0, Math.floor(Number(e.target.value) || 0))))} /><button aria-label={`Remove ${line.name}`} disabled={busy} onClick={() => changeCart(line.id, 0)}>×</button></div>)}
@@ -87,7 +88,7 @@ export default function PointOfSale() {
             <button className="btn btn-primary" disabled={busy || !buyer || !lines.length || cash === "" || Number(cash) < total} onClick={recordSale}>{busy ? "Recording…" : "Record cash sale"}</button>
           </section>
         </div>
-        <section className="card pos-panel pos-history"><h2>Sales history</h2>{!sales.length && <p>No counter sales recorded yet.</p>}{sales.slice(0, 20).map((sale) => <button className="pos-history-row" key={sale.id} onClick={() => setReceipt(sale)}><span>{new Date(sale.created_at).toLocaleString("en-PH")} · {sale.buyer_name}</span><strong>{money(sale.total)} · View receipt</strong></button>)}</section>
+        <section className="card pos-panel pos-history"><h2>Sales history</h2>{!sales.length && <EmptyState compact illustration="check" title="No counter sales yet" description="Cash sales you record above will be listed here with printable receipts." action={{ label: "Find a buyer", onClick: () => document.getElementById("pos-buyer")?.focus() }} />}{sales.slice(0, 20).map((sale) => <button className="pos-history-row" key={sale.id} onClick={() => setReceipt(sale)}><span>{new Date(sale.created_at).toLocaleString("en-PH")} · {sale.buyer_name}</span><strong>{money(sale.total)} · View receipt</strong></button>)}</section>
       </>}
       {receipt && <section className="card pos-panel pos-receipt" aria-label="Sale receipt" aria-live="polite"><h2>{receipt.stall_name}</h2><p>Counter sale receipt · {receipt.id}</p><p>{new Date(receipt.created_at).toLocaleString("en-PH")} · {receipt.buyer_name}</p>{receipt.items.map((line) => <p key={line.product_id}>{line.quantity} × {line.name} — {money(line.quantity * line.unit_price)}</p>)}<hr /><p>Total: <strong>{money(receipt.total)}</strong></p><p>Cash: {money(receipt.cash_received)} · Change: {money(receipt.change)}</p><button className="btn btn-outline" onClick={() => window.print()}>Print receipt</button><button className="btn btn-ghost" onClick={() => setReceipt(null)}>Close receipt</button></section>}
     </div>

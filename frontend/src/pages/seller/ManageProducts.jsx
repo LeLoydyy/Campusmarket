@@ -11,13 +11,13 @@ import {
   FiImage,
   FiPackage,
   FiPlus,
-  FiRefreshCw,
   FiSearch,
   FiTrash2,
   FiTrendingDown,
   FiX,
 } from "react-icons/fi";
 import "./ManageProducts.css";
+import EmptyState from "../../components/ui/EmptyState.jsx";
 
 const CATEGORIES = [
   "food",
@@ -557,50 +557,14 @@ export default function ManageProducts() {
               ))}
             </div>
           ) : error ? null : products.length === 0 ? (
-            <section className="manage-products-empty">
-              <span>
-                <FiPackage />
-              </span>
-              <small>
-                {canManageProducts
-                  ? "Start your catalog"
-                  : "Stall approval required"}
-              </small>
-              <h2>
-                {canManageProducts
-                  ? "Add your first product"
-                  : "Products are not available yet"}
-              </h2>
-              <p>
-                {canManageProducts
-                  ? "Create a clear product listing with its price, stock, category, and image."
-                  : "Once your stall is approved, you can begin adding products for campus buyers."}
-              </p>
-              {canManageProducts && (
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={openCreate}
-                >
-                  <FiPlus /> Add product
-                </button>
-              )}
-            </section>
+            <EmptyState
+              illustration="box"
+              title={canManageProducts ? "Add your first product" : "Products open after approval"}
+              description={canManageProducts ? "A clear photo, price and stock count is all it takes. Buyers see new listings right away." : "Once an administrator approves your stall, you can list products for campus buyers."}
+              action={canManageProducts ? { label: "Add product", onClick: openCreate } : { label: "Check your stall", to: "/seller/stall" }}
+            />
           ) : filteredProducts.length === 0 ? (
-            <section className="manage-products-empty compact">
-              <span>
-                <FiSearch />
-              </span>
-              <h2>No matching products</h2>
-              <p>Try another keyword or clear the current filters.</p>
-              <button
-                type="button"
-                className="btn btn-outline"
-                onClick={clearFilters}
-              >
-                Clear filters
-              </button>
-            </section>
+            <EmptyState compact illustration="search" title="No matching products" description="Try another keyword or clear the filters." action={{ label: "Clear filters", onClick: clearFilters }} />
           ) : (
             <section className="manage-products-panel">
               <div className="manage-products-panel-heading">

@@ -1,7 +1,7 @@
 import React from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ShoppingBag } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../../components/common/Navbar.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
 import CartDrawer from "../../components/buyer/CartDrawer.jsx";
 import { useCart } from "../../context/CartContext.jsx";
 
@@ -23,14 +23,13 @@ const Cart = () => {
             onCheckout={() => navigate("/checkout")}
           />
         ) : (
-          <div className="cart-empty">
-            <ShoppingBag size={40} className="cart-empty-icon" />
-            <h3>Your cart is empty</h3>
-            <p>Looks like you haven't added anything yet.</p>
-            <Link to="/browse" className="btn btn-primary">
-              Start Shopping
-            </Link>
-          </div>
+          <EmptyState
+            illustration="bag"
+            title="Your cart is empty"
+            description="Find a rice bowl for lunch, a varsity tee, or something a classmate made by hand."
+            action={{ label: "Start shopping", to: "/browse" }}
+            secondaryAction={{ label: "See stalls open now", to: "/stalls" }}
+          />
         )}
       </div>
 

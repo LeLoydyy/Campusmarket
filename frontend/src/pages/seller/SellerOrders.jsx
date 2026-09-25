@@ -11,10 +11,10 @@ import {
   FiPackage,
   FiRefreshCw,
   FiSearch,
-  FiShoppingBag,
   FiX,
 } from "react-icons/fi";
 import "./SellerOrders.css";
+import EmptyState from "../../components/ui/EmptyState.jsx";
 
 const STATUS_FLOW = {
   pending: { next: "confirmed", label: "Confirm order" },
@@ -519,31 +519,14 @@ export default function SellerOrders() {
               ))}
             </div>
           ) : error && orders.length === 0 ? null : orders.length === 0 ? (
-            <section className="seller-orders-empty">
-              <span>
-                <FiShoppingBag />
-              </span>
-              <small>Order queue</small>
-              <h2>No orders yet</h2>
-              <p>
-                Orders placed by campus buyers will appear here automatically.
-              </p>
-            </section>
+            <EmptyState
+              illustration="bag"
+              title="No orders yet"
+              description="Orders placed by campus buyers will appear here automatically. Keep your listings stocked so they can find you."
+              action={{ label: "Manage products", to: "/seller/products" }}
+            />
           ) : displayedOrders.length === 0 ? (
-            <section className="seller-orders-empty compact">
-              <span>
-                <FiSearch />
-              </span>
-              <h2>No matching orders</h2>
-              <p>Try another search or return to all order statuses.</p>
-              <button
-                type="button"
-                className="btn btn-outline"
-                onClick={clearFilters}
-              >
-                Clear filters
-              </button>
-            </section>
+            <EmptyState compact illustration="search" title="No matching orders" description="Try another search or return to all order statuses." action={{ label: "Clear filters", onClick: clearFilters }} />
           ) : (
             <section>
               <div className="seller-orders-heading">

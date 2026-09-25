@@ -10,6 +10,7 @@ import {
   FiStar,
 } from "react-icons/fi";
 import "./Reviews.css";
+import EmptyState from "../../components/ui/EmptyState.jsx";
 
 const extractStall = (payload) => {
   const value =
@@ -343,19 +344,13 @@ export default function Reviews() {
                   })}
                 </div>
               ) : !error ? (
-                <div className="seller-reviews-empty">
-                  <FiStar />
-                  <h3>
-                    {search || ratingFilter !== "all"
-                      ? "No matching reviews"
-                      : "No reviews yet"}
-                  </h3>
-                  <p>
-                    {search || ratingFilter !== "all"
-                      ? "Try a different search or rating filter."
-                      : "Buyer feedback will appear after customers review your products."}
-                  </p>
-                </div>
+                <EmptyState
+                  compact
+                  illustration={search || ratingFilter !== "all" ? "search" : "heart"}
+                  title={search || ratingFilter !== "all" ? "No matching reviews" : "No reviews yet"}
+                  description={search || ratingFilter !== "all" ? "Try a different search or rating filter." : "Buyer feedback will appear after customers review your products."}
+                  action={search || ratingFilter !== "all" ? { label: "Clear filters", onClick: () => { setSearch(""); setRatingFilter("all"); } } : { label: "View your products", to: "/seller/products" }}
+                />
               ) : null}
             </section>
 

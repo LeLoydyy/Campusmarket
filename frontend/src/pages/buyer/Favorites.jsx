@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Heart, Search, Sparkles } from "lucide-react";
+import { ArrowRight, Heart } from "lucide-react";
+import EmptyState from "../../components/ui/EmptyState.jsx";
 import Navbar from "../../components/common/Navbar.jsx";
 import ProductCard from "../../components/common/ProductCard.jsx";
 import { SkeletonGrid } from "../../components/common/Ui.jsx";
@@ -96,29 +97,12 @@ export default function Favorites() {
             </button>
           </section>
         ) : favorites.length === 0 ? (
-          <section className="favorites-state-card favorites-empty">
-            <div className="favorites-empty-art" aria-hidden="true">
-              <span>
-                <Heart />
-              </span>
-              <i>
-                <Sparkles />
-              </i>
-            </div>
-            <span className="favorites-eyebrow">Start your collection</span>
-            <h2>No favorites yet</h2>
-            <p>
-              Tap the heart on any product to save it here. Your favorites stay
-              available on this device while the backend feature is being
-              prepared.
-            </p>
-            <Link to="/browse" className="btn btn-primary btn-lg">
-              Explore products <ArrowRight size={17} aria-hidden="true" />
-            </Link>
-            <small>
-              <Search size={13} /> Browse by category, stall, or product name
-            </small>
-          </section>
+          <EmptyState
+            illustration="heart"
+            title="No favorites yet"
+            description="Tap the heart on any product to save it here. Favorites are kept on this device."
+            action={{ label: "Explore products", to: "/browse" }}
+          />
         ) : (
           <section aria-labelledby="favorites-grid-heading">
             <div className="favorites-section-heading">

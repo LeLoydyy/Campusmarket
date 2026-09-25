@@ -16,6 +16,7 @@ import {
   FiXCircle,
 } from "react-icons/fi";
 import "./SellerReservations.css";
+import EmptyState from "../../components/ui/EmptyState.jsx";
 
 const FILTERS = ["all", "pending", "approved", "rejected"];
 
@@ -428,24 +429,13 @@ export default function SellerReservations() {
                   })}
                 </div>
               ) : !error ? (
-                <div className="seller-reservations-empty">
-                  <FiCalendar />
-                  <h3>
-                    {search || activeFilter !== "all"
-                      ? "No matching applications"
-                      : "No applications yet"}
-                  </h3>
-                  <p>
-                    {search || activeFilter !== "all"
-                      ? "Try changing your search or status filter."
-                      : "Apply to an upcoming event to reserve your first selling space."}
-                  </p>
-                  {!search && activeFilter === "all" && (
-                    <Link className="btn btn-primary btn-sm" to="/seller/apply">
-                      Start an application
-                    </Link>
-                  )}
-                </div>
+                <EmptyState
+                  compact
+                  illustration={search || activeFilter !== "all" ? "search" : "calendar"}
+                  title={search || activeFilter !== "all" ? "No matching applications" : "No applications yet"}
+                  description={search || activeFilter !== "all" ? "Try changing your search or status filter." : "Apply to an upcoming event to reserve your first selling space."}
+                  action={search || activeFilter !== "all" ? { label: "Clear filters", onClick: () => { setSearch(""); setActiveFilter("all"); } } : { label: "Start an application", to: "/seller/apply" }}
+                />
               ) : null}
             </section>
 
