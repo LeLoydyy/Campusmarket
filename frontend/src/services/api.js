@@ -57,6 +57,8 @@ export const productService = {
   getAll: (params = {}) => api.get("/products", { params }),
   getLocations: () => api.get("/products/locations"),
   getOne: (id) => api.get(`/products/${id}`),
+  // Same product, without counting a view (e.g. pinned in a chat)
+  getPreview: (id) => api.get(`/products/${id}`, { params: { preview: 1 } }),
   getRecommendations: (userId) =>
     api.get(`/products/recommendations/${userId}`),
   getSimilar: (id) => api.get(`/products/similar/${id}`),

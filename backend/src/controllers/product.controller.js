@@ -36,7 +36,7 @@ export const getPickupLocations = async (_req, res, next) => {
 
 export const getProduct = async (req, res, next) => {
   try {
-    const product = await productStore.getById(req.params.id, req.user);
+    const product = await productStore.getById(req.params.id, req.user, { countView: req.query.preview !== "1" });
     res.json(product);
   } catch (err) {
     next(err);

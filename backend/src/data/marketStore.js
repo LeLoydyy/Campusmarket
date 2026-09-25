@@ -412,11 +412,13 @@ export const productStore = {
     return rows.map((row) => row.location);
   },
 
-  async getById(productId, actor) {
+  async getById(productId, actor, { countView = true } = {}) {
     const product = await q1(`${PRODUCT_SELECT} WHERE p.id = $1`, [productId]);
     if (!product) fail("Product not found", 404);
     const visible = await q1(`SELECT 1 FROM stalls s LEFT JOIN users o ON o.id = s.owner_id WHERE s.id = $1 AND ${PUBLIC_STALL}`, [product.stall_id]);
     if ((!product.is_active || !visible) && actor?.role !== "admin" && actor?.id !== product.stalls.owner_id) fail("Product not found.", 404);
+    // Previews (e.g. the product pinned in a chat) don't count as views.
+    if (!countView) return product;
     const [{ view_count }] = await q("UPDATE products SET view_count = view_count + 1 WHERE id = $1 RETURNING view_count", [productId]);
     return { ...product, view_count };
   },

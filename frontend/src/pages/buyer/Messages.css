@@ -80,3 +80,36 @@
 @media (max-width: 480px) {
   .seller-messages-layout { width: 100%; margin: 0; border-radius: 0; }
 }
+
+/* ── Redesign: bubbles, pinned product, empty panes ────────────────────────── */
+.chat-bubble-row.is-own .chat-bubble { color: #fff; background: var(--green-700); border: 0; border-radius: 18px 18px 6px 18px; box-shadow: 0 4px 12px rgba(19, 112, 60, .2); }
+.chat-bubble-row.is-own .chat-bubble * { color: inherit; }
+.chat-bubble-row.is-own .chat-bubble time, .chat-bubble-row.is-own .chat-bubble small { color: rgba(255, 255, 255, .88); }
+.chat-bubble-row.is-other .chat-bubble { color: var(--ink-900); background: var(--cream-100); border: 0; border-radius: 18px 18px 18px 6px; }
+.chat-bubble-row.is-other .chat-bubble time, .chat-bubble-row.is-other .chat-bubble small { color: var(--ink-600); }
+.chat-bubble { font-size: var(--text-sm); line-height: 1.5; }
+.chat-compose-field textarea { font-size: var(--text-sm) !important; }
+
+.chat-pinned { display: flex; align-items: center; gap: .8rem; margin: .6rem .9rem 0; padding: .65rem .75rem; background: var(--gold-100); border: 1.5px solid var(--gold-500); border-radius: 16px; }
+.chat-pinned-img { flex: 0 0 auto; width: 56px; height: 56px; display: grid; place-items: center; overflow: hidden; color: var(--green-700); background: #fff; border-radius: 12px; }
+.chat-pinned-img img { width: 100%; height: 100%; object-fit: cover; }
+.chat-pinned-text { flex: 1; min-width: 0; display: grid; }
+.chat-pinned-text small { color: var(--gold-700); font: 800 .75rem var(--font-body); letter-spacing: .06em; text-transform: uppercase; }
+.chat-pinned-text strong { overflow: hidden; color: var(--ink-900); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
+.chat-pinned-text span { color: var(--ink-600); font-size: var(--text-xs); }
+.chat-pinned-actions { display: flex; gap: .4rem; flex: 0 0 auto; }
+@media (max-width: 560px) {
+  .chat-pinned { flex-wrap: wrap; }
+  .chat-pinned-actions { width: 100%; }
+  .chat-pinned-actions .btn { flex: 1; }
+}
+.message-content-panel .message-welcome-empty { height: 100%; justify-content: center; box-shadow: none; border-radius: 0; }
+.conversation-list .cm-empty { background-color: transparent; }
+.chat-bubble-row.is-own .chat-bubble > span { color: #fff; }
+.chat-bubble-row.is-other .chat-bubble > span { color: var(--ink-600); }
+.chat-bubble p { font-size: var(--text-sm); }
+.chat-bubble-row.is-other .chat-bubble p { color: var(--ink-900); }
+/* Header, safety note, optional pinned product, messages (stretch), composer */
+.chat-window:has(> .chat-pinned) { grid-template-rows: auto auto auto minmax(0, 1fr) auto; }
+.chat-pinned { align-self: start; }
+.chat-message-area { background: var(--cream-50) var(--texture-leaf); }

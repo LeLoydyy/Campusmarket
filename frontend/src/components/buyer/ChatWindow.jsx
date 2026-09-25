@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { formatCurrency } from "../../utils/formatCurrency.js";
 import {
   ArrowLeft,
   CheckCheck,
@@ -6,6 +8,7 @@ import {
   MoreHorizontal,
   Send,
   ShieldCheck,
+  ShoppingBag,
   XCircle,
 } from "lucide-react";
 
@@ -24,6 +27,7 @@ const getInitials = (name) =>
     .toUpperCase();
 
 const getMessageText = (message) => message.content ?? message.text ?? "";
+const sentAt = (message) => message.sent_at || message.created_at;
 
 const isOwnMessage = (message, currentUserId) =>
   message.isUser === true ||
@@ -68,6 +72,9 @@ export default function ChatWindow({
   onRetry,
   onBack,
   onSendMessage,
+  pinnedProduct = null,
+  onOrderProduct,
+  ordering = false,
 }) {
   const [draft, setDraft] = useState("");
   const endRef = useRef(null);
@@ -76,7 +83,7 @@ export default function ChatWindow({
   const sortedMessages = useMemo(
     () =>
       [...messages].sort(
-        (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0),
+        (a, b) => new Date(sentAt(a) || 0) - new Date(sentAt(b) || 0),
       ),
     [messages],
   );
@@ -153,11 +160,35 @@ export default function ChatWindow({
 
       <div className="chat-trust-strip">
         <ShieldCheck />
-          {viewerRole === "seller"
-    ? "Keep order details clear and never request sensitive payment information in chat."
-    : "Keep payments and personal information private when coordinating with sellers."}
-        sellers.
+        {viewerRole === "seller"
+          ? "Keep order details clear and never request sensitive payment information in chat."
+          : "Keep payments and personal information private when coordinating with sellers."}
       </div>
+
+      {pinnedProduct && (
+        <div className="chat-pinned" aria-label="Product in this conversation">
+          <span className="chat-pinned-img">
+            {pinnedProduct.image_url ? <img src={pinnedProduct.image_url} alt="" /> : <ShoppingBag aria-hidden="true" />}
+          </span>
+          <span className="chat-pinned-text">
+            <small>Asking about</small>
+            <strong>{pinnedProduct.name}</strong>
+            <span>
+              {formatCurrency(pinnedProduct.price)}
+              {pinnedProduct.stalls?.location ? ` · pickup at ${pinnedProduct.stalls.location}` : ""}
+              {Number(pinnedProduct.stock) <= 0 ? " · sold out" : ""}
+            </span>
+          </span>
+          <span className="chat-pinned-actions">
+            <Link className="btn btn-outline btn-sm" to={`/products/${pinnedProduct.id}`}>View</Link>
+            {viewerRole !== "seller" && onOrderProduct && (
+              <button type="button" className="btn btn-gold btn-sm" onClick={() => onOrderProduct(pinnedProduct)} disabled={ordering || Number(pinnedProduct.stock) <= 0}>
+                {ordering ? "Adding…" : "Order this"}
+              </button>
+            )}
+          </span>
+        </div>
+      )}
 
       <div className="chat-message-area">
         {loading ? (
@@ -195,19 +226,19 @@ export default function ChatWindow({
               const previous = sortedMessages[index - 1];
               const showDay =
                 !previous ||
-                dayLabel(previous.created_at) !== dayLabel(message.created_at);
+                dayLabel(sentAt(previous)) !== dayLabel(sentAt(message));
               const text = getMessageText(message);
 
               return (
                 <div
                   className="chat-message-entry"
                   key={
-                    message.id || `${message.created_at || "message"}-${index}`
+                    message.id || `${sentAt(message) || "message"}-${index}`
                   }
                 >
                   {showDay && (
                     <div className="chat-day-divider">
-                      <span>{dayLabel(message.created_at)}</span>
+                      <span>{dayLabel(sentAt(message))}</span>
                     </div>
                   )}
                   <div
@@ -221,7 +252,7 @@ export default function ChatWindow({
                     <div className="chat-bubble">
                       <p>{text}</p>
                       <span>
-                        {formatTime(message.created_at)}
+                        {formatTime(sentAt(message))}
                         {own && <CheckCheck aria-label="Sent" />}
                       </span>
                     </div>

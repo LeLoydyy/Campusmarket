@@ -229,3 +229,19 @@
   .cm-section-head { align-items: flex-start; flex-direction: column; gap: .25rem; }
   .ec-grid { grid-template-columns: 1fr; }
 }
+
+/* ── Order stepper ─────────────────────────────────────────────────────────── */
+.ostep { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
+.ostep-item { position: relative; display: grid; justify-items: center; gap: .35rem; text-align: center; }
+.ostep-item::before { content: ""; position: absolute; top: 17px; right: 50%; left: -50%; height: 4px; background: var(--line); border-radius: 4px; }
+.ostep-item:first-child::before { display: none; }
+.ostep-item.is-done::before, .ostep-item.is-current::before { background: var(--green-700); }
+.ostep-dot { position: relative; z-index: 1; width: 38px; height: 38px; display: grid; place-items: center; color: var(--ink-600); background: var(--surface); border: 3px solid var(--line); border-radius: 50%; transition: background-color var(--dur), border-color var(--dur); }
+.ostep-dot svg { width: 17px; height: 17px; }
+.ostep-item.is-done .ostep-dot { color: #fff; background: var(--green-700); border-color: var(--green-700); }
+.ostep-item.is-current .ostep-dot { color: var(--green-900); background: var(--gold-500); border-color: var(--gold-500); box-shadow: 0 0 0 5px rgba(245, 184, 46, .3); }
+.ostep-label { color: var(--ink-600); font: 700 var(--text-xs)/1.25 var(--font-body); }
+.ostep-item.is-current .ostep-label { color: var(--ink-900); font-weight: 800; }
+.ostep-item.is-done .ostep-label { color: var(--green-700); }
+.ostep-cancelled { display: flex; align-items: center; gap: .5rem; padding: .7rem .9rem; color: var(--coral-700); background: var(--coral-100); border-radius: 14px; font-size: var(--text-sm); font-weight: 700; }
+.ostep-cancelled svg { width: 18px; height: 18px; flex: 0 0 auto; }

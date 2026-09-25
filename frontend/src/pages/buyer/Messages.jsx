@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Inbox, MessageCircle, RefreshCw, Search, XCircle } from "lucide-react";
+import { RefreshCw, Search, XCircle } from "lucide-react";
 
 import Navbar from "../../components/common/Navbar.jsx";
 import Sidebar from "../../components/common/Sidebar.jsx";
 import ChatWindow from "../../components/buyer/ChatWindow.jsx";
-import { messageService } from "../../services/api.js";
+import { messageService, productService } from "../../services/api.js";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { useCart } from "../../context/CartContext.jsx";
+import { useNavigate } from "react-router-dom";
+import EmptyState from "../../components/ui/EmptyState.jsx";
 import toast from "react-hot-toast";
 
 import "./Messages.css";
@@ -104,6 +107,37 @@ export default function Messages({ sellerMode = false }) {
   const [messageError, setMessageError] = useState("");
   const [query, setQuery] = useState("");
   const requestSequence = useRef(0);
+  const [pinnedProduct, setPinnedProduct] = useState(null);
+  const [ordering, setOrdering] = useState(false);
+  const { addItem } = useCart();
+  const navigate = useNavigate();
+
+  // The product this conversation is about: the latest message that mentions one.
+  const productId = useMemo(() => {
+    const tagged = [...messages].filter((m) => m.product_id).sort((a, b) => new Date(b.sent_at || b.created_at) - new Date(a.sent_at || a.created_at));
+    return tagged[0]?.product_id || null;
+  }, [messages]);
+  useEffect(() => {
+    if (!productId) { setPinnedProduct(null); return undefined; }
+    let active = true;
+    productService.getPreview(productId)
+      .then(({ data }) => { if (active) setPinnedProduct(data); })
+      .catch(() => { if (active) setPinnedProduct(null); });
+    return () => { active = false; };
+  }, [productId]);
+
+  const orderPinned = async (product) => {
+    try {
+      setOrdering(true);
+      await addItem(product);
+      toast.success(`${product.name} added to your cart`);
+      navigate("/cart");
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Couldn't add this to your cart");
+    } finally {
+      setOrdering(false);
+    }
+  };
 
   const loadConversations = async ({ background = false } = {}) => {
     if (!user) return;
@@ -179,6 +213,12 @@ export default function Messages({ sellerMode = false }) {
       if (requestId === requestSequence.current) setMessageLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!selectedConversation && conversations.length && window.matchMedia("(min-width: 900px)").matches) {
+      handleSelectConversation(conversations[0]);
+    }
+  }, [conversations]);
 
   const retryMessages = () => {
     if (selectedConversation) {
@@ -325,15 +365,9 @@ export default function Messages({ sellerMode = false }) {
                   </button>
                 </div>
               ) : !conversations.length ? (
-                <div className="conversation-state">
-                  <Inbox />
-                  <strong>No conversations yet</strong>
-                  <p>
-                    {isSeller
-                      ? "Buyer conversations will appear here when someone contacts your stall."
-                      : "Open a product and message its seller to start chatting."}
-                  </p>
-                </div>
+                <EmptyState compact illustration="chat" title="No conversations yet"
+                  description={isSeller ? "Buyer questions will appear here when someone contacts your stall." : "Open a product and tap “Message seller” to ask about it."}
+                  action={isSeller ? undefined : { label: "Browse products", to: "/browse" }} />
               ) : !visibleConversations.length ? (
                 <div className="conversation-state compact">
                   <Search />
@@ -398,20 +432,18 @@ export default function Messages({ sellerMode = false }) {
                 onRetry={retryMessages}
                 onBack={closeMobileConversation}
                 onSendMessage={handleSendMessage}
+                viewerRole={isSeller ? "seller" : "buyer"}
+                pinnedProduct={pinnedProduct}
+                onOrderProduct={isSeller ? undefined : orderPinned}
+                ordering={ordering}
               />
             ) : (
-              <div className="message-welcome-state">
-                <span>
-                  <MessageCircle />
-                </span>
-                <small>Your inbox</small>
-                <h2>Select a conversation</h2>
-                <p>
-                  {isSeller
-                    ? "Choose a buyer conversation to read messages and reply."
-                    : "Choose a seller from the left to read messages and continue your conversation."}
-                </p>
-              </div>
+              <EmptyState className="message-welcome-empty" illustration="chat"
+                title={conversations.length ? "Pick a conversation" : "Your inbox is ready"}
+                description={conversations.length
+                  ? (isSeller ? "Choose a buyer to read and reply." : "Choose a seller on the left to continue chatting.")
+                  : (isSeller ? "When buyers message your stall, you'll reply from here." : "Questions about sizes, stock or pickup times? Message a seller from any product page.")}
+                action={!conversations.length && !isSeller ? { label: "Find something to ask about", to: "/browse" } : undefined} />
             )}
           </div>
         </section>

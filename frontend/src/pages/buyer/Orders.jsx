@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock3,
+  MapPin,
   Package,
   RefreshCw,
   Search,
@@ -16,6 +17,9 @@ import {
   XCircle,
 } from "lucide-react";
 import Navbar from "../../components/common/Navbar.jsx";
+import Footer from "../../components/common/Footer.jsx";
+import OrderStepper from "../../components/ui/OrderStepper.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
 import { orderService } from "../../services/api.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import "./Orders.css";
@@ -333,52 +337,11 @@ export default function Orders() {
         {loading ? (
           <OrdersSkeleton />
         ) : error ? (
-          <section className="orders-state-card orders-error-state">
-            <span>
-              <XCircle />
-            </span>
-            <h2>Orders unavailable</h2>
-            <p>{error}</p>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => fetchOrders()}
-            >
-              Try again
-            </button>
-          </section>
+          <EmptyState illustration="box" title="Orders unavailable" description={error} action={{ label: "Try again", onClick: () => fetchOrders() }} />
         ) : !orders.length ? (
-          <section className="orders-state-card orders-empty-state">
-            <span>
-              <ShoppingBag />
-            </span>
-            <small>Nothing here yet</small>
-            <h2>Your first campus find is waiting</h2>
-            <p>
-              Products you order from verified campus sellers will appear here.
-            </p>
-            <Link to="/browse" className="btn btn-primary btn-lg">
-              Browse products
-            </Link>
-          </section>
+          <EmptyState illustration="bag" title="Your first campus find is waiting" description="Products you order from verified campus sellers will appear here, with every step from placed to ready for pickup." action={{ label: "Browse products", to: "/browse" }} secondaryAction={{ label: "See stalls open now", to: "/stalls" }} />
         ) : !visibleOrders.length ? (
-          <section className="orders-state-card orders-no-results">
-            <span>
-              <Search />
-            </span>
-            <h2>No matching orders</h2>
-            <p>Try another search term or choose a different status.</p>
-            <button
-              type="button"
-              className="btn btn-outline"
-              onClick={() => {
-                setQuery("");
-                setActiveFilter("all");
-              }}
-            >
-              Clear filters
-            </button>
-          </section>
+          <EmptyState compact illustration="search" title="No matching orders" description="Try another search term or choose a different status." action={{ label: "Clear filters", onClick: () => { setQuery(""); setActiveFilter("all"); } }} />
         ) : (
           <section className="buyer-order-list" aria-busy={refreshing}>
             <div className="orders-results-heading" aria-live="polite">
@@ -400,6 +363,7 @@ export default function Orders() {
           </section>
         )}
       </main>
+      <Footer />
     </div>
   );
 }
@@ -452,20 +416,21 @@ function BuyerOrderCard({ order, expanded, onToggle, now, cancelling, cancelDisa
         </div>
       </header>
 
-      <div className="buyer-order-seller-row">
-        <span>
-          {getStatusIcon(status)} {statusMessage}
-        </span>
-        <span>
-          {fulfillment === "delivery" ? (
-            <Truck size={14} />
-          ) : (
-            <Store size={14} />
-          )}
-          {fulfillment === "delivery" ? "Campus delivery" : "Campus pickup"}
-          {fulfillment !== "delivery" && order.stall?.location && ` · ${order.stall.location}`}
-        </span>
+      <div className="buyer-order-progress">
+        <OrderStepper status={status} fulfillment={fulfillment} />
+        <p className="buyer-order-status-text">{getStatusIcon(status)} {statusMessage}</p>
       </div>
+
+      {!["cancelled", "canceled"].includes(status) && (
+        <div className={`buyer-order-pickup ${fulfillment === "delivery" ? "is-delivery" : ""}`}>
+          <span className="buyer-order-pickup-icon" aria-hidden="true">{fulfillment === "delivery" ? <Truck size={20} /> : <MapPin size={20} />}</span>
+          <span>
+            <small>{fulfillment === "delivery" ? "Campus delivery" : "Pick up at"}</small>
+            <strong>{fulfillment === "delivery" ? "The seller will bring it to you" : order.stall?.location || stallName}</strong>
+            {fulfillment !== "delivery" && order.stall?.location && <small>{stallName}</small>}
+          </span>
+        </div>
+      )}
 
       <div className="buyer-order-items">
         {displayedItems.length ? (
