@@ -824,7 +824,24 @@ export const messageStore = {
 };
 
 // ── Events ────────────────────────────────────────────────────────────────────
-const EVENT_STALL_COLUMNS = ["id", "event_id", "stall_number", "category", "status", "size", "price", "stall_id", "seller_id", "name", "description", "location"];
+const EVENT_STALL_COLUMNS = ["id", "event_id", "stall_number", "category", "status", "size", "price", "stall_id", "seller_id", "name", "description", "location", "x", "y", "w", "h"];
+
+// Stall map grid (cells). Geometry is optional: spaces without it are auto-placed by number.
+export const MAP_COLS = 24;
+export const MAP_ROWS = 16;
+const LANDMARK_TYPES = ["stage", "entrance", "exit", "restroom", "info", "custom"];
+
+/** Validated {x,y,w,h} inside the grid, or all-null when the item has no position yet. */
+const mapGeometry = (item, what) => {
+  const values = ["x", "y", "w", "h"].map((key) => item[key]);
+  if (values.every((value) => value === undefined || value === null)) return { x: null, y: null, w: null, h: null };
+  const [x, y, w, h] = values;
+  if (![x, y, w, h].every(Number.isInteger) || x < 0 || y < 0 || w < 1 || h < 1 || x + w > MAP_COLS || y + h > MAP_ROWS) {
+    fail(`${what} must sit inside the ${MAP_COLS}×${MAP_ROWS} map grid.`);
+  }
+  return { x, y, w, h };
+};
+const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
 export const eventStore = {
   async saveEvent(payload, actorId) {
@@ -864,9 +881,29 @@ export const eventStore = {
           || !String(item.size || "").trim() || String(item.size).length > 40) fail("Provide a size and valid non-negative price.");
         if (prior?.seller_id && item.status !== prior.status) fail("Assigned spaces cannot change status in the layout editor.", 409);
         return { ...prior, id: prior?.id || randomUUID(), event_id: event.id, stall_number: item.stall_number,
-          category: item.category, status: item.status, size: item.size.trim(), price: item.price };
+          category: item.category, status: item.status, size: item.size.trim(), price: item.price,
+          ...mapGeometry(item, `Space ${item.stall_number}`) };
       });
       if (existing.some((item) => !ids.has(item.id))) fail("Existing spaces cannot be removed from this editor.");
+
+      let landmarks = event.landmarks || [];
+      if (payload.landmarks !== undefined) {
+        if (!Array.isArray(payload.landmarks) || payload.landmarks.length > 20) fail("A map supports up to 20 landmarks.");
+        landmarks = payload.landmarks.map((item) => {
+          const label = String(item.label || "").trim();
+          if (!LANDMARK_TYPES.includes(item.type) || !label || label.length > 40) fail("Each landmark needs a type and a short label.");
+          const geometry = mapGeometry(item, `Landmark "${label}"`);
+          if (geometry.x === null) fail(`Place landmark "${label}" on the map.`);
+          return { id: String(item.id || randomUUID()).slice(0, 64), type: item.type, label, ...geometry };
+        });
+      }
+      const placed = [...next.filter((item) => item.x !== null).map((item) => ({ ...item, what: `Space ${item.stall_number}` })),
+        ...landmarks.map((item) => ({ ...item, what: item.label }))];
+      for (let i = 0; i < placed.length; i += 1) {
+        for (let j = i + 1; j < placed.length; j += 1) {
+          if (overlaps(placed[i], placed[j])) fail(`${placed[i].what} overlaps ${placed[j].what}.`);
+        }
+      }
 
       await run("DELETE FROM event_stalls WHERE event_id = $1", [event.id]);
       for (const stall of next) {
@@ -875,7 +912,8 @@ export const eventStore = {
           EVENT_STALL_COLUMNS.map((column) => stall[column] ?? null),
         );
       }
-      const [updated] = await run("UPDATE events SET layout_version = layout_version + 1 WHERE id = $1 RETURNING *", [event.id]);
+      const [updated] = await run("UPDATE events SET layout_version = layout_version + 1, landmarks = $2::jsonb WHERE id = $1 RETURNING *",
+        [event.id, JSON.stringify(landmarks)]);
       await audit(run, actorId, "event.layout_saved", event.id);
       return { event: updated, stalls: next };
     });
@@ -895,7 +933,7 @@ export const eventStore = {
   async listStallsForEvent(eventId) {
     if (!(await q1("SELECT 1 FROM events WHERE id = $1", [String(eventId)]))) fail("Event not found", 404);
     return q(
-      `SELECT es.*, coalesce(u.name, '') AS "sellerName",
+      `SELECT es.*, coalesce(u.name, '') AS "sellerName", s.id AS "sellerStallId", s.name AS "sellerStallName", s.logo_url AS "sellerLogo",
               coalesce((SELECT json_agg(p.name ORDER BY p.created_at) FROM products p WHERE p.stall_id = s.id), '[]'::json) AS "productsAvailable"
        FROM event_stalls es
        LEFT JOIN stalls s ON s.owner_id = es.seller_id

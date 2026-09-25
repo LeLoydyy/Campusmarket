@@ -1,0 +1,47 @@
+/* ── Stall map editor ───────────────────────────────────────────────────────── */
+.sme { display: grid; gap: 1rem; }
+.sme-bar { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: .8rem; padding: .8rem 1rem; background: rgba(255, 253, 248, .94); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-radius: 20px; box-shadow: var(--shadow-2); }
+.sme-title { flex: 1; min-width: 200px; }
+.sme-title h2 { font: 900 1.3rem/1.15 var(--font-display); }
+.sme-title p { color: var(--ink-600); font-size: var(--text-xs); }
+.sme-state { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .8rem; border-radius: var(--radius-pill); font: 800 var(--text-xs) var(--font-body); }
+.sme-state svg { width: 16px; height: 16px; }
+.sme-state.is-dirty { color: var(--gold-700); background: var(--gold-100); box-shadow: inset 0 0 0 1.5px var(--gold-500); }
+.sme-state.is-dirty i { width: 8px; height: 8px; background: var(--gold-500); border-radius: 50%; animation: sme-pulse 1.4s ease-in-out infinite; }
+.sme-state.is-clean { color: var(--green-700); background: var(--green-100); }
+@keyframes sme-pulse { 50% { transform: scale(1.5); opacity: .6; } }
+.sme-save.btn-gold { box-shadow: 0 8px 20px rgba(233, 162, 28, .35); }
+.sme-save:disabled { opacity: .55; }
+
+.sme-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 1rem; align-items: start; }
+.sme-canvas, .sme-panel { min-width: 0; padding: 1rem; background: var(--surface); border-radius: 22px; box-shadow: var(--shadow-1); }
+.sme-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-bottom: .8rem; }
+.sme-landmark-add select { height: 40px; padding: 0 .9rem; color: var(--green-900); background: var(--gold-100); border: 1.5px solid var(--gold-500); border-radius: var(--radius-pill); font: 800 var(--text-xs) var(--font-body); cursor: pointer; }
+.sme-zoom { display: flex; align-items: center; gap: .3rem; margin-left: auto; padding: .2rem; background: var(--cream-100); border-radius: var(--radius-pill); }
+.sme-zoom button { width: 40px; height: 40px; display: grid; place-items: center; color: var(--green-900); background: var(--surface); border-radius: 50%; box-shadow: var(--shadow-1); }
+.sme-zoom button:disabled { opacity: .4; box-shadow: none; }
+.sme-zoom svg { width: 18px; height: 18px; }
+.sme-zoom span { min-width: 48px; color: var(--ink-900); font: 800 var(--text-xs) var(--font-body); text-align: center; }
+.sme-help { display: flex; align-items: flex-start; gap: .45rem; margin-top: .75rem; color: var(--ink-600); font-size: var(--text-xs); line-height: 1.5; }
+.sme-help svg { flex: 0 0 auto; width: 16px; height: 16px; margin-top: .1rem; color: var(--green-700); }
+
+.sme-side { display: grid; gap: 1rem; position: sticky; top: 96px; }
+.sme-form { display: grid; gap: .75rem; border: 0; margin: 0; padding: 0; }
+.sme-form legend { margin-bottom: .6rem; font: 900 1.15rem var(--font-display); color: var(--ink-900); }
+.sme-form label { display: grid; gap: .3rem; color: var(--ink-900); font: 700 var(--text-xs) var(--font-body); }
+.sme-form input, .sme-form select { width: 100%; min-width: 0; height: 44px; padding: 0 .75rem; color: var(--ink-900); background: var(--cream-50); border: 1.5px solid var(--line); border-radius: 12px; font: 600 var(--text-sm) var(--font-body); }
+.sme-form input:focus, .sme-form select:focus { border-color: var(--green-700); outline: none; }
+.sme-row { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+.sme-note { color: var(--ink-600); font-size: var(--text-xs); line-height: 1.5; }
+.sme-delete { justify-self: start; color: var(--coral-700); }
+.sme-delete:hover:not(:disabled) { color: var(--coral-700); background: var(--coral-100); }
+.sme-empty h3 { font: 900 1.1rem var(--font-display); }
+.sme-empty p { margin-top: .3rem; color: var(--ink-600); font-size: var(--text-sm); }
+.sme-counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-top: .9rem; list-style: none; }
+.sme-counts li { display: grid; padding: .55rem; color: var(--ink-600); background: var(--cream-50); border-radius: 12px; font-size: var(--text-xs); text-align: center; }
+.sme-counts b { color: var(--ink-900); font: 900 1.3rem var(--font-display); }
+
+@media (max-width: 1100px) {
+  .sme-body { grid-template-columns: 1fr; }
+  .sme-side { position: static; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+}

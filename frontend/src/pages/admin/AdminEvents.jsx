@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Sidebar from "../../components/common/Sidebar.jsx";
 import api from "../../services/api.js";
+import StallMapEditor from "../../components/map/StallMapEditor.jsx";
+import "../../components/map/StallMapEditor.css";
 import eventService from "../../services/eventService.js";
 import toast from "react-hot-toast";
 import { CalendarDays, MapPin, ArrowUpRight, Plus, Search, Store, CalendarCheck, LayoutGrid, ArrowRight } from "lucide-react";
 import "./AdminWorkspace.css";
 
-const categories = { food: "Food stall", merchandise: "Merchandise", mixed: "Mixed-use" };
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 const eventStatus = (event) => {
   const start = String(event.start_date || event.date || "").slice(0, 10);
@@ -23,11 +24,9 @@ export default function AdminEvents() {
   const [events, setEvents] = useState([]);
   const [event, setEvent] = useState(null);
   const [stalls, setStalls] = useState([]);
-  const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
   const [creating, setCreating] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All events");
@@ -37,28 +36,12 @@ export default function AdminEvents() {
     try {
       if (eventId) {
         const [e, s] = await Promise.all([eventService.getOne(eventId), eventService.getStalls(eventId)]);
-        setEvent(e.data); setStalls(s.data.map((item, index) => ({ ...item, stall_number: item.stall_number || index + 1, size: item.size || "3m x 3m", price: Number(item.price || 0) }))); setSelectedId(null);
+        setEvent(e.data); setStalls(s.data.map((item, index) => ({ ...item, stall_number: item.stall_number || index + 1, size: item.size || "3m x 3m", price: Number(item.price || 0) })));
       } else { setEvents((await eventService.getAll()).data); }
-      setDirty(false);
     } catch (err) { setError(err.response?.data?.error || "Unable to load events. Please retry."); }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, [eventId]);
-  useEffect(() => {
-    const warn = (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
-  const selected = stalls.find((item) => item.id === selectedId);
-  const update = (key, value) => { setStalls((items) => items.map((item) => item.id === selectedId ? { ...item, [key]: value } : item)); setDirty(true); };
-  const save = async () => {
-    setSaving(true);
-    try {
-      const { data } = await api.put(`/admin/events/${eventId}/layout`, { version: event.layout_version || 0, stalls });
-      setEvent(data.event); setStalls(data.stalls); setSelectedId(null); setDirty(false); toast.success("Layout saved");
-    } catch (err) { toast.error(err.response?.data?.error || "Unable to save layout"); }
-    finally { setSaving(false); }
-  };
   const create = async (e) => {
     e.preventDefault(); const payload = Object.fromEntries(new FormData(e.currentTarget)); setSaving(true);
     try { await api.post("/admin/events", payload); setCreating(false); toast.success("Event created"); await load(); }
@@ -73,15 +56,7 @@ export default function AdminEvents() {
     <div className="topbar admin-topbar"><div className="admin-breadcrumb">Workspace <span>/</span> <strong>{eventId ? "Stall map" : "Events"}</strong></div><span className="admin-workspace-label"><span /> Administrator workspace</span></div>
     <div className="dashboard-content">
       <header className="admin-page-heading"><div><p className="admin-eyebrow">CAMPUS OPERATIONS</p><h1>{eventId ? "Design your event space" : "Bring campus together."}</h1><p>{eventId ? "Every stall in the right place. Select a space to get started." : "Plan events, organize stalls, and make room for student enterprise."}</p></div>{!eventId && <button className="btn btn-primary admin-create-button" onClick={() => setCreating(!creating)} disabled={loading || !!error}><Plus size={17} />{creating ? "Close form" : "Create event"}</button>}</header>
-      {loading ? <p role="status">Loading events…</p> : error ? <div role="alert" className="card admin-panel"><p>{error}</p><button className="btn btn-outline" onClick={load}>Retry</button></div> : eventId ? <>
-        <div className="admin-toolbar"><Link className="btn btn-ghost" to="/admin/events" onClick={(e) => { if (dirty && !window.confirm("Discard unsaved layout changes?")) e.preventDefault(); }}>← Back to events</Link><div><h2>{event.name}</h2><p>{event.date} · {event.location}</p></div><button className="btn btn-primary" disabled={!dirty || saving} onClick={save}>{saving ? "Saving…" : "Save layout"}</button></div>
-        <p className="admin-save-status" role="status">{dirty ? "Unsaved changes" : "Layout is up to date"} · {stalls.length} spaces · {stalls.filter((s) => s.status === "available").length} available</p>
-        <div className="admin-map-layout">
-          <aside className="card admin-panel"><h3>Stall categories</h3>{Object.entries(categories).map(([key, label]) => <p className="admin-legend" key={key}><i className={`space-${key}`} />{label}</p>)}<hr /><h3>Availability</h3><p>Status is labeled on each space independently of its category.</p><p>Assigned sellers are preserved when saving.</p><button className="btn btn-outline" disabled={saving || stalls.length >= 200} onClick={() => { const item = { id: `new-${crypto.randomUUID()}`, stall_number: Math.max(0, ...stalls.map((s) => s.stall_number)) + 1, category: "food", status: "available", size: "3m x 3m", price: 0 }; setStalls([...stalls, item]); setSelectedId(item.id); setDirty(true); }}>+ Add space</button></aside>
-          <section className="card admin-map"><div className="admin-map-marker">STAGE</div>{stalls.length === 0 ? <div className="empty-state"><h3>No spaces yet</h3><p>Add spaces to start this event’s layout.</p></div> : <div className="admin-space-grid" aria-label="Event spaces">{stalls.map((item) => <button key={item.id} className={`admin-space space-${item.category} ${selectedId === item.id ? "is-selected" : ""}`} aria-pressed={selectedId === item.id} aria-label={`Space ${item.stall_number}, ${categories[item.category] || item.category}, ${item.status}`} onClick={() => setSelectedId(item.id)}><strong>{item.stall_number}</strong><small>{item.status}</small></button>)}</div>}<div className="admin-map-marker">ENTRANCE</div></section>
-          <aside className="card admin-panel"><h3>{selected ? `Space ${selected.stall_number}` : "Space details"}</h3>{selected ? <fieldset disabled={saving}><label>Category<select value={selected.category} onChange={(e) => update("category", e.target.value)}>{!categories[selected.category] && <option>{selected.category}</option>}{Object.entries(categories).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label><label>Size<input maxLength={40} value={selected.size} onChange={(e) => update("size", e.target.value)} /></label><label>Price (PHP)<input type="number" min="0" max="1000000" step="0.01" value={selected.price} onChange={(e) => update("price", e.target.value === "" ? "" : Number(e.target.value))} /></label><label>Status<select disabled={!!selected.seller_id} value={selected.status} onChange={(e) => update("status", e.target.value)}>{!["available", "reserved", "occupied"].includes(selected.status) && <option>{selected.status}</option>}<option value="available">Available</option><option value="reserved">Reserved</option><option value="occupied">Occupied</option></select></label>{selected.seller_id && <p>Assigned to {selected.sellerName || selected.name || "a seller"}. Availability is protected.</p>}<p>Changes apply when you save the layout.</p></fieldset> : <p>Select a space to edit its category, size, price and status.</p>}</aside>
-        </div>
-      </> : <>
+      {loading ? <p role="status">Loading events…</p> : error ? <div role="alert" className="card admin-panel"><p>{error}</p><button className="btn btn-outline" onClick={load}>Retry</button></div> : eventId ? <StallMapEditor key={event.id + ":" + (event.layout_version || 0)} event={event} stalls={stalls} /> : <>
         <section className="admin-event-summary" aria-label="Event overview">
           {[
             { label: "Total events", value: events.length, icon: CalendarDays, note: "Across your campus" },

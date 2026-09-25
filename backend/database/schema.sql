@@ -190,6 +190,12 @@ CREATE TABLE IF NOT EXISTS seller_applications (
   created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 -- Added after the first release; ADD COLUMN IF NOT EXISTS upgrades existing databases.
+-- Stall map geometry (grid units; NULL = auto-placed by stall number) and event landmarks.
+ALTER TABLE event_stalls ADD COLUMN IF NOT EXISTS x INTEGER;
+ALTER TABLE event_stalls ADD COLUMN IF NOT EXISTS y INTEGER;
+ALTER TABLE event_stalls ADD COLUMN IF NOT EXISTS w INTEGER;
+ALTER TABLE event_stalls ADD COLUMN IF NOT EXISTS h INTEGER;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS landmarks JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE seller_applications ADD COLUMN IF NOT EXISTS review_note TEXT;
 ALTER TABLE seller_applications ADD COLUMN IF NOT EXISTS reviewed_by TEXT;
 ALTER TABLE seller_applications ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
