@@ -1,503 +1,270 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { AlertTriangle, ArrowRight, BarChart3, ClipboardList, PackageCheck, RefreshCw, ShoppingBag, TrendingUp, Wallet } from "lucide-react";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import Sidebar from "../../components/common/Sidebar.jsx";
-import { analyticsService, orderService } from "../../services/api.js";
+import StatCard from "../../components/ui/StatCard.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
+import { StatusChip } from "../../components/ui/Chip.jsx";
+import { SkeletonBlock } from "../../components/ui/Skeleton.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
-import {
-  FiAlertCircle,
-  FiArrowRight,
-  FiDollarSign,
-  FiPackage,
-  FiRefreshCw,
-  FiShoppingBag,
-  FiTrendingUp,
-} from "react-icons/fi";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { format } from "date-fns";
+import { analyticsService, orderService, productService, stallService } from "../../services/api.js";
+import { formatCurrency } from "../../utils/formatCurrency.js";
+import { plural } from "../../utils/marketplace.js";
 import "./Dashboard.css";
 
-const unwrapObject = (payload) => payload?.data || payload || {};
+const DAY = 86400000;
+const DONE = new Set(["completed", "delivered"]);
+const ACTIVE_PICKUP = new Set(["confirmed", "preparing", "ready"]);
+const CHART = { green: "#13703C", grid: "#ECE4D2", ink: "#4A5A50" };
 
-const unwrapArray = (payload, key) => {
-  const value =
-    payload?.data?.[key] ?? payload?.[key] ?? payload?.data ?? payload;
-  return Array.isArray(value) ? value : [];
+const list = (payload) => (Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : []);
+const axisPeso = (value) => (value >= 1000 ? `₱${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}K` : `₱${Math.round(value)}`);
+
+/** Every day of the last 30 (zeros included), so the chart shows the period, not isolated dots. */
+const fillDays = (timeline) => {
+  const byDate = Object.fromEntries(timeline.map((day) => [day.date, day]));
+  return Array.from({ length: 30 }, (_, i) => {
+    const date = new Date(Date.now() - (29 - i) * DAY).toISOString().slice(0, 10);
+    return { date, revenue: Number(byDate[date]?.revenue || 0), orders: Number(byDate[date]?.orders || 0) };
+  });
 };
 
-const formatCurrency = (value) =>
-  new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number(value) || 0);
+const pct = (current, previous) => (previous > 0 ? ((current - previous) / previous) * 100 : null);
 
-const formatCompactCurrency = (value) =>
-  new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(Number(value) || 0);
-
-const formatSafeDate = (value, pattern, fallback = "—") => {
-  if (!value) return fallback;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? fallback : format(date, pattern);
+/** Revenue and order counts from the seller's own online orders (used when analytics is unavailable). */
+const summarizeOrders = (orders, fromMs, toMs) => {
+  const inRange = orders.filter((order) => DONE.has(order.status) && Date.parse(order.created_at) >= fromMs && Date.parse(order.created_at) < toMs);
+  return { revenue: inRange.reduce((sum, order) => sum + Number(order.total || 0), 0), orders: inRange.length };
 };
-
-const getBuyerName = (order) =>
-  order?.users?.name ||
-  order?.buyer?.name ||
-  order?.profiles?.full_name ||
-  order?.buyer_name ||
-  "Campus buyer";
-
-const getOrderTotal = (order) =>
-  order?.total ?? order?.total_amount ?? order?.grand_total ?? 0;
-
-const getOrderStatus = (order) =>
-  String(order?.status || "pending")
-    .toLowerCase()
-    .replace(/\s+/g, "-");
-
-function DashboardMetric({
-  icon,
-  label,
-  value,
-  note,
-  tone = "green",
-  loading,
-}) {
-  return (
-    <article className={`seller-metric-card tone-${tone}`}>
-      <div className="seller-metric-icon">{icon}</div>
-      <div className="seller-metric-copy">
-        <span>{label}</span>
-        {loading ? (
-          <i className="seller-dashboard-shimmer" />
-        ) : (
-          <strong>{value}</strong>
-        )}
-        <small>{note}</small>
-      </div>
-    </article>
-  );
-}
 
 export default function SellerDashboard() {
   const { user } = useAuth();
-  const [sales, setSales] = useState({});
-  const [topProducts, setTopProducts] = useState([]);
-  const [recentOrders, setRecentOrders] = useState([]);
+  const [data, setData] = useState({ sales30: null, sales60: null, top: [], orders: [], products: [], stall: null, analytics: true });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
-  const [lastUpdated, setLastUpdated] = useState(null);
+  const [updatedAt, setUpdatedAt] = useState(null);
 
-  const loadDashboard = useCallback(async ({ quiet = false } = {}) => {
+  const load = useCallback(async ({ quiet = false } = {}) => {
     quiet ? setRefreshing(true) : setLoading(true);
-    setError("");
-
-    const results = await Promise.allSettled([
-      analyticsService.getSales(30),
-      analyticsService.getTopProducts(),
-      orderService.getSellerOrders({ status: "" }),
+    const [s30, s60, top, orders, products, stall] = await Promise.allSettled([
+      analyticsService.getSales(30), analyticsService.getSales(60), analyticsService.getTopProducts(30),
+      orderService.getSellerOrders(), productService.getAll({ mine: true, limit: 100 }), stallService.getMy(),
     ]);
-
-    const [salesResult, productsResult, ordersResult] = results;
-    const failedRequests = results.filter(
-      (result) => result.status === "rejected",
-    ).length;
-
-    if (salesResult.status === "fulfilled") {
-      setSales(unwrapObject(salesResult.value.data));
-    }
-    if (productsResult.status === "fulfilled") {
-      setTopProducts(
-        unwrapArray(productsResult.value.data, "products").slice(0, 5),
-      );
-    }
-    if (ordersResult.status === "fulfilled") {
-      setRecentOrders(
-        unwrapArray(ordersResult.value.data, "orders").slice(0, 6),
-      );
-    }
-
-    if (failedRequests > 0) {
-      setError(
-        results.some((result) => result.status === "rejected" && result.reason.response?.data?.code === "PREMIUM_REQUIRED")
-          ? "Free plan: record counter sales in Point of Sale. Product analytics and advertising are available with Premium through the campus administrator."
-          : failedRequests === results.length
-          ? "Dashboard data is temporarily unavailable. Please try again."
-          : "Some dashboard information could not be updated.",
-      );
-    } else {
-      setLastUpdated(new Date());
-    }
-
+    const value = (result) => (result.status === "fulfilled" ? result.value.data : null);
+    setData({
+      sales30: value(s30), sales60: value(s60), top: list(value(top)).slice(0, 5),
+      orders: list(value(orders)), products: list(value(products)), stall: value(stall),
+      analytics: s30.status === "fulfilled",
+    });
+    setUpdatedAt(new Date());
     setLoading(false);
     setRefreshing(false);
   }, []);
+  useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    loadDashboard();
-  }, [loadDashboard]);
+  const now = Date.now();
+  const kpis = useMemo(() => {
+    if (data.analytics && data.sales30) {
+      const cur = { revenue: Number(data.sales30.total_revenue || 0), orders: Number(data.sales30.total_orders || 0) };
+      const prev = { revenue: Number(data.sales60?.total_revenue || 0) - cur.revenue, orders: Number(data.sales60?.total_orders || 0) - cur.orders };
+      return { cur, prev, scope: "Completed & delivered online orders + POS sales, last 30 days", timeline: data.sales30.timeline || [] };
+    }
+    const cur = summarizeOrders(data.orders, now - 30 * DAY, now + DAY);
+    const prev = summarizeOrders(data.orders, now - 60 * DAY, now - 30 * DAY);
+    return { cur, prev, scope: "Completed & delivered online orders, last 30 days (POS needs Premium analytics)", timeline: [] };
+  }, [data, now]);
 
-  const chartData = useMemo(
-    () =>
-      (Array.isArray(sales?.timeline) ? sales.timeline : [])
-        .map((entry) => ({
-          date: formatSafeDate(entry.date, "MMM d", ""),
-          revenue: Number(entry.revenue) || 0,
-          orders: Number(entry.orders) || 0,
-        }))
-        .filter((entry) => entry.date),
-    [sales],
-  );
-
-  const pendingOrders = recentOrders.filter((order) =>
-    ["pending", "processing", "confirmed"].includes(getOrderStatus(order)),
-  ).length;
-  const firstName = user?.name?.trim().split(/\s+/)[0] || "Seller";
-  const maxSold = Math.max(
-    1,
-    ...topProducts.map((product) =>
-      Number(product.total_sold ?? product.sold_count ?? 0),
-    ),
-  );
+  const pickups = data.orders.filter((order) => (order.fulfillment || "pickup") === "pickup" && ACTIVE_PICKUP.has(order.status))
+    .sort((a, b) => (a.status === "ready" ? -1 : 0) - (b.status === "ready" ? -1 : 0) || Date.parse(a.created_at) - Date.parse(b.created_at));
+  const lowStock = data.products.filter((product) => Number(product.stock) <= 5).sort((a, b) => a.stock - b.stock);
+  const pending = data.orders.filter((order) => order.status === "pending").length;
+  const avg = kpis.cur.orders ? kpis.cur.revenue / kpis.cur.orders : 0;
+  const prevAvg = kpis.prev.orders ? kpis.prev.revenue / kpis.prev.orders : 0;
+  const firstName = user?.name?.split(" ")[0] || "seller";
 
   return (
-    <div className="dashboard-layout seller-dashboard-shell">
+    <div className="dashboard-layout sd-shell">
       <Sidebar />
-
       <main className="dashboard-main">
-        <header className="topbar seller-dashboard-topbar">
-          <div className="topbar-left">
-            <div className="topbar-titles">
-              <h1>Welcome back, {firstName}</h1>
-              <p>Here is your stall performance for the last 30 days.</p>
-            </div>
+        <header className="topbar sd-topbar">
+          <div className="topbar-titles">
+            <h1>Welcome back, {firstName}</h1>
+            <p>{data.stall?.name ? `${data.stall.name} · ${data.stall.location}` : "Your stall at a glance"}</p>
           </div>
-
-          <div className="seller-dashboard-topbar-actions">
-            {lastUpdated && (
-              <span>Updated {formatSafeDate(lastUpdated, "h:mm a")}</span>
-            )}
-            <button
-              type="button"
-              className="seller-refresh-button"
-              onClick={() => loadDashboard({ quiet: true })}
-              disabled={loading || refreshing}
-            >
-              <FiRefreshCw className={refreshing ? "is-spinning" : ""} />
-              Refresh
+          <div className="sd-topbar-actions">
+            {updatedAt && <span className="sd-updated">Updated {updatedAt.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}</span>}
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => load({ quiet: true })} disabled={refreshing}>
+              <RefreshCw className={refreshing ? "spin" : ""} aria-hidden="true" /> Refresh
             </button>
           </div>
         </header>
 
-        <div className="dashboard-content seller-dashboard-content">
-          {error && (
-            <div className="seller-dashboard-alert" role="alert">
-              <FiAlertCircle />
-              <span>{error}</span>
-              <button
-                type="button"
-                onClick={() => loadDashboard({ quiet: true })}
-              >
-                Retry
-              </button>
-            </div>
+        <div className="dashboard-content sd-content">
+          {pending > 0 && (
+            <Link to="/seller/orders" className="sd-alert">
+              <ClipboardList aria-hidden="true" />
+              <span><strong>{plural(pending, "new order")} waiting</strong> — confirm so buyers know you're on it.</span>
+              <ArrowRight aria-hidden="true" />
+            </Link>
           )}
 
-          <section className="seller-dashboard-hero">
-            <div className="seller-dashboard-hero-copy">
-              <span>Seller workspace</span>
-              <h2>Run your campus stall with clarity.</h2>
-              <p>
-                Track sales, prioritize new orders, and keep your best products
-                ready for buyers—all from one place.
-              </p>
-              <div>
-                <Link to="/seller/products" className="btn btn-primary">
-                  Manage products <FiArrowRight />
-                </Link>
-                <Link to="/seller/orders" className="btn btn-outline">
-                  Review orders
-                </Link>
-              </div>
-            </div>
-
+          <section className="sd-kpis" aria-label="Key numbers">
+            {loading ? [0, 1, 2, 3].map((i) => <SkeletonBlock key={i} height={118} />) : (
+              <>
+                <StatCard icon={Wallet} tone="green" label="Revenue" value={formatCurrency(kpis.cur.revenue)} delta={pct(kpis.cur.revenue, kpis.prev.revenue)} deltaLabel="vs previous 30 days" scope={kpis.scope} />
+                <StatCard icon={ShoppingBag} tone="gold" label="Completed orders" value={kpis.cur.orders} delta={pct(kpis.cur.orders, kpis.prev.orders)} deltaLabel="vs previous 30 days" scope="Same scope as revenue" />
+                <StatCard icon={TrendingUp} tone="teal" label="Average order" value={formatCurrency(avg)} delta={pct(avg, prevAvg)} deltaLabel="vs previous 30 days" scope="Revenue ÷ completed orders" />
+                <StatCard icon={PackageCheck} tone="coral" label="Pickups to hand over" value={pickups.length} scope={`${plural(pickups.filter((o) => o.status === "ready").length, "order")} ready now`} />
+              </>
+            )}
           </section>
 
-          <section
-            className="seller-metrics-grid"
-            aria-label="Seller performance summary"
-          >
-            <DashboardMetric
-              label="Total revenue"
-              value={formatCurrency(sales?.total_revenue)}
-              note="Last 30 days"
-              icon={<FiDollarSign />}
-              tone="gold"
-              loading={loading}
-            />
-            <DashboardMetric
-              label="Total orders"
-              value={Number(sales?.total_orders) || 0}
-              note="Completed and active"
-              icon={<FiShoppingBag />}
-              tone="green"
-              loading={loading}
-            />
-            <DashboardMetric
-              label="Average order"
-              value={formatCurrency(sales?.avg_order_value)}
-              note="Revenue per order"
-              icon={<FiTrendingUp />}
-              tone="blue"
-              loading={loading}
-            />
-            <DashboardMetric
-              label="Needs attention"
-              value={pendingOrders}
-              note="Recent active orders"
-              icon={<FiPackage />}
-              tone="orange"
-              loading={loading}
-            />
-          </section>
-
-          <section className="seller-dashboard-main-grid">
-            <article className="seller-dashboard-panel seller-revenue-panel">
-              <div className="seller-panel-header">
+          <div className="sd-grid">
+            <div className="sd-col">
+            <section className="sd-card sd-chart" aria-labelledby="revenue-title">
+              <div className="sd-card-head">
                 <div>
-                  <span>Revenue trend</span>
-                  <h2>Last 30 days</h2>
+                  <p className="cm-eyebrow">Revenue trend</p>
+                  <h2 id="revenue-title">Last 30 days</h2>
+                  <p className="sd-scope">{kpis.scope}</p>
                 </div>
-                <Link to="/seller/analytics">
-                  Full analytics <FiArrowRight />
-                </Link>
+                <Link to="/seller/analytics" className="cm-link">Full analytics <ArrowRight aria-hidden="true" /></Link>
               </div>
-
-              <div className="seller-chart-area">
-                {loading ? (
-                  <div className="seller-chart-skeleton seller-dashboard-shimmer" />
-                ) : chartData.length === 0 ? (
-                  <div className="seller-panel-empty">
-                    <FiTrendingUp />
-                    <h3>No revenue activity yet</h3>
-                    <p>
-                      Your sales trend will appear after buyers place orders.
-                    </p>
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={chartData}
-                      margin={{ top: 8, right: 10, left: -10, bottom: 0 }}
-                    >
-                      <CartesianGrid
-                        vertical={false}
-                        strokeDasharray="3 3"
-                        stroke="#e9eeeb"
-                      />
-                      <XAxis
-                        dataKey="date"
-                        tick={{ fontSize: 10, fill: "#819087" }}
-                        tickLine={false}
-                        axisLine={false}
-                        minTickGap={20}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 10, fill: "#819087" }}
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={formatCompactCurrency}
-                      />
-                      <Tooltip
-                        cursor={{
-                          stroke: "rgba(15,123,62,.18)",
-                          strokeWidth: 1,
-                        }}
-                        contentStyle={{
-                          borderRadius: 12,
-                          border: "1px solid #e1e8e4",
-                          boxShadow: "0 10px 28px rgba(15,52,34,.10)",
-                          fontSize: 12,
-                        }}
-                        formatter={(value) => [
-                          formatCurrency(value),
-                          "Revenue",
-                        ]}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="revenue"
-                        stroke="#0f7b3e"
-                        strokeWidth={2.5}
-                        dot={false}
-                        activeDot={{
-                          r: 4,
-                          fill: "#0f7b3e",
-                          stroke: "#fff",
-                          strokeWidth: 2,
-                        }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </article>
-
-            <article className="seller-dashboard-panel seller-top-products-panel">
-              <div className="seller-panel-header">
-                <div>
-                  <span>Product performance</span>
-                  <h2>Top products</h2>
-                </div>
-                <Link to="/seller/products">
-                  View all <FiArrowRight />
-                </Link>
-              </div>
-
-              {loading ? (
-                <div className="seller-list-skeleton">
-                  {Array.from({ length: 5 }).map((_, index) => (
-                    <i key={index} className="seller-dashboard-shimmer" />
-                  ))}
-                </div>
-              ) : topProducts.length === 0 ? (
-                <div className="seller-panel-empty compact">
-                  <FiPackage />
-                  <h3>No products yet</h3>
-                  <p>Add your first product to begin tracking performance.</p>
-                  <Link
-                    to="/seller/products"
-                    className="btn btn-outline btn-sm"
-                  >
-                    Manage products
-                  </Link>
-                </div>
+              {loading ? <SkeletonBlock height={260} /> : !data.analytics ? (
+                <EmptyState compact illustration="sprout" title="Revenue charts are a Premium feature" description="Your KPIs above still count your completed online orders. Ask the campus administrator to switch your stall to Premium for charts and POS analytics." />
+              ) : kpis.timeline.length === 0 ? (
+                <EmptyState compact illustration="sprout" title="No completed sales yet" description="When orders are completed or delivered, your daily revenue will grow here." action={{ label: "Review orders", to: "/seller/orders" }} />
               ) : (
-                <ol className="seller-top-products-list">
-                  {topProducts.map((product, index) => {
-                    const sold = Number(
-                      product.total_sold ?? product.sold_count ?? 0,
-                    );
-                    const name =
-                      product.product?.name ||
-                      product.name ||
-                      "Untitled product";
+                <div className="sd-chart-box">
+                  <ResponsiveContainer width="100%" height={260}>
+                    <AreaChart data={fillDays(kpis.timeline)} margin={{ top: 10, right: 8, left: -8, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="sdRevenue" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={CHART.green} stopOpacity={0.45} />
+                          <stop offset="100%" stopColor={CHART.green} stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke={CHART.grid} vertical={false} />
+                      <XAxis dataKey="date" tickFormatter={(d) => new Date(d).toLocaleDateString("en-PH", { month: "short", day: "numeric" })} tick={{ fill: CHART.ink, fontSize: 13 }} axisLine={false} tickLine={false} minTickGap={28} />
+                      <YAxis tickFormatter={axisPeso} tick={{ fill: CHART.ink, fontSize: 13 }} axisLine={false} tickLine={false} width={56} allowDecimals={false} />
+                      <Tooltip formatter={(v) => [formatCurrency(v), "Revenue"]} labelFormatter={(d) => new Date(d).toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" })} contentStyle={{ borderRadius: 14, border: "none", boxShadow: "0 10px 24px rgba(11,61,36,.14)" }} />
+                      <Area type="monotone" dataKey="revenue" stroke={CHART.green} strokeWidth={3} fill="url(#sdRevenue)" dot={false} activeDot={{ r: 6, fill: "#F5B82E", stroke: "#fff", strokeWidth: 2 }} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </section>
+
+<section className="sd-card" aria-labelledby="top-title">
+              <div className="sd-card-head">
+                <div>
+                  <p className="cm-eyebrow">Best sellers</p>
+                  <h2 id="top-title">Top products</h2>
+                </div>
+                <BarChart3 className="sd-head-icon" aria-hidden="true" />
+              </div>
+              {loading ? <SkeletonBlock height={160} /> : data.top.length === 0 ? (
+                <EmptyState compact illustration="bag" title={data.analytics ? "No sales yet" : "Premium feature"} description={data.analytics ? "Your best sellers will rank here." : "Product rankings come with Premium analytics."} />
+              ) : (
+                <ol className="sd-top">
+                  {data.top.map((row, index) => {
+                    const max = Math.max(...data.top.map((r) => Number(r.total_sold)));
                     return (
-                      <li
-                        key={
-                          product.product_id || product.id || `${name}-${index}`
-                        }
-                      >
-                        <span className="seller-product-rank">{index + 1}</span>
-                        <div className="seller-product-performance">
-                          <div>
-                            <strong title={name}>{name}</strong>
-                            <small>
-                              {sold} sold ·{" "}
-                              {formatCurrency(
-                                product.revenue ?? product.total_revenue,
-                              )}
-                            </small>
-                          </div>
-                          <span>
-                            <i
-                              style={{
-                                width: `${Math.max(5, Math.round((sold / maxSold) * 100))}%`,
-                              }}
-                            />
-                          </span>
-                        </div>
+                      <li key={row.product_id}>
+                        <b>{index + 1}</b>
+                        <span>
+                          <strong>{row.product?.name || "Removed product"}</strong>
+                          <small>{plural(row.total_sold, "sold", "sold")} · {formatCurrency(row.revenue)}</small>
+                          <i style={{ width: `${(Number(row.total_sold) / max) * 100}%` }} aria-hidden="true" />
+                        </span>
                       </li>
                     );
                   })}
                 </ol>
               )}
-            </article>
-          </section>
-
-          <section className="seller-dashboard-panel seller-orders-panel">
-            <div className="seller-panel-header">
-              <div>
-                <span>Order activity</span>
-                <h2>Recent orders</h2>
-              </div>
-              <Link to="/seller/orders">
-                View all <FiArrowRight />
-              </Link>
+            </section>
             </div>
+            <div className="sd-col">
+            <section className="sd-card" aria-labelledby="pickups-title">
+              <div className="sd-card-head">
+                <div>
+                  <p className="cm-eyebrow">Hand-overs</p>
+                  <h2 id="pickups-title">Today's pickups</h2>
+                </div>
+                <Link to="/seller/orders" className="cm-link">Orders <ArrowRight aria-hidden="true" /></Link>
+              </div>
+              {loading ? <SkeletonBlock height={200} /> : pickups.length === 0 ? (
+                <EmptyState compact illustration="box" title="No pickups waiting" description="Confirmed pickup orders will line up here." />
+              ) : (
+                <ul className="sd-pickups">
+                  {pickups.slice(0, 6).map((order) => (
+                    <li key={order.id}>
+                      <span className="sd-pickup-thumb">{order.items?.[0]?.product?.image_url ? <img src={order.items[0].product.image_url} alt="" /> : <ShoppingBag aria-hidden="true" />}</span>
+                      <span className="sd-pickup-text">
+                        <strong>{order.buyer_name || "Campus buyer"}</strong>
+                        <small>{plural(order.items?.reduce((s, i) => s + Number(i.quantity), 0) || 0, "item")} · {formatCurrency(order.total)}</small>
+                      </span>
+                      <StatusChip status={order.status} label={order.status === "ready" ? "Ready" : undefined} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {data.stall?.location && <p className="sd-scope">Pickup point: <strong>{data.stall.location}</strong></p>}
+            </section>
 
-            {loading ? (
-              <div className="seller-order-skeleton">
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <i key={index} className="seller-dashboard-shimmer" />
-                ))}
+            <section className={`sd-card ${lowStock.length ? "sd-card--warn" : ""}`} aria-labelledby="stock-title">
+              <div className="sd-card-head">
+                <div>
+                  <p className="cm-eyebrow">Inventory</p>
+                  <h2 id="stock-title">{lowStock.length ? "Running low" : "Stock levels"}</h2>
+                </div>
+                <Link to="/seller/products" className="cm-link">Products <ArrowRight aria-hidden="true" /></Link>
               </div>
-            ) : recentOrders.length === 0 ? (
-              <div className="seller-panel-empty">
-                <FiShoppingBag />
-                <h3>No orders yet</h3>
-                <p>New buyer orders will appear here automatically.</p>
+              {loading ? <SkeletonBlock height={160} /> : lowStock.length === 0 ? (
+                <EmptyState compact illustration="check" title="All stocked up" description={`None of your ${plural(data.products.length, "product")} is at 5 or fewer.`} />
+              ) : (
+                <ul className="sd-stock">
+                  {lowStock.slice(0, 6).map((product) => (
+                    <li key={product.id}>
+                      <AlertTriangle aria-hidden="true" />
+                      <span>{product.name}</span>
+                      <b className={Number(product.stock) === 0 ? "is-out" : ""}>{Number(product.stock) === 0 ? "Sold out" : `${product.stock} left`}</b>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+
+            </div>
+          </div>
+
+          <section className="sd-card sd-orders" aria-labelledby="recent-title">
+            <div className="sd-card-head">
+              <div>
+                <p className="cm-eyebrow">Order activity</p>
+                <h2 id="recent-title">Recent orders</h2>
               </div>
+              <Link to="/seller/orders" className="cm-link">All orders <ArrowRight aria-hidden="true" /></Link>
+            </div>
+            {loading ? <SkeletonBlock height={180} /> : data.orders.length === 0 ? (
+              <EmptyState compact illustration="box" title="No orders yet" description="Share your stall link so buyers can find you." action={data.stall ? { label: "View your stall", to: `/stalls/${data.stall.id}` } : undefined} />
             ) : (
-              <div className="seller-orders-table-wrap">
-                <table className="seller-orders-table">
-                  <thead>
-                    <tr>
-                      <th>Order</th>
-                      <th>Buyer</th>
-                      <th>Date</th>
-                      <th>Total</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
+              <div className="sd-table-wrap">
+                <table className="sd-table">
+                  <thead><tr><th scope="col">Order</th><th scope="col">Buyer</th><th scope="col">Placed</th><th scope="col">Type</th><th scope="col">Total</th><th scope="col">Status</th></tr></thead>
                   <tbody>
-                    {recentOrders.map((order, index) => {
-                      const id = String(
-                        order.id || order.order_id || index + 1,
-                      );
-                      const status = getOrderStatus(order);
-                      return (
-                        <tr key={id}>
-                          <td data-label="Order">
-                            <strong>#{id.slice(0, 8).toUpperCase()}</strong>
-                          </td>
-                          <td data-label="Buyer">{getBuyerName(order)}</td>
-                          <td data-label="Date">
-                            {formatSafeDate(
-                              order.created_at || order.order_date,
-                              "MMM d, yyyy",
-                            )}
-                          </td>
-                          <td data-label="Total">
-                            <strong>
-                              {formatCurrency(getOrderTotal(order))}
-                            </strong>
-                          </td>
-                          <td data-label="Status">
-                            <span
-                              className={`seller-order-status status-${status}`}
-                            >
-                              {status.replace(/-/g, " ")}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {data.orders.slice(0, 6).map((order) => (
+                      <tr key={order.id}>
+                        <td>#{order.id.slice(0, 8).toUpperCase()}</td>
+                        <td>{order.buyer_name || "Campus buyer"}</td>
+                        <td>{new Date(order.created_at).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</td>
+                        <td>{order.fulfillment === "delivery" ? "Delivery" : "Pickup"}</td>
+                        <td><strong>{formatCurrency(order.total)}</strong></td>
+                        <td><StatusChip status={order.status} /></td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>

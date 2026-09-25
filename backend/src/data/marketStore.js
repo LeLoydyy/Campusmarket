@@ -574,8 +574,8 @@ const attachOrderItems = async (run, orders) => {
 
 const listOrders = async (where, params) => {
   const orders = await q(
-    `SELECT o.*, CASE WHEN st.id IS NULL THEN NULL ELSE json_build_object('id', st.id, 'name', st.name, 'location', st.location) END AS stall
-     FROM orders o LEFT JOIN stalls st ON st.id = o.stall_id WHERE ${where} ORDER BY o.created_at DESC, o.id`,
+    `SELECT o.*, b.name AS buyer_name, CASE WHEN st.id IS NULL THEN NULL ELSE json_build_object('id', st.id, 'name', st.name, 'location', st.location) END AS stall
+     FROM orders o LEFT JOIN stalls st ON st.id = o.stall_id LEFT JOIN users b ON b.id = o.buyer_id WHERE ${where} ORDER BY o.created_at DESC, o.id`,
     params,
   );
   const withItems = await attachOrderItems(q, orders);

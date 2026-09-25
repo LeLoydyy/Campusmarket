@@ -215,7 +215,7 @@
 .cm-section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1.1rem; }
 .cm-section-head h2 { margin-top: .2rem; font: 900 clamp(1.45rem, 2.4vw, 1.9rem)/1.15 var(--font-display); letter-spacing: -.03em; }
 .cm-section-head p { margin-top: .25rem; color: var(--ink-600); font-size: var(--text-sm); }
-.cm-link { display: inline-flex; align-items: center; gap: .3rem; min-height: 44px; color: var(--green-700); font-weight: 800; font-size: var(--text-sm); text-decoration: none; }
+.cm-link { display: inline-flex; align-items: center; gap: .3rem; min-height: 44px; white-space: nowrap; flex: 0 0 auto; color: var(--green-700); font-weight: 800; font-size: var(--text-sm); text-decoration: none; }
 .cm-link:hover { color: var(--green-900); text-decoration: underline; text-underline-offset: 3px; }
 .cm-link svg { width: 17px; height: 17px; }
 
