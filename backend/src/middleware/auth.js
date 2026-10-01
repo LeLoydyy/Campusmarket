@@ -17,7 +17,8 @@ export const verifySession = async (req, res, next) => {
   const token = authHeader.split(" ")[1];
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (decoded.type === "refresh") return res.status(401).json({ error: "An access token is required." });
+    // Only access tokens are untyped; refresh, sign-in challenge and email tokens are not sessions.
+    if (decoded.type) return res.status(401).json({ error: "An access token is required." });
     const user = await authStore.getUserById(decoded.id);
     if (user.is_banned) return res.status(403).json({ error: "Account suspended." });
     if (issuedBeforePasswordChange(decoded, user)) return res.status(401).json({ error: "Token expired" });

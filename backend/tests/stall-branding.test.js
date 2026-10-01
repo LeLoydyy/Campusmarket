@@ -21,6 +21,7 @@ test("sellers upload, replace and remove their stall logo and cover photo", asyn
       ...process.env, PORT: String(port), DATABASE_URL: "", PGLITE_DIR: path.join(directory, "db"), SEED_DEMO: "false",
       BOOTSTRAP_ADMIN_EMAIL: "admin@test.invalid", BOOTSTRAP_ADMIN_PASSWORD: "testpassword",
       PRODUCT_PHOTO_DIR: photos, PHOTO_STORAGE: "", JWT_SECRET: "branding-test-secret", NODE_ENV: "test",
+      EMAIL_PROVIDER: "console", ALLOWED_EMAIL_DOMAIN: "test.invalid",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -42,6 +43,18 @@ test("sellers upload, replace and remove their stall logo and cover photo", asyn
     const response = await fetch(`${base}${url}`, { method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
     return { status: response.status, data: await response.json() };
   };
+  // Sign-up confirms the email with a code first; sign-in asks for a code after the password.
+  // With EMAIL_PROVIDER=console outside production the API echoes the code as dev_code.
+  const signUp = async (body) => {
+    const sent = await request("/auth/email/send-code", null, { email: body.email });
+    if (sent.status !== 200) return sent;
+    const { data } = await request("/auth/email/verify", null, { email: body.email, code: sent.data.dev_code });
+    return request("/auth/register", null, { ...body, email_token: data.email_token, security_question: "What was the name of your first pet?", security_answer: "Bantay" });
+  };
+  const signIn = async (email, password) => {
+    const first = await request("/auth/login", null, { email, password });
+    return first.status === 200 ? request("/auth/login/verify", null, { challenge: first.data.challenge, code: first.data.dev_code }) : first;
+  };
   const upload = async (kind, token, bytes = png, type = "image/png") => {
     const form = new FormData();
     form.append("image", new Blob([bytes], { type }), "image.png");
@@ -52,12 +65,12 @@ test("sellers upload, replace and remove their stall logo and cover photo", asyn
     const response = await fetch(`${base}/stalls/my/branding/${kind}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
     return { status: response.status, data: await response.json() };
   };
-  const register = (role, suffix) => request("/auth/register", null, {
-    name: `Test ${suffix}`, email: `${suffix}@test.invalid`, password: "testpassword", role,
+  const register = (role, suffix) => signUp({
+    name: `Test ${suffix}`, email: `${suffix}@test.invalid`, password: "testpassword1", role,
     campus_id: `CSUCC-${suffix}`, affiliation: "student", department: "College of Computing",
     ...(role === "seller" ? { store_name: `${suffix} Store`, campus_location: "Main Canteen" } : {}),
   });
-  const admin = (await request("/auth/login", null, { email: "admin@test.invalid", password: "testpassword" })).data.accessToken;
+  const admin = (await signIn("admin@test.invalid", "testpassword")).data.accessToken;
   const approve = (id) => request(`/admin/users/${id}/review`, admin, { status: "approved", note: "Checked against campus test roster.", credentials_checked: true }, "PUT");
   const seller = await register("seller", "seller");
   const buyer = await register("buyer", "buyer");

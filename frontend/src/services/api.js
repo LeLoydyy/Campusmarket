@@ -1,11 +1,12 @@
 import axios from "axios";
+import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from "./tokens";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "/api",
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("accessToken");
+  const token = getAccessToken();
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -19,17 +20,16 @@ api.interceptors.request.use((config) => {
 let refreshing = null;
 
 const refreshTokens = async () => {
-  const refreshToken = localStorage.getItem("refreshToken");
+  const refreshToken = getRefreshToken();
   if (!refreshToken) throw new Error("No refresh token");
   const { data } = await axios.post(`${api.defaults.baseURL}/auth/refresh`, { refreshToken });
-  localStorage.setItem("accessToken", data.accessToken);
-  localStorage.setItem("refreshToken", data.refreshToken);
+  saveTokens(data);
   return data.accessToken;
 };
 
 api.interceptors.response.use(undefined, async (error) => {
   const original = error.config;
-  const isAuthCall = /\/auth\/(login|register|refresh)$/.test(original?.url || "");
+  const isAuthCall = /\/auth\/(login|register|refresh|email)(\/|$)/.test(original?.url || "");
   if (error.response?.status !== 401 || !original || original._retried || isAuthCall) {
     throw error;
   }
@@ -41,8 +41,7 @@ api.interceptors.response.use(undefined, async (error) => {
     original.headers.Authorization = `Bearer ${token}`;
     return api(original);
   } catch {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
+    clearTokens();
     if (window.location.pathname !== "/login") window.location.assign("/login");
     throw error;
   }
@@ -92,7 +91,17 @@ export const behaviorService = {
 };
 
 export const authService = {
+  // Step 1 checks the password and emails a code; step 2 trades the code
+  // (or the security answer) for a session.
   login: (credentials) => api.post("/auth/login", credentials),
+
+  verifyLogin: (data) => api.post("/auth/login/verify", data),
+
+  resendLoginCode: (challenge) => api.post("/auth/login/resend", { challenge }),
+
+  sendEmailCode: (email) => api.post("/auth/email/send-code", { email }),
+
+  verifyEmailCode: (email, code) => api.post("/auth/email/verify", { email, code }),
 
   register: (data) => api.post("/auth/register", data),
 
@@ -101,8 +110,7 @@ export const authService = {
   getCurrentUser: () => api.get("/auth/me"),
 
   logout: () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
+    clearTokens();
 
     return Promise.resolve({
       data: {

@@ -13,7 +13,7 @@ test("CSUCC registration, store plans, ownership, public visibility, messaging a
   await new Promise((resolve) => socket.listen(0, "127.0.0.1", resolve));
   const port = socket.address().port;
   await new Promise((resolve) => socket.close(resolve));
-  const child = spawn(process.execPath, ["src/app.js"], { cwd: process.cwd(), env: { ...process.env, PORT: String(port), DATABASE_URL: "", PGLITE_DIR: path.join(directory, "db"), SEED_DEMO: "false", BOOTSTRAP_ADMIN_EMAIL: "admin@test.invalid", BOOTSTRAP_ADMIN_PASSWORD: "testpassword", PRODUCT_PHOTO_DIR: path.join(directory, "photos"), JWT_SECRET: "requirements-test-only-secret", NODE_ENV: "test" }, stdio: ["ignore", "pipe", "pipe"] });
+  const child = spawn(process.execPath, ["src/app.js"], { cwd: process.cwd(), env: { ...process.env, PORT: String(port), DATABASE_URL: "", PGLITE_DIR: path.join(directory, "db"), SEED_DEMO: "false", BOOTSTRAP_ADMIN_EMAIL: "admin@test.invalid", BOOTSTRAP_ADMIN_PASSWORD: "testpassword", PRODUCT_PHOTO_DIR: path.join(directory, "photos"), JWT_SECRET: "requirements-test-only-secret", NODE_ENV: "test", EMAIL_PROVIDER: "console", ALLOWED_EMAIL_DOMAIN: "test.invalid" }, stdio: ["ignore", "pipe", "pipe"] });
   let diagnostics = "";
   child.stderr.on("data", (chunk) => { diagnostics += chunk; });
   t.after(async () => {
@@ -32,7 +32,19 @@ test("CSUCC registration, store plans, ownership, public visibility, messaging a
     const response = await fetch(`http://127.0.0.1:${port}/api${url}`, { method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
     return { status: response.status, data: await response.json() };
   };
-  const admin = (await request("/auth/login", null, { email: "admin@test.invalid", password: "testpassword" })).data.accessToken;
+  // Sign-up confirms the email with a code first; sign-in asks for a code after the password.
+  // With EMAIL_PROVIDER=console outside production the API echoes the code as dev_code.
+  const signUp = async (body) => {
+    const sent = await request("/auth/email/send-code", null, { email: body.email });
+    if (sent.status !== 200) return sent;
+    const { data } = await request("/auth/email/verify", null, { email: body.email, code: sent.data.dev_code });
+    return request("/auth/register", null, { ...body, email_token: data.email_token, security_question: "What was the name of your first pet?", security_answer: "Bantay" });
+  };
+  const signIn = async (email, password) => {
+    const first = await request("/auth/login", null, { email, password });
+    return first.status === 200 ? request("/auth/login/verify", null, { challenge: first.data.challenge, code: first.data.dev_code }) : first;
+  };
+  const admin = (await signIn("admin@test.invalid", "testpassword")).data.accessToken;
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXioAAAAASUVORK5CYII=", "base64");
   const uploadPhoto = async (token, bytes = png, type = "image/png") => {
     const form = new FormData();
@@ -40,8 +52,8 @@ test("CSUCC registration, store plans, ownership, public visibility, messaging a
     const response = await fetch(`http://127.0.0.1:${port}/api/products/image`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : {}, body: form });
     return { status: response.status, data: await response.json() };
   };
-  const register = async (role, suffix) => request("/auth/register", null, {
-    name: `Test ${suffix}`, email: `${suffix}@test.invalid`, password: "testpassword", role,
+  const register = async (role, suffix) => signUp({
+    name: `Test ${suffix}`, email: `${suffix}@test.invalid`, password: "testpassword1", role,
     campus_id: `CSUCC-${suffix}`, affiliation: "student", department: "College of Computing",
     ...(role === "seller" ? { store_name: `${suffix} Store`, campus_location: "Main Canteen" } : {}),
   });
@@ -90,13 +102,13 @@ test("CSUCC registration, store plans, ownership, public visibility, messaging a
   assert.equal((await request("/products?q=seller%20Store")).data.total, 1);
   assert.equal((await request("/analytics/sales", st)).status, 403);
   assert.equal((await request(`/stalls/${stall.id}`, st, { tier: "premium", status: "approved", owner_id: buyer.data.user.id }, "PUT")).data.tier, "free");
-  for (let i = 1; i < 15; i++) assert.equal((await request("/products", st, { ...productPayload, name: `Product ${i}` })).status, 201);
+  for (let i = 1; i < 5; i++) assert.equal((await request("/products", st, { ...productPayload, name: `Product ${i}` })).status, 201);
   assert.equal((await request("/products", st, productPayload)).status, 403);
   assert.equal((await request(`/admin/stalls/${stall.id}/plan`, admin, { tier: "premium" }, "PUT")).status, 200);
-  for (let i = 15; i < 50; i++) assert.equal((await request("/products", st, { ...productPayload, name: `Product ${i}` })).status, 201);
+  for (let i = 5; i < 25; i++) assert.equal((await request("/products", st, { ...productPayload, name: `Product ${i}` })).status, 201);
   assert.equal((await request("/products", st, productPayload)).status, 403);
   assert.equal((await request(`/admin/stalls/${stall.id}/plan`, admin, { tier: "free" }, "PUT")).status, 409);
-  assert.equal((await request("/products?featured=true")).data.total, 50);
+  assert.equal((await request("/products?featured=true")).data.total, 25);
   const other = await register("seller", "other"); await review(other.data.user.id);
   const ot = other.data.accessToken;
   assert.equal((await request(`/products/${product.id}`, ot, { price: 1 }, "PUT")).status, 403);
@@ -113,6 +125,9 @@ test("CSUCC registration, store plans, ownership, public visibility, messaging a
   assert.equal((await request("/pos/sales", st, saleBody)).data.id, sale.data.id);
   assert.equal((await request(`/products/${product.id}`)).data.stock, 8);
   assert.equal((await request("/pos/sales", ot)).data.length, 0);
+  // The point of sale is Premium-only; Free sellers can still read past receipts.
+  assert.equal((await request("/pos/sales", ot, { ...saleBody, request_id: randomUUID() })).data.code, "PREMIUM_REQUIRED");
+  assert.equal((await request("/pos/customers?q=CSUCC-buyer", ot)).status, 403);
   assert.equal((await request("/analytics/sales", st)).data.total_revenue, 178.5);
   const onlineOrder = await request("/orders", bt, { items: [{ product_id: product.id, quantity: 1 }], notes: "No onions, please.\nMeet at the library.", fulfillment: "delivery" });
   assert.equal(onlineOrder.status, 201);
@@ -145,7 +160,7 @@ test("CSUCC registration, store plans, ownership, public visibility, messaging a
   assert.ok(!JSON.stringify(messages.data).includes("CSUCC-buyer"));
   await request(`/products/${product.id}`, st, { is_active: false }, "PUT");
   assert.equal((await request(`/products/${product.id}`)).status, 404);
-  assert.equal((await request("/products?mine=true&limit=100", st)).data.total, 50);
+  assert.equal((await request("/products?mine=true&limit=100", st)).data.total, 25);
   const pending = await register("buyer", "rejected");
   await request(`/admin/users/${pending.data.user.id}/review`, admin, { status: "rejected", note: "Please correct the campus ID." }, "PUT");
   assert.equal((await request("/auth/credentials", pending.data.accessToken, { campus_id: "CORRECTED-ID", affiliation: "faculty", department: "Engineering" }, "PUT")).data.status, "pending");

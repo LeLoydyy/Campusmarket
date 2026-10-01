@@ -199,6 +199,25 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS landmarks JSONB NOT NULL DEFAULT '[]
 ALTER TABLE seller_applications ADD COLUMN IF NOT EXISTS review_note TEXT;
 ALTER TABLE seller_applications ADD COLUMN IF NOT EXISTS reviewed_by TEXT;
 ALTER TABLE seller_applications ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+-- Sign-in security: account recovery question, lockout after repeated wrong passwords.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS security_question TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS security_answer_hash TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_logins INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
+
+-- One-time codes emailed to confirm a new address or a sign-in. Only a keyed hash is stored.
+CREATE TABLE IF NOT EXISTS auth_codes (
+  id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  email      TEXT NOT NULL,
+  purpose    TEXT NOT NULL CHECK (purpose IN ('register', 'login')),
+  code_hash  TEXT NOT NULL,
+  attempts   INTEGER NOT NULL DEFAULT 0,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS auth_codes_lookup_idx ON auth_codes (email, purpose, created_at DESC);
 
 -- One active application per seller per event.
 CREATE UNIQUE INDEX IF NOT EXISTS seller_applications_active_key
@@ -261,3 +280,4 @@ ALTER TABLE event_stalls        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE seller_applications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_log           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE auth_codes          ENABLE ROW LEVEL SECURITY;

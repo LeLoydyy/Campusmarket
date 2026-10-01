@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Sidebar from "../../components/common/Sidebar.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import settingsService from "../../services/settingsService.js";
+import { clearTokens } from "../../services/tokens.js";
 import toast from "react-hot-toast";
 
 import {
@@ -138,7 +139,7 @@ export default function Settings() {
     try {
       await logout?.();
     } finally {
-      localStorage.removeItem("accessToken");
+      clearTokens();
       navigate("/login", { replace: true });
     }
   };

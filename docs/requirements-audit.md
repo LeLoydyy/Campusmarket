@@ -10,8 +10,8 @@ Reviewed and updated on September 8, 2026. Scope: Caraga State University Cabadb
 | Web platform accessible on mobile | Responsive pages; API hard-coded to localhost | Responsive storefront and new POS; LAN development host and same-origin API proxy configured. Physical-device acceptance testing remains necessary. |
 | Campus members can open stores | Seller role existed; registration did not capture a store | Seller signup captures store name and campus location. Approved buyers can use Open a campus store, which switches their account to Seller. One store per seller. |
 | Validated campus credentials | No ID or affiliation captured | ID number, student/faculty/employee affiliation, and college/program/office required. Admin must confirm a check against authorized CSUCC records and record a review note. Duplicate IDs rejected. |
-| Free plan: limited listings and basic POS | 15-listing backend check; no POS | 15 total listings, including hidden listings; counter POS with verified buyer lookup, cash/change, stock updates, history, and printable receipts. |
-| Premium plan: more limited listings, advertising, analytics, POS | No Premium listing cap or plan enforcement | 50 total listings; labeled landing-page product promotion; Premium-only sales/product/category analytics; same POS. Admin manages plans. |
+| Free plan: limited listings and basic POS | 15-listing backend check; no POS | 5 total listings, including hidden listings. **Policy change (Oct 2026): the POS moved to Premium**; Free sellers keep read access to past receipts. |
+| Premium plan: more limited listings, advertising, analytics, POS | No Premium listing cap or plan enforcement | 25 total listings; labeled landing-page product promotion; Premium-only sales/product/category analytics; Premium-only counter POS with verified buyer lookup, cash/change, stock updates, history, and printable receipts. Admin manages plans. |
 | Buyer signup and verification before purchase | Buyers automatically approved | New buyers and sellers start pending. Cart, orders, messages, POS, and seller tools require current approved status on the server. |
 | Landing page: featured products and store names | Product feed existed; store cards were hard-coded | Active stores come from API; Premium products appear in a promoted section; each product includes its store. |
 | Display active stores currently selling | Store UI existed; public endpoints could return unapproved stores | Public directory/products require approved, open stores with approved, unsuspended owners. Sellers can open/close approved stores. |
@@ -23,7 +23,7 @@ Reviewed and updated on September 8, 2026. Scope: Caraga State University Cabadb
 
 ## Decisions used for this implementation
 
-- Free: **15** listings. Premium: **50** listings. These are provisional capstone policy values in `backend/src/config/plans.js`; the plan selector labels should be updated if the policy changes.
+- Free: **5** listings, no POS. Premium: **25** listings plus POS, advertising and analytics. These are provisional capstone policy values in `backend/src/config/plans.js`; the plan selector labels should be updated if the policy changes.
 - Hidden products still occupy listing slots. Deleting a listing releases a slot. An administrator cannot downgrade a store while its listing count exceeds the target plan.
 - Premium is granted manually by an administrator. No subscription fee, payment collection, or automatic billing is claimed or implemented.
 - Verification uses an ID **number**, not an uploaded ID photo. No campus registry integration or automatic proof of membership is claimed. CSUCC must designate the authorized verifier and the records they may consult.

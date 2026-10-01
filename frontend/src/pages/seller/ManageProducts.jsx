@@ -416,7 +416,7 @@ export default function ManageProducts() {
         </header>
 
         <div className="dashboard-content manage-products-content">
-          {stall?.plan && <p className="card" style={{ padding: "1rem" }}>{stall.plan.name} plan · {products.length} / {stall.plan.listing_limit} listings · POS included{stall.plan.analytics ? " · Product analytics and landing-page advertising included" : " · Contact the campus administrator for Premium analytics and advertising"}</p>}
+          {stall?.plan && <p className="card" style={{ padding: "1rem" }}>{stall.plan.name} plan · {products.length} / {stall.plan.listing_limit} listings{stall.plan.analytics ? " · Point of sale, product analytics and landing-page advertising included" : " · Contact the campus administrator for Premium: 25 listings, point of sale, analytics and advertising"}</p>}
           {!loading && stall && !canManageProducts && (
             <div className="manage-products-notice" role="status">
               <FiAlertCircle />

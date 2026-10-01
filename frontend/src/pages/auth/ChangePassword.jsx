@@ -3,6 +3,7 @@ import { Link, Navigate } from "react-router-dom";
 import AuthLayout from "../../components/layout/AuthLayout.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import api from "../../services/api.js";
+import { saveTokens } from "../../services/tokens.js";
 
 const homeFor = (role) => (role === "admin" ? "/admin" : role === "seller" ? "/seller" : "/");
 
@@ -25,8 +26,7 @@ export default function ChangePassword() {
     try {
       const { data } = await api.put("/auth/password", { current_password: form.current_password, new_password: form.new_password });
       // Older sessions are signed out; keep this one with the fresh tokens.
-      localStorage.setItem("accessToken", data.accessToken);
-      localStorage.setItem("refreshToken", data.refreshToken);
+      saveTokens(data);
       updateUser(data.user);
       setForm({ current_password: "", new_password: "", confirm: "" });
       setDone(true);

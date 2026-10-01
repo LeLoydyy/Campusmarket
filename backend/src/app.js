@@ -21,6 +21,7 @@ import { productPhotoDirectory } from "./middleware/productPhoto.js";
 import { ready } from "./data/marketStore.js";
 import { databaseLabel } from "./db/index.js";
 import { usingSupabaseStorage } from "./services/photoStorage.js";
+import { checkEmailConfig } from "./services/email.js";
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -58,7 +59,8 @@ const authLimiter = rateLimit({
   skipSuccessfulRequests: true,
   message: { error: "Too many attempts. Please wait 15 minutes and try again." },
 });
-app.use(["/api/auth/login", "/api/auth/register", "/api/auth/password"], authLimiter);
+// Prefix match: also covers /login/verify, /login/resend and /email/* (code guessing and email spam).
+app.use(["/api/auth/login", "/api/auth/register", "/api/auth/password", "/api/auth/email"], authLimiter);
 app.use("/api/product-images", express.static(productPhotoDirectory, { dotfiles: "deny", index: false, maxAge: "1d" }));
 
 // ── Health check ─────────────────────────────────────────────────────────────
@@ -92,8 +94,13 @@ app.use((err, _req, res, _next) => {
   // Stores throw plain "X not found" errors without a status
   if (status === 500 && /not found/i.test(err.message || "")) status = 404;
   if (status >= 500) console.error("[ERROR]", err);
-  // Never expose internal error details to clients
-  const message = status >= 500 ? "Internal server error" : err.message || "Request failed";
+  // Never expose internal error details to clients (unless the message was written for them)
+  const message = status >= 500 && !err.expose ? "Internal server error" : err.message || "Request failed";
+  // Cooldowns (e.g. after wrong passwords) tell the client how long to wait.
+  if (err.retryAfter) {
+    res.set("Retry-After", String(err.retryAfter));
+    return res.status(status).json({ error: message, retry_after: err.retryAfter });
+  }
   res.status(status).json({ error: message });
 });
 
@@ -102,6 +109,7 @@ ready()
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT} (database: ${databaseLabel()}, photos: ${usingSupabaseStorage() ? "Supabase Storage" : "local disk"})`);
+      checkEmailConfig();
       if (process.env.NODE_ENV === "production" && !usingSupabaseStorage()) {
         console.warn("[photos] Product photos are stored on local disk and will be lost if this host's disk is reset. Set PHOTO_STORAGE=supabase.");
       }

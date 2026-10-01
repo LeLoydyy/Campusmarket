@@ -19,10 +19,24 @@ export const validate = (schema) => (req, res, next) => {
 
 // ── Shared schemas ────────────────────────────────────────────────────────────
 
+// New accounts must use a campus mailbox; existing accounts (e.g. administrators) may sign in with any.
+export const CAMPUS_EMAIL_DOMAIN = (process.env.ALLOWED_EMAIL_DOMAIN || "csucc.edu.ph").toLowerCase();
+const campusEmail = z.string().trim().email("Enter a valid email address.").toLowerCase()
+  .refine((value) => value.endsWith(`@${CAMPUS_EMAIL_DOMAIN}`), `Use your @${CAMPUS_EMAIL_DOMAIN} email address.`);
+const otpCode = z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code.");
+
+export const sendCodeSchema = z.object({ email: campusEmail });
+export const verifyEmailSchema = z.object({ email: campusEmail, code: otpCode });
+
 export const registerSchema = z.object({
   name: z.string().min(2).max(80),
-  email: z.string().trim().email().toLowerCase(),
-  password: z.string().min(8).max(100),
+  email: campusEmail,
+  email_token: z.string().min(1, "Confirm your email with the code we sent you."),
+  password: z.string().min(8).max(100)
+    .regex(/[a-z]/i, "Password needs at least one letter.")
+    .regex(/\d/, "Password needs at least one number."),
+  security_question: z.string().trim().min(5).max(150),
+  security_answer: z.string().trim().min(2, "Security answer is too short.").max(100),
   role: z.enum(["buyer", "seller"]).default("buyer"),
   campus_id: z.string().trim().min(3).max(50),
   affiliation: z.enum(["student", "faculty", "employee"]),
@@ -55,6 +69,16 @@ export const loginSchema = z.object({
   email: z.string().trim().email().toLowerCase(),
   password: z.string().min(1),
 });
+
+export const loginVerifySchema = z.object({
+  challenge: z.string().min(1),
+  code: otpCode.optional(),
+  security_answer: z.string().trim().min(1).max(100).optional(),
+}).refine((value) => Boolean(value.code) !== Boolean(value.security_answer), {
+  message: "Enter the emailed code or your security answer.", path: ["code"],
+});
+
+export const loginResendSchema = z.object({ challenge: z.string().min(1) });
 
 export const productSchema = z.object({
   name: z.string().min(2).max(120),

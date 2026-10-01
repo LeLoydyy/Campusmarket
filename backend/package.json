@@ -8,7 +8,8 @@
     "seed:events": "node scripts/seed-demo-events.js",
     "test": "node --test tests/*.test.js",
     "db:import": "node scripts/import-json.js",
-    "photos:migrate": "node scripts/migrate-photos.js"
+    "photos:migrate": "node scripts/migrate-photos.js",
+    "email:test": "node scripts/send-test-email.js"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
@@ -20,6 +21,7 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.10.1",
     "pg": "^8.23.0",
     "zod": "^3.22.4"
   },

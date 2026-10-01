@@ -198,7 +198,7 @@ export default function ManageStalls() {
                           toast.success("Plan updated");
                         } catch (error) { toast.error(error.response?.data?.error || "Plan update failed"); }
                         finally { setActingId(null); }
-                      }}><option value="free">Free · 15 listings · POS</option><option value="premium">Premium · 50 listings · POS, advertising & analytics</option></select>
+                      }}><option value="free">Free · 5 listings</option><option value="premium">Premium · 25 listings · POS, advertising & analytics</option></select>
                     </label>
                     <p className="text-sm text-muted">{stall.product_count || 0} listings · {stall.location}</p>
                     <div className="stall-card-actions">

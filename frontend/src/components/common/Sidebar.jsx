@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { ChevronRight, LogOut, Menu, ShieldCheck, X } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { clearTokens } from "../../services/tokens.js";
 import {
   ADMIN_NAV,
   BUYER_NAV,
@@ -89,7 +90,7 @@ export default function Sidebar({ open, isOpen: legacyOpen, onClose }) {
     try {
       await logout?.();
     } finally {
-      localStorage.removeItem("accessToken");
+      clearTokens();
       navigate("/login", { replace: true });
     }
   };

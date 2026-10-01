@@ -6,7 +6,7 @@
  * so concurrent orders can never oversell or restore stock twice.
  */
 import bcrypt from "bcryptjs";
-import { randomUUID } from "crypto";
+import { createHmac, randomInt, randomUUID, timingSafeEqual } from "crypto";
 import { getPlan } from "../config/plans.js";
 import { cancellationDeadline, canBuyerCancel } from "../config/orderCancellation.js";
 import { getDb, query, transaction } from "../db/index.js";
@@ -125,7 +125,95 @@ const pageParams = (page, limit, max = 100) => {
 const cents = (amount) => Math.round(Number(amount) * 100);
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
+export const CODE_TTL_MINUTES = 10;
+const CODE_RESEND_SECONDS = 60;
+const CODE_MAX_ATTEMPTS = 5;
+const CODES_PER_HOUR = 6;
+// Wrong passwords: two free tries, then a cooldown that doubles each time (5s, 10s, 20s … 15 min).
+const LOGIN_FREE_FAILURES = 2;
+const LOGIN_COOLDOWN_BASE_SECONDS = 5;
+const LOGIN_COOLDOWN_MAX_SECONDS = 15 * 60;
+export const loginCooldownSeconds = (failures) => (failures <= LOGIN_FREE_FAILURES ? 0
+  : Math.min(LOGIN_COOLDOWN_MAX_SECONDS, LOGIN_COOLDOWN_BASE_SECONDS * 2 ** (failures - LOGIN_FREE_FAILURES - 1)));
+
+const hashCode = (code) => createHmac("sha256", process.env.JWT_SECRET || "campus-market-codes").update(String(code)).digest("hex");
+const sameHash = (a, b) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+// Answers are compared case- and spacing-insensitively so "  Mang Juan" matches "mang juan".
+const normalizeAnswer = (answer) => String(answer).trim().toLowerCase().replace(/\s+/g, " ");
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const secondsUntil = (time) => Math.max(1, Math.ceil((Date.parse(time) - Date.now()) / 1000));
+const describeWait = (seconds) => (seconds < 60 ? plural(seconds, "second") : plural(Math.ceil(seconds / 60), "minute"));
+
+/**
+ * Spends one try against the newest unused code for email+purpose. The attempt counter
+ * is committed before the error is thrown, so wrong guesses can't be rolled back.
+ */
+const attemptCode = async (email, purpose, matches, wrongMessage) => {
+  const outcome = await tx(async (run) => {
+    const [row] = await run(`SELECT * FROM auth_codes WHERE email = $1 AND purpose = $2 AND used_at IS NULL
+                             ORDER BY created_at DESC LIMIT 1 FOR UPDATE`, [email, purpose]);
+    if (!row || Date.parse(row.expires_at) <= Date.now()) return { error: ["This code has expired. Send a new one.", 400] };
+    if (row.attempts >= CODE_MAX_ATTEMPTS) return { error: ["Too many wrong tries. Send a new code.", 429] };
+    if (matches(row)) {
+      await run("UPDATE auth_codes SET used_at = now() WHERE id = $1", [row.id]);
+      return {};
+    }
+    const [{ attempts }] = await run("UPDATE auth_codes SET attempts = attempts + 1 WHERE id = $1 RETURNING attempts", [row.id]);
+    const left = CODE_MAX_ATTEMPTS - attempts;
+    return { error: left > 0 ? [`${wrongMessage} ${plural(left, "try", "tries")} left.`, 400] : ["Too many wrong tries. Send a new code.", 429] };
+  });
+  if (outcome.error) fail(...outcome.error);
+};
+
 export const authStore = {
+  /**
+   * Creates a 6-digit code (replacing any unused one) and returns it for emailing.
+   * While a code sent under a minute ago is still unused, a resend is refused — or, with
+   * `reusePending`, that code stays valid and `{ reused: true }` is returned instead.
+   */
+  async issueCode(email, purpose, { reusePending = false } = {}) {
+    return tx(async (run) => {
+      await run("DELETE FROM auth_codes WHERE created_at < now() - interval '1 day'");
+      const [recent] = await run(`SELECT count(*) AS sent, max(created_at) FILTER (WHERE used_at IS NULL) AS pending
+                                  FROM auth_codes WHERE email = $1 AND purpose = $2 AND created_at > now() - interval '1 hour'`, [email, purpose]);
+      const wait = recent.pending ? CODE_RESEND_SECONDS - Math.floor((Date.now() - Date.parse(recent.pending)) / 1000) : 0;
+      if (wait > 0 && reusePending) {
+        return { reused: true, expires_in: CODE_TTL_MINUTES * 60 - (CODE_RESEND_SECONDS - wait), resend_in: wait };
+      }
+      if (wait > 0) fail(`Please wait ${plural(wait, "second")} before requesting another code.`, 429);
+      if (recent.sent >= CODES_PER_HOUR) fail("Too many codes requested. Please try again in an hour.", 429);
+      await run("UPDATE auth_codes SET used_at = now() WHERE email = $1 AND purpose = $2 AND used_at IS NULL", [email, purpose]);
+      const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+      await run(`INSERT INTO auth_codes (email, purpose, code_hash, expires_at)
+                 VALUES ($1, $2, $3, now() + make_interval(mins => $4))`, [email, purpose, hashCode(code), CODE_TTL_MINUTES]);
+      return { code, expires_in: CODE_TTL_MINUTES * 60, resend_in: CODE_RESEND_SECONDS };
+    });
+  },
+
+  /** Withdraws the newest unused code (e.g. the email couldn't be sent), freeing the resend cooldown. */
+  async discardCode(email, purpose) {
+    await q(`DELETE FROM auth_codes WHERE id = (SELECT id FROM auth_codes WHERE email = $1 AND purpose = $2 AND used_at IS NULL
+             ORDER BY created_at DESC LIMIT 1)`, [email, purpose]);
+  },
+
+  async verifyCode(email, purpose, code) {
+    await attemptCode(email, purpose, (row) => sameHash(row.code_hash, hashCode(code)), "That code isn't right.");
+  },
+
+  /** Security-question fallback for a sign-in code; shares the code's try budget. */
+  async verifySecurityAnswer(user, answer) {
+    if (!user.security_answer_hash) fail("This account has no security question. Use the emailed code.");
+    await attemptCode(user.email, "login", () => bcrypt.compareSync(normalizeAnswer(answer), user.security_answer_hash), "That answer isn't right.");
+  },
+
+  async emailRegistered(email) {
+    return Boolean(await q1("SELECT 1 FROM users WHERE email = $1", [email]));
+  },
+
+  async markEmailVerified(userId) {
+    await q("UPDATE users SET email_verified_at = coalesce(email_verified_at, now()) WHERE id = $1", [userId]);
+  },
+
   async startSelling(userId, payload) {
     return tx(async (run) => {
       const [user] = await run("SELECT role FROM users WHERE id = $1 AND status = 'approved' AND NOT is_banned FOR UPDATE", [userId]);
@@ -136,15 +224,18 @@ export const authStore = {
     });
   },
 
-  async registerUser({ name, email, password, role = "buyer", campus_id, affiliation, department, store_name, campus_location }) {
+  async registerUser({ name, email, password, role = "buyer", campus_id, affiliation, department, store_name, campus_location,
+    security_question = null, security_answer = null, email_verified = false }) {
     const passwordHash = bcrypt.hashSync(password, 12);
+    const answerHash = security_answer ? bcrypt.hashSync(normalizeAnswer(security_answer), 12) : null;
     return tx(async (run) => {
       if ((await run("SELECT 1 FROM users WHERE email = $1", [email]))[0]) fail("Email already registered", 409);
       if ((await run("SELECT 1 FROM users WHERE lower(campus_id) = lower($1)", [campus_id]))[0]) fail("This campus ID is already registered.", 409);
       const [user] = await run(
-        `INSERT INTO users (name, email, password_hash, role, campus_id, affiliation, department, campus)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'CSUCC') RETURNING ${USER_COLUMNS}`,
-        [name, email, passwordHash, role, campus_id, affiliation, department],
+        `INSERT INTO users (name, email, password_hash, role, campus_id, affiliation, department, campus,
+                            security_question, security_answer_hash, email_verified_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'CSUCC', $8, $9, CASE WHEN $10::boolean THEN now() END) RETURNING ${USER_COLUMNS}`,
+        [name, email, passwordHash, role, campus_id, affiliation, department, security_question, answerHash, email_verified],
       );
       if (role === "seller") {
         await run("INSERT INTO stalls (owner_id, name, location) VALUES ($1, $2, $3)", [user.id, store_name, campus_location]);
@@ -157,8 +248,25 @@ export const authStore = {
     const user = await q1("SELECT * FROM users WHERE email = $1", [email]);
     // Always run bcrypt so response time doesn't reveal whether the email exists
     const valid = bcrypt.compareSync(password, user?.password_hash || DUMMY_HASH);
-    if (!user || !valid) fail("Invalid email or password", 401);
+    // 423 with retry_after (seconds) so the sign-in page can count down.
+    const paused = (seconds) => {
+      throw Object.assign(new Error(`Too many wrong passwords. Try again in ${describeWait(seconds)}.`), { status: 423, retryAfter: seconds });
+    };
+    // While cooling down even the right password waits, and the attempt doesn't count.
+    if (user?.locked_until && Date.parse(user.locked_until) > Date.now()) paused(secondsUntil(user.locked_until));
+    if (!user || !valid) {
+      if (user) {
+        const [{ failed_logins: failures }] = await q("UPDATE users SET failed_logins = failed_logins + 1 WHERE id = $1 RETURNING failed_logins", [user.id]);
+        const cooldown = loginCooldownSeconds(failures);
+        if (cooldown) {
+          await q("UPDATE users SET locked_until = now() + make_interval(secs => $2) WHERE id = $1", [user.id, cooldown]);
+          paused(cooldown);
+        }
+      }
+      fail("Invalid email or password", 401);
+    }
     if (user.is_banned) fail("Account suspended", 403);
+    if (user.failed_logins || user.locked_until) await q("UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = $1", [user.id]);
     return user;
   },
 
@@ -169,6 +277,13 @@ export const authStore = {
     if (currentPassword === newPassword) fail("Choose a password different from your current one.");
     return q1(`UPDATE users SET password_hash = $2, password_changed_at = now() WHERE id = $1 RETURNING ${USER_COLUMNS}`,
       [userId, bcrypt.hashSync(newPassword, 12)]);
+  },
+
+  /** Full row including hashes — for sign-in checks only, never send it to a client. */
+  async getUserWithSecrets(userId) {
+    const user = await q1("SELECT * FROM users WHERE id = $1", [userId]);
+    if (!user) fail("User not found", 404);
+    return user;
   },
 
   async getUserById(userId) {
