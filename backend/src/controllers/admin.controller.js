@@ -13,7 +13,7 @@ export const getAdminStats = async (_req, res, next) => {
 // PUT /api/admin/users/:id/ban
 export const banUser = async (req, res, next) => {
   try {
-    const user = await authStore.banUser(req.params.id, req.body.ban);
+    const user = await authStore.banUser(req.params.id, req.body.ban, req.user.id);
     res.json(user);
   } catch (err) {
     next(err);

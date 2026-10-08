@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./context/AuthContext.jsx";
+import { can } from "./utils/adminAccess.js";
 
 // Pages load on demand so the first visit downloads only what it shows.
 const AccountStatus = lazy(() => import("./pages/auth/AccountStatus.jsx"));
@@ -39,6 +40,7 @@ const SellerApplicationForm = lazy(() => import("./pages/seller/SellerApplicatio
 const SellerReservations = lazy(() => import("./pages/seller/SellerReservations.jsx"));
 const Reviews = lazy(() => import("./pages/seller/Reviews.jsx"));
 const Settings = lazy(() => import("./pages/seller/Settings.jsx"));
+const Plans = lazy(() => import("./pages/seller/Plans.jsx"));
 
 // Admin pages
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard.jsx"));
@@ -46,6 +48,10 @@ const ManageUsers = lazy(() => import("./pages/admin/ManageUsers.jsx"));
 const ManageStalls = lazy(() => import("./pages/admin/ManageStalls.jsx"));
 const AdminEvents = lazy(() => import("./pages/admin/AdminEvents.jsx"));
 const AdminApplications = lazy(() => import("./pages/admin/AdminApplications.jsx"));
+const ManageAdmins = lazy(() => import("./pages/admin/ManageAdmins.jsx"));
+const LoginLogs = lazy(() => import("./pages/admin/LoginLogs.jsx"));
+const AdminSetup = lazy(() => import("./pages/admin/AdminSetup.jsx"));
+const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword.jsx"));
 
 function LoadingScreen() {
   return (
@@ -61,7 +67,7 @@ function getDashboardPath(role) {
   return "/";
 }
 
-function ProtectedRoute({ children, role }) {
+function ProtectedRoute({ children, role, permission }) {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -72,12 +78,27 @@ function ProtectedRoute({ children, role }) {
     return <Navigate to="/login" replace />;
   }
 
+  // New admins finish their first-login setup before anything else.
+  if (user.must_setup) return <Navigate to="/admin/setup" replace />;
+
   if (user.status !== "approved") return <Navigate to="/account-status" replace />;
 
-  if (role && user.role !== role) {
+  // `role` may be one role or a list of roles.
+  if (role && ![].concat(role).includes(user.role)) {
     return <Navigate to={getDashboardPath(user.role)} replace />;
   }
 
+  if (permission && !can(user, permission)) return <Navigate to="/admin" replace />;
+
+  return children;
+}
+
+/** Signed in, any role or status (e.g. your own login history). */
+function SignedInRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.must_setup) return <Navigate to="/admin/setup" replace />;
   return children;
 }
 
@@ -89,6 +110,7 @@ function GuestRoute({ children }) {
   }
 
   if (user) {
+    if (user.must_setup) return <Navigate to="/admin/setup" replace />;
     return <Navigate to={user.status === "approved" ? getDashboardPath(user.role) : "/account-status"} replace />;
   }
 
@@ -101,8 +123,14 @@ export default function App() {
       <Routes>
         <Route path="/account-status" element={<AccountStatus />} />
         <Route path="/account/password" element={<ChangePassword />} />
+        <Route path="/account/logins" element={<SignedInRoute><LoginLogs mine /></SignedInRoute>} />
+        <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
+        <Route path="/admin/setup" element={<AdminSetup />} />
+        <Route path="/admin/admins" element={<ProtectedRoute role="admin"><ManageAdmins /></ProtectedRoute>} />
+        <Route path="/admin/logs" element={<ProtectedRoute role="admin" permission="logs"><LoginLogs /></ProtectedRoute>} />
         <Route path="/open-store" element={<ProtectedRoute><OpenStore /></ProtectedRoute>} />
         <Route path="/seller/pos" element={<ProtectedRoute role="seller"><PointOfSale /></ProtectedRoute>} />
+        <Route path="/seller/plans" element={<ProtectedRoute role="seller"><Plans /></ProtectedRoute>} />
         {/* Authentication */}
         <Route
           path="/login"
@@ -152,7 +180,7 @@ export default function App() {
         <Route
           path="/notifications"
           element={
-            <ProtectedRoute role="buyer">
+            <ProtectedRoute role={["buyer", "seller"]}>
               <Notifications />
             </ProtectedRoute>
           }

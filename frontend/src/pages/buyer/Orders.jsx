@@ -22,6 +22,7 @@ import OrderStepper from "../../components/ui/OrderStepper.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
 import { orderService } from "../../services/api.js";
 import { useAuth } from "../../context/AuthContext.jsx";
+import CancelOrderDialog from "./CancelOrderDialog.jsx";
 import "./Orders.css";
 
 const FILTERS = [
@@ -40,6 +41,8 @@ const ACTIVE_STATUSES = new Set([
   "ready-for-pickup",
   "out-for-delivery",
 ]);
+
+const PREPARED_STATUSES = new Set(["ready", "ready-for-pickup", "out-for-delivery"]);
 
 const formatPrice = (value) =>
   `₱${Number(value || 0).toLocaleString("en-PH", {
@@ -142,6 +145,7 @@ export default function Orders() {
   const [query, setQuery] = useState("");
   const [expandedOrders, setExpandedOrders] = useState({});
   const [cancellingId, setCancellingId] = useState(null);
+  const [cancelTarget, setCancelTarget] = useState(null);
   const [now, setNow] = useState(Date.now);
 
   useEffect(() => {
@@ -185,20 +189,26 @@ export default function Orders() {
     fetchOrders();
   }, [fetchOrders]);
 
-  const cancelOrder = async (order) => {
-    if (cancellingId || !window.confirm(`Cancel order #${getOrderReference(order)}? All items in this order will be cancelled.`)) return;
+  const cancelOrder = async (order, reason) => {
+    if (cancellingId) return;
     setCancellingId(order.id);
     try {
-      await orderService.updateStatus(order.id, "cancelled");
-      setOrders((current) => current.map((item) => item.id === order.id ? { ...item, status: "cancelled", can_cancel: false } : item));
+      await orderService.updateStatus(order.id, "cancelled", reason);
+      setOrders((current) => current.map((item) => item.id === order.id ? { ...item, status: "cancelled", can_cancel: false, cancel_reason: reason } : item));
+      setCancelTarget(null);
       toast.success("Order cancelled. You can browse for another item.");
     } catch (requestError) {
+      setCancelTarget(null);
       toast.error(requestError.response?.data?.error || "Could not cancel this order. Please try again.");
       await fetchOrders({ background: true });
     } finally {
       setCancellingId(null);
     }
   };
+  const closeCancelDialog = useCallback(() => setCancelTarget(null), []);
+  const cancelTargetSeconds = cancelTarget
+    ? Math.max(0, Math.ceil((Date.parse(cancelTarget.cancellation_deadline) - now) / 1000) || 0)
+    : 0;
 
   const counts = useMemo(() => {
     const active = orders.filter((order) =>
@@ -357,12 +367,21 @@ export default function Orders() {
                 now={now}
                 cancelling={cancellingId === order.id}
                 cancelDisabled={Boolean(cancellingId)}
-                onCancel={() => cancelOrder(order)}
+                onCancel={() => setCancelTarget(order)}
               />
             ))}
           </section>
         )}
       </main>
+      {cancelTarget && (
+        <CancelOrderDialog
+          orderReference={getOrderReference(cancelTarget)}
+          remainingLabel={cancelTargetSeconds > 0 ? `${Math.floor(cancelTargetSeconds / 60)}:${String(cancelTargetSeconds % 60).padStart(2, "0")}` : null}
+          submitting={cancellingId === cancelTarget.id}
+          onConfirm={(reason) => cancelOrder(cancelTarget, reason)}
+          onClose={closeCancelDialog}
+        />
+      )}
       <Footer />
     </div>
   );
@@ -378,7 +397,9 @@ function BuyerOrderCard({ order, expanded, onToggle, now, cancelling, cancelDisa
   const displayedItems = expanded ? items : items.slice(0, 2);
   const status = normalizeStatus(order.status);
   const secondsRemaining = Math.max(0, Math.ceil((Date.parse(order.cancellation_deadline) - now) / 1000) || 0);
-  const canCancel = order.can_cancel && secondsRemaining > 0 && ACTIVE_STATUSES.has(status);
+  // Ready orders are already prepared, so they're locked even inside the 10-minute window.
+  const sellerPrepared = PREPARED_STATUSES.has(status);
+  const canCancel = order.can_cancel && secondsRemaining > 0 && ACTIVE_STATUSES.has(status) && !sellerPrepared;
   const remainingLabel = `${Math.floor(secondsRemaining / 60)}:${String(secondsRemaining % 60).padStart(2, "0")}`;
   const fulfillment = normalizeStatus(
     order.fulfillment || order.fulfillment_method || "pickup",
@@ -419,6 +440,9 @@ function BuyerOrderCard({ order, expanded, onToggle, now, cancelling, cancelDisa
       <div className="buyer-order-progress">
         <OrderStepper status={status} fulfillment={fulfillment} />
         <p className="buyer-order-status-text">{getStatusIcon(status)} {statusMessage}</p>
+        {order.cancel_reason && ["cancelled", "canceled"].includes(status) && (
+          <p className="buyer-order-cancel-reason"><span>Reason</span>{order.cancel_reason}</p>
+        )}
       </div>
 
       {!["cancelled", "canceled"].includes(status) && (
@@ -503,7 +527,9 @@ function BuyerOrderCard({ order, expanded, onToggle, now, cancelling, cancelDisa
                 {cancelling ? "Cancelling…" : "Cancel order"}
               </button>
               <small>Cancellation available for <strong>{remainingLabel}</strong></small>
-            </> : <small>The 10-minute cancellation window has closed.</small>}
+            </> : sellerPrepared
+              ? <small>The seller has already prepared your order, so it can no longer be cancelled.</small>
+              : <small>The 10-minute cancellation window has closed.</small>}
           </div>
         )}
       </footer>

@@ -1,6 +1,7 @@
 import "./AdminWorkspace.css";
 import { useState, useEffect } from "react";
 import Sidebar from "../../components/common/Sidebar.jsx";
+import PremiumRequests from "../../components/admin/PremiumRequests.jsx";
 import { EmptyState } from "../../components/common/Ui.jsx";
 import { adminService, stallService } from "../../services/api.js";
 import toast from "react-hot-toast";
@@ -94,6 +95,7 @@ export default function ManageStalls() {
         </div>
 
         <div className="dashboard-content">
+          <PremiumRequests onChanged={fetchStalls} />
           {/* Search */}
           <div
             style={{

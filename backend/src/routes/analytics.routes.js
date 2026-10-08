@@ -14,7 +14,7 @@ analyticsRouter.use(verifyToken, requireRole("seller", "admin"), async (req, res
   try {
     if (req.user.role !== "admin") {
       const stall = await stallStore.getMy(req.user.id);
-      if (stall?.tier !== "premium") return res.status(403).json({ error: "Product analytics are included in Premium. Contact the campus administrator to request a plan change.", code: "PREMIUM_REQUIRED" });
+      if (stall?.tier !== "premium") return res.status(403).json({ error: "Product analytics are included in Premium. Request Premium from the Plans page in your seller dashboard.", code: "PREMIUM_REQUIRED" });
     }
     next();
   } catch (error) { next(error); }

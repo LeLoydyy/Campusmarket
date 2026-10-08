@@ -10,11 +10,11 @@ const BASE_STEPS = [
   { key: "preparing", label: "Preparing", icon: ChefHat },
 ];
 const PICKUP_STEPS = [...BASE_STEPS,
-  { key: "ready", label: "Ready for pickup", icon: ShoppingBag },
+  { key: "ready", label: "Ready for pickup", short: "Ready", icon: ShoppingBag },
   { key: "completed", label: "Picked up", icon: PackageCheck },
 ];
 const DELIVERY_STEPS = [...BASE_STEPS,
-  { key: "ready", label: "Ready for delivery", icon: Bike },
+  { key: "ready", label: "Ready for delivery", short: "Ready", icon: Bike },
   { key: "delivered", label: "Delivered", icon: PackageCheck },
 ];
 

@@ -7,8 +7,9 @@
  */
 import bcrypt from "bcryptjs";
 import { createHmac, randomInt, randomUUID, timingSafeEqual } from "crypto";
-import { getPlan } from "../config/plans.js";
-import { cancellationDeadline, canBuyerCancel } from "../config/orderCancellation.js";
+import { getPlan, PLANS } from "../config/plans.js";
+import { PERMISSION_KEYS, describeShift, generateStarterPassword, isOnShift } from "../config/admins.js";
+import { cancellationDeadline, canBuyerCancel, LOCKED_STATUSES } from "../config/orderCancellation.js";
 import { getDb, query, transaction } from "../db/index.js";
 import { getRecommendedProductIds, getSimilarProductIds } from "../services/aiService.js";
 import { buyerOrderMessage, sellerCancelledMessage, sellerNewOrderMessage } from "../services/orderNotifications.js";
@@ -98,7 +99,9 @@ const tx = async (fn) => {
 
 // ── Shared SQL fragments ──────────────────────────────────────────────────────
 const USER_COLUMNS = `id, name, email, role, status, campus_id, affiliation, department, campus, avatar_url,
-  is_banned, review_note, reviewed_by, reviewed_at, password_changed_at, created_at`;
+  is_banned, review_note, reviewed_by, reviewed_at, password_changed_at, created_at, username, shift_start, shift_end,
+  permissions, must_setup, created_by, last_login_at, deleted_at, deleted_by, delete_reason,
+  (recovery_questions IS NOT NULL) AS has_recovery_questions`;
 const publicUser = (user) => user ? { id: user.id, name: user.name, role: user.role, avatar_url: user.avatar_url } : null;
 
 // A stall is publicly visible when approved, active and owned by an approved, unbanned user.
@@ -140,6 +143,18 @@ const hashCode = (code) => createHmac("sha256", process.env.JWT_SECRET || "campu
 const sameHash = (a, b) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 // Answers are compared case- and spacing-insensitively so "  Mang Juan" matches "mang juan".
 const normalizeAnswer = (answer) => String(answer).trim().toLowerCase().replace(/\s+/g, " ");
+const hashRecoveryQuestions = (items) => items.map(({ question, answer }) => ({ question, answer_hash: bcrypt.hashSync(normalizeAnswer(answer), 12) }));
+const RECOVERY_ANSWERS_NEEDED = 2;
+/** Recovery questions for a user: the three from registration, or the single older one. */
+const recoveryQuestionsOf = (user) => user.recovery_questions?.length ? user.recovery_questions
+  : user.security_answer_hash ? [{ question: user.security_question, answer_hash: user.security_answer_hash }] : [];
+/** Two of three right (or the single older question) — answers are matched by position. */
+const recoveryAnswersPass = (user, answers = []) => {
+  const questions = recoveryQuestionsOf(user);
+  if (!questions.length) return true;
+  const right = questions.filter((item, i) => answers[i] && bcrypt.compareSync(normalizeAnswer(answers[i]), item.answer_hash)).length;
+  return right >= Math.min(RECOVERY_ANSWERS_NEEDED, questions.length);
+};
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const secondsUntil = (time) => Math.max(1, Math.ceil((Date.parse(time) - Date.now()) / 1000));
 const describeWait = (seconds) => (seconds < 60 ? plural(seconds, "second") : plural(Math.ceil(seconds / 60), "minute"));
@@ -148,14 +163,14 @@ const describeWait = (seconds) => (seconds < 60 ? plural(seconds, "second") : pl
  * Spends one try against the newest unused code for email+purpose. The attempt counter
  * is committed before the error is thrown, so wrong guesses can't be rolled back.
  */
-const attemptCode = async (email, purpose, matches, wrongMessage) => {
+const attemptCode = async (email, purpose, matches, wrongMessage, { consume = true } = {}) => {
   const outcome = await tx(async (run) => {
     const [row] = await run(`SELECT * FROM auth_codes WHERE email = $1 AND purpose = $2 AND used_at IS NULL
                              ORDER BY created_at DESC LIMIT 1 FOR UPDATE`, [email, purpose]);
     if (!row || Date.parse(row.expires_at) <= Date.now()) return { error: ["This code has expired. Send a new one.", 400] };
     if (row.attempts >= CODE_MAX_ATTEMPTS) return { error: ["Too many wrong tries. Send a new code.", 429] };
     if (matches(row)) {
-      await run("UPDATE auth_codes SET used_at = now() WHERE id = $1", [row.id]);
+      if (consume) await run("UPDATE auth_codes SET used_at = now() WHERE id = $1", [row.id]);
       return {};
     }
     const [{ attempts }] = await run("UPDATE auth_codes SET attempts = attempts + 1 WHERE id = $1 RETURNING attempts", [row.id]);
@@ -225,17 +240,21 @@ export const authStore = {
   },
 
   async registerUser({ name, email, password, role = "buyer", campus_id, affiliation, department, store_name, campus_location,
-    security_question = null, security_answer = null, email_verified = false }) {
+    security_question = null, security_answer = null, security_questions = null, email_verified = false }) {
     const passwordHash = bcrypt.hashSync(password, 12);
+    const recovery = security_questions ? hashRecoveryQuestions(security_questions) : null;
+    // The first of the three also serves the sign-in "answer your security question" option.
+    if (security_questions) [security_question, security_answer] = [security_questions[0].question, security_questions[0].answer];
     const answerHash = security_answer ? bcrypt.hashSync(normalizeAnswer(security_answer), 12) : null;
     return tx(async (run) => {
       if ((await run("SELECT 1 FROM users WHERE email = $1", [email]))[0]) fail("Email already registered", 409);
       if ((await run("SELECT 1 FROM users WHERE lower(campus_id) = lower($1)", [campus_id]))[0]) fail("This campus ID is already registered.", 409);
       const [user] = await run(
         `INSERT INTO users (name, email, password_hash, role, campus_id, affiliation, department, campus,
-                            security_question, security_answer_hash, email_verified_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'CSUCC', $8, $9, CASE WHEN $10::boolean THEN now() END) RETURNING ${USER_COLUMNS}`,
-        [name, email, passwordHash, role, campus_id, affiliation, department, security_question, answerHash, email_verified],
+                            security_question, security_answer_hash, email_verified_at, recovery_questions)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'CSUCC', $8, $9, CASE WHEN $10::boolean THEN now() END, $11) RETURNING ${USER_COLUMNS}`,
+        [name, email, passwordHash, role, campus_id, affiliation, department, security_question, answerHash, email_verified,
+          recovery && JSON.stringify(recovery)],
       );
       if (role === "seller") {
         await run("INSERT INTO stalls (owner_id, name, location) VALUES ($1, $2, $3)", [user.id, store_name, campus_location]);
@@ -244,8 +263,9 @@ export const authStore = {
     });
   },
 
+  /** `email` may also be an administrator's username. */
   async loginUser(email, password) {
-    const user = await q1("SELECT * FROM users WHERE email = $1", [email]);
+    const user = await q1("SELECT * FROM users WHERE email = $1 OR lower(username) = $1 LIMIT 1", [email]);
     // Always run bcrypt so response time doesn't reveal whether the email exists
     const valid = bcrypt.compareSync(password, user?.password_hash || DUMMY_HASH);
     // 423 with retry_after (seconds) so the sign-in page can count down.
@@ -265,7 +285,11 @@ export const authStore = {
       }
       fail("Invalid email or password", 401);
     }
+    if (user.deleted_at) fail("This account was removed by an administrator.", 403);
     if (user.is_banned) fail("Account suspended", 403);
+    if (!isOnShift(user)) {
+      throw Object.assign(new Error(`You're off duty. Your shift is ${describeShift(user)} (Philippine time) — sign in then.`), { status: 403, code: "OFF_SHIFT" });
+    }
     if (user.failed_logins || user.locked_until) await q("UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = $1", [user.id]);
     return user;
   },
@@ -317,13 +341,23 @@ export const authStore = {
     });
   },
 
-  async listUsers({ role, status, q: search, page = 1, limit = 20 } = {}) {
+  /**
+   * Accounts for the admin list. `q` matches name, email, ID number (campus/employee ID) or username;
+   * `month` (YYYY-MM) and `date` (YYYY-MM-DD) filter by registration day in Philippine time.
+   * status "removed" lists removed accounts; every other view hides them.
+   */
+  async listUsers({ role, status, q: search, month, date, page = 1, limit = 20 } = {}) {
     const { size, number, offset } = pageParams(page, limit);
+    const removed = status === "removed";
+    const day = manilaTime("created_at");
     const where = `($1::text IS NULL OR role = $1) AND ($2::text IS NULL OR status = $2)
-      AND ($3::text IS NULL OR (name || ' ' || email) ILIKE '%' || $3 || '%')`;
-    const params = [role || null, status || null, search ? escapeLike(search) : null];
+      AND ($3::text IS NULL OR concat_ws(' ', name, email, campus_id, username) ILIKE '%' || $3 || '%')
+      AND (deleted_at IS NOT NULL) = $4
+      AND ($5::text IS NULL OR to_char(${day}, 'YYYY-MM') = $5) AND ($6::text IS NULL OR to_char(${day}, 'YYYY-MM-DD') = $6)`;
+    const params = [role || null, removed ? null : status || null, search ? escapeLike(search) : null, removed, month || null, date || null];
     const [{ count }] = await q(`SELECT count(*) FROM users WHERE ${where}`, params);
-    const data = await q(`SELECT ${USER_COLUMNS} FROM users WHERE ${where} ORDER BY created_at, id LIMIT $4 OFFSET $5`, [...params, size, offset]);
+    const order = removed ? "deleted_at DESC" : status === "pending" ? "created_at" : "created_at DESC";
+    const data = await q(`SELECT ${USER_COLUMNS} FROM users WHERE ${where} ORDER BY ${order}, id LIMIT $7 OFFSET $8`, [...params, size, offset]);
     return { data, total: count, page: number };
   },
 
@@ -360,11 +394,287 @@ export const authStore = {
     });
   },
 
-  async banUser(userId, ban) {
-    const user = await q1("SELECT role FROM users WHERE id = $1", [userId]);
+  /** Blocks or unblocks any account, administrators included (never yourself, never the last admin manager). */
+  async banUser(userId, ban, actorId) {
+    return tx(async (run) => {
+      const [user] = await run("SELECT role, deleted_at FROM users WHERE id = $1 FOR UPDATE", [userId]);
+      if (!user || user.deleted_at) fail("User not found", 404);
+      if (userId === actorId) fail("You can't block your own account.", 403);
+      if (ban && user.role === "admin") await keepAnAdminManager(run, userId);
+      const [updated] = await run(`UPDATE users SET is_banned = $2 WHERE id = $1 RETURNING ${USER_COLUMNS}`, [userId, Boolean(ban)]);
+      if (ban) await closeSessions(run, userId, "blocked");
+      await audit(run, actorId, ban ? "account.blocked" : "account.unblocked", userId);
+      return updated;
+    });
+  },
+
+  /** Saves the user's three recovery questions (answers hashed); the first also backs the sign-in fallback. */
+  async setRecoveryQuestions(userId, currentPassword, questions) {
+    const user = await q1("SELECT password_hash FROM users WHERE id = $1", [userId]);
     if (!user) fail("User not found", 404);
-    if (user.role === "admin") fail("Administrator accounts cannot be suspended here.", 403);
-    return q1(`UPDATE users SET is_banned = $2 WHERE id = $1 RETURNING ${USER_COLUMNS}`, [userId, Boolean(ban)]);
+    if (!bcrypt.compareSync(currentPassword, user.password_hash)) fail("Current password is incorrect.", 401);
+    return q1(`UPDATE users SET recovery_questions = $2, security_question = $3, security_answer_hash = $4
+               WHERE id = $1 RETURNING ${USER_COLUMNS}`,
+      [userId, JSON.stringify(hashRecoveryQuestions(questions)), questions[0].question, bcrypt.hashSync(normalizeAnswer(questions[0].answer), 12)]);
+  },
+
+  // ── Forgot password: emailed code → 2 of 3 recovery answers → new password ──
+  async resetAccount(email) {
+    return q1("SELECT id, email FROM users WHERE email = $1 AND deleted_at IS NULL", [email]);
+  },
+
+  /** Checks the emailed code without using it up, then reveals the account's question texts. */
+  async checkResetCode(email, code) {
+    await attemptCode(email, "reset", (row) => sameHash(row.code_hash, hashCode(code)), "That code isn't right.", { consume: false });
+    const user = await q1("SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL", [email]);
+    if (!user) fail("This code has expired. Send a new one.");
+    const questions = recoveryQuestionsOf(user).map((item) => item.question);
+    return { questions, answers_needed: Math.min(RECOVERY_ANSWERS_NEEDED, questions.length) };
+  },
+
+  /** Wrong answers spend the same 5-try budget as wrong codes. */
+  async completeReset(email, code, answers, newPassword) {
+    const user = await q1("SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL", [email]);
+    if (!user) fail("This code has expired. Send a new one.");
+    await attemptCode(email, "reset", (row) => sameHash(row.code_hash, hashCode(code)) && recoveryAnswersPass(user, answers),
+      "Those answers don't match our records.");
+    if (bcrypt.compareSync(newPassword, user.password_hash)) fail("Choose a password different from your current one.");
+    return tx(async (run) => {
+      await run(`UPDATE users SET password_hash = $2, password_changed_at = now(), failed_logins = 0, locked_until = NULL,
+                 email_verified_at = coalesce(email_verified_at, now()) WHERE id = $1`, [user.id, bcrypt.hashSync(newPassword, 12)]);
+      await closeSessions(run, user.id, "password_reset");
+      await audit(run, user.id, "password.reset", user.id, "Reset with emailed code and recovery questions");
+    });
+  },
+
+  /** First sign-in of an admin created by another admin: real name, employee ID, own password, recovery questions. */
+  async completeSetup(userId, { name, employee_id, new_password, security_questions }) {
+    return tx(async (run) => {
+      const [user] = await run("SELECT * FROM users WHERE id = $1 FOR UPDATE", [userId]);
+      if (!user?.must_setup) fail("This account is already set up.", 409);
+      if (bcrypt.compareSync(new_password, user.password_hash)) fail("Choose a new password — not the one you were given.");
+      if ((await run("SELECT 1 FROM users WHERE id <> $1 AND lower(campus_id) = lower($2)", [userId, employee_id]))[0]) {
+        fail("This employee ID is already used by another account.", 409);
+      }
+      const [updated] = await run(
+        `UPDATE users SET name = $2, campus_id = $3, password_hash = $4, password_changed_at = now(), must_setup = FALSE,
+                recovery_questions = $5, security_question = $6, security_answer_hash = $7, affiliation = 'employee',
+                email_verified_at = coalesce(email_verified_at, now())
+         WHERE id = $1 RETURNING ${USER_COLUMNS}`,
+        [userId, name, employee_id, bcrypt.hashSync(new_password, 12), JSON.stringify(hashRecoveryQuestions(security_questions)),
+          security_questions[0].question, bcrypt.hashSync(normalizeAnswer(security_questions[0].answer), 12)],
+      );
+      // The sign-in that led here was logged under the placeholder name; show the real one.
+      await run("UPDATE login_logs SET full_name = $2, id_no = $3 WHERE user_id = $1 AND time_out IS NULL", [userId, name, employee_id]);
+      await audit(run, userId, "admin.setup_completed", userId);
+      return updated;
+    });
+  },
+};
+
+// ── Sign-in sessions and login logs ───────────────────────────────────────────
+const closeSessions = (run, userId, reason) =>
+  run("UPDATE login_logs SET time_out = now(), end_reason = $2 WHERE user_id = $1 AND time_out IS NULL", [userId, reason]);
+
+/** Philippine time (UTC+8, no daylight saving) for date filters; avoids relying on the database's time zone files. */
+const manilaTime = (column) => `((${column} AT TIME ZONE 'UTC') + interval '8 hours')`;
+
+/** Refuses a change that would leave no active administrator able to manage admins. */
+const keepAnAdminManager = async (run, excludingId) => {
+  const [{ count }] = await run(
+    `SELECT count(*) FROM users WHERE role = 'admin' AND id <> $1 AND deleted_at IS NULL AND NOT is_banned
+       AND (permissions IS NULL OR permissions ? 'admins')`, [excludingId]);
+  if (!count) fail("Keep at least one active administrator who can manage admins.", 409);
+};
+
+export const sessionStore = {
+  /** Records a sign-in and returns its id (carried in the session's tokens as `sid`). */
+  async start(user, { ip = null, userAgent = null } = {}) {
+    const [row] = await q(
+      `INSERT INTO login_logs (user_id, id_no, full_name, role, ip, user_agent) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [user.id, user.campus_id || user.username || null, user.name, user.role, ip, userAgent ? String(userAgent).slice(0, 300) : null],
+    );
+    await q("UPDATE users SET last_login_at = now() WHERE id = $1", [user.id]);
+    return row.id;
+  },
+
+  /** True while the sign-in hasn't been closed by logout, a block, a password reset or the end of a shift. */
+  async isOpen(sid, userId) {
+    return Boolean(await q1("SELECT 1 FROM login_logs WHERE id = $1 AND user_id = $2 AND time_out IS NULL", [sid, userId]));
+  },
+
+  async touch(sid, userId) {
+    await q("UPDATE login_logs SET last_seen_at = now() WHERE id = $1 AND user_id = $2 AND time_out IS NULL", [sid, userId]);
+  },
+
+  async end(sid, userId, reason = "logout") {
+    await q("UPDATE login_logs SET time_out = now(), end_reason = $3 WHERE id = $1 AND user_id = $2 AND time_out IS NULL", [sid, userId, reason]);
+  },
+
+  async endAll(userId, reason) {
+    await closeSessions(q, userId, reason);
+  },
+
+  /** Every other sign-in of this user (e.g. after a password change on this device). */
+  async endOthers(userId, keepSid, reason) {
+    await q("UPDATE login_logs SET time_out = now(), end_reason = $3 WHERE user_id = $1 AND id IS DISTINCT FROM $2 AND time_out IS NULL",
+      [userId, keepSid, reason]);
+  },
+
+  /** Login log page. `userId` limits it to one person (what non-admins see). */
+  async list({ userId = null, role, month, date, q: search, page = 1, limit = 20 } = {}) {
+    const { size, number, offset } = pageParams(page, limit);
+    const day = manilaTime("time_in");
+    const where = `($1::text IS NULL OR user_id = $1) AND ($2::text IS NULL OR role = $2)
+      AND ($3::text IS NULL OR to_char(${day}, 'YYYY-MM') = $3) AND ($4::text IS NULL OR to_char(${day}, 'YYYY-MM-DD') = $4)
+      AND ($5::text IS NULL OR concat_ws(' ', full_name, id_no) ILIKE '%' || $5 || '%')`;
+    const params = [userId, role || null, month || null, date || null, search ? escapeLike(search) : null];
+    const [{ count }] = await q(`SELECT count(*) FROM login_logs WHERE ${where}`, params);
+    const data = await q(
+      `SELECT id, user_id, id_no, full_name, role, time_in, time_out, last_seen_at, end_reason, ip, user_agent
+       FROM login_logs WHERE ${where} ORDER BY time_in DESC, id LIMIT $6 OFFSET $7`, [...params, size, offset]);
+    return { data, total: count, page: number };
+  },
+
+  /** Admin actions (approvals, blocks, removals, admin changes) with who did them. */
+  async activity({ month, date, q: search, page = 1, limit = 20 } = {}) {
+    const { size, number, offset } = pageParams(page, limit);
+    const day = manilaTime("a.created_at");
+    const where = `($1::text IS NULL OR to_char(${day}, 'YYYY-MM') = $1) AND ($2::text IS NULL OR to_char(${day}, 'YYYY-MM-DD') = $2)
+      AND ($3::text IS NULL OR concat_ws(' ', a.action, a.note, actor.name, target.name, target.email) ILIKE '%' || $3 || '%')`;
+    const from = "FROM audit_log a LEFT JOIN users actor ON actor.id = a.actor_id LEFT JOIN users target ON target.id = a.target_id";
+    const params = [month || null, date || null, search ? escapeLike(search) : null];
+    const [{ count }] = await q(`SELECT count(*) ${from} WHERE ${where}`, params);
+    const data = await q(
+      `SELECT a.id, a.action, a.note, a.created_at, a.actor_id, actor.name AS actor_name, actor.campus_id AS actor_id_no,
+              a.target_id, target.name AS target_name, target.email AS target_email
+       ${from} WHERE ${where} ORDER BY a.created_at DESC, a.id LIMIT $4 OFFSET $5`, [...params, size, offset]);
+    return { data, total: count, page: number };
+  },
+};
+
+// ── Administrators and account management ────────────────────────────────────
+const cleanPermissions = (permissions) => (permissions == null ? null : [...new Set(permissions)].filter((p) => PERMISSION_KEYS.includes(p)));
+const grants = (permissions, key) => permissions == null || permissions.includes(key);
+
+/** Unique email / username / ID number checks shared by create and edit. */
+const assertAccountUnique = async (run, { id = null, email, username, campus_id }) => {
+  if (email && (await run("SELECT 1 FROM users WHERE email = $1 AND id IS DISTINCT FROM $2", [email, id]))[0]) fail("This email already has an account.", 409);
+  if (username && (await run("SELECT 1 FROM users WHERE lower(username) = lower($1) AND id IS DISTINCT FROM $2", [username, id]))[0]) {
+    fail("This username is taken.", 409);
+  }
+  if (campus_id && (await run("SELECT 1 FROM users WHERE lower(campus_id) = lower($1) AND id IS DISTINCT FROM $2", [campus_id, id]))[0]) {
+    fail("This ID number is already used by another account.", 409);
+  }
+};
+
+export const staffStore = {
+  async list() {
+    return q(`SELECT ${USER_COLUMNS} FROM users WHERE role = 'admin' AND deleted_at IS NULL ORDER BY created_at, id`);
+  },
+
+  /** Creates an admin with a starter password; they finish their details at the first sign-in. */
+  async create(actorId, { name, username, email, employee_id = null, shift_start = null, shift_end = null, permissions = null }) {
+    const password = generateStarterPassword();
+    return tx(async (run) => {
+      await assertAccountUnique(run, { email, username, campus_id: employee_id });
+      const [user] = await run(
+        `INSERT INTO users (name, email, username, password_hash, role, status, campus, campus_id, affiliation,
+                            shift_start, shift_end, permissions, must_setup, created_by)
+         VALUES ($1, $2, $3, $4, 'admin', 'approved', 'CSUCC', $5, 'employee', $6, $7, $8, TRUE, $9) RETURNING ${USER_COLUMNS}`,
+        [name || username, email, username, bcrypt.hashSync(password, 12), employee_id, shift_start, shift_end,
+          permissions == null ? null : JSON.stringify(cleanPermissions(permissions)), actorId],
+      );
+      await audit(run, actorId, "admin.created", user.id, `${username} · ${email}`);
+      return { user, password };
+    });
+  },
+
+  async update(actorId, adminId, changes) {
+    return tx(async (run) => {
+      const [admin] = await run("SELECT * FROM users WHERE id = $1 AND role = 'admin' AND deleted_at IS NULL FOR UPDATE", [adminId]);
+      if (!admin) fail("Administrator not found.", 404);
+      const next = { ...changes, campus_id: changes.employee_id };
+      await assertAccountUnique(run, { id: adminId, email: next.email, username: next.username, campus_id: next.campus_id });
+      if (next.permissions !== undefined) {
+        next.permissions = cleanPermissions(next.permissions);
+        if (!grants(next.permissions, "admins") && grants(admin.permissions, "admins")) await keepAnAdminManager(run, adminId);
+      }
+      const fields = ["name", "email", "username", "campus_id", "shift_start", "shift_end", "permissions"].filter((key) => next[key] !== undefined);
+      if (!fields.length) return (await run(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [adminId]))[0];
+      const values = fields.map((key) => (key === "permissions" && next[key] != null ? JSON.stringify(next[key]) : next[key]));
+      const [updated] = await run(
+        `UPDATE users SET ${fields.map((key, i) => `${key} = $${i + 2}`).join(", ")} WHERE id = $1 RETURNING ${USER_COLUMNS}`,
+        [adminId, ...values],
+      );
+      // A new shift applies from the next request; close the sign-in if it's now off duty.
+      if (!isOnShift(updated)) await closeSessions(run, adminId, "shift_changed");
+      await audit(run, actorId, "admin.updated", adminId, `Changed ${fields.map((key) => key.replace("campus_id", "employee ID").replace("_", " ")).join(", ")}`);
+      return updated;
+    });
+  },
+
+  /** New starter password; the admin repeats the first-login setup. Signs them out everywhere. */
+  async resetPassword(actorId, adminId) {
+    const password = generateStarterPassword();
+    return tx(async (run) => {
+      const [user] = await run(
+        `UPDATE users SET password_hash = $2, password_changed_at = now(), must_setup = TRUE, failed_logins = 0, locked_until = NULL
+         WHERE id = $1 AND role = 'admin' AND deleted_at IS NULL RETURNING ${USER_COLUMNS}`,
+        [adminId, bcrypt.hashSync(password, 12)],
+      );
+      if (!user) fail("Administrator not found.", 404);
+      await closeSessions(run, adminId, "password_reset");
+      await audit(run, actorId, "admin.password_reset", adminId);
+      return { user, password };
+    });
+  },
+};
+
+export const accountStore = {
+  /** Admin edit of anyone's details. Changing an ID number on an approved account keeps it approved — the admin vouches for it. */
+  async update(actorId, userId, changes) {
+    return tx(async (run) => {
+      const [user] = await run("SELECT id FROM users WHERE id = $1 AND deleted_at IS NULL FOR UPDATE", [userId]);
+      if (!user) fail("User not found", 404);
+      await assertAccountUnique(run, { id: userId, email: changes.email, campus_id: changes.campus_id });
+      const fields = ["name", "email", "campus_id", "affiliation", "department"].filter((key) => changes[key] !== undefined);
+      if (!fields.length) return (await run(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [userId]))[0];
+      const [updated] = await run(
+        `UPDATE users SET ${fields.map((key, i) => `${key} = $${i + 2}`).join(", ")} WHERE id = $1 RETURNING ${USER_COLUMNS}`,
+        [userId, ...fields.map((key) => changes[key])],
+      );
+      await audit(run, actorId, "account.updated", userId, `Changed ${fields.map((key) => key.replace("campus_id", "ID number")).join(", ")}`);
+      return updated;
+    });
+  },
+
+  /** Removes an account from the platform but keeps the record (and its orders) with the reason. */
+  async remove(actorId, userId, reason) {
+    return tx(async (run) => {
+      const [user] = await run("SELECT role, deleted_at FROM users WHERE id = $1 FOR UPDATE", [userId]);
+      if (!user || user.deleted_at) fail("User not found", 404);
+      if (userId === actorId) fail("You can't remove your own account.", 403);
+      if (user.role === "admin") await keepAnAdminManager(run, userId);
+      const [updated] = await run(
+        `UPDATE users SET deleted_at = now(), deleted_by = $2, delete_reason = $3, is_banned = TRUE WHERE id = $1 RETURNING ${USER_COLUMNS}`,
+        [userId, actorId, reason],
+      );
+      await closeSessions(run, userId, "removed");
+      await audit(run, actorId, "account.removed", userId, reason);
+      return updated;
+    });
+  },
+
+  async restore(actorId, userId) {
+    return tx(async (run) => {
+      const [updated] = await run(
+        `UPDATE users SET deleted_at = NULL, deleted_by = NULL, delete_reason = NULL, is_banned = FALSE
+         WHERE id = $1 AND deleted_at IS NOT NULL RETURNING ${USER_COLUMNS}`, [userId]);
+      if (!updated) fail("Removed account not found.", 404);
+      await audit(run, actorId, "account.restored", userId);
+      return updated;
+    });
   },
 };
 
@@ -452,7 +762,12 @@ export const stallStore = {
       if (!["free", "premium"].includes(tier)) fail("Invalid plan.");
       const [{ count }] = await run("SELECT count(*) FROM products WHERE stall_id = $1", [stallId]);
       if (count > getPlan(tier).listing_limit) fail("Remove excess listings before changing to this plan.", 409);
-      await run("UPDATE stalls SET tier = $2 WHERE id = $1", [stallId, tier]);
+      // A manual switch has no end date, and settles any request that was waiting.
+      await run("UPDATE stalls SET tier = $2, premium_until = NULL WHERE id = $1", [stallId, tier]);
+      if (tier === "premium") {
+        await run(`UPDATE plan_requests SET status = 'approved', reviewed_by = $2, reviewed_at = now(), review_note = 'Switched to Premium in Stores & Plans'
+                   WHERE stall_id = $1 AND status = 'pending'`, [stallId, actorId]);
+      }
       await audit(run, actorId, "stall.plan", stallId, tier);
       return getStallDetails(run, "s.id = $1", [stallId]);
     });
@@ -553,6 +868,11 @@ export const productStore = {
         [stallId, payload.name, payload.description || "", Number(payload.price), Number(payload.stock),
           payload.category || "other", payload.image_url || "", payload.is_active !== false],
       );
+      // Free stalls hear about Premium as they run out of listing slots.
+      if (stall.tier !== "premium") {
+        if (count + 1 === plan.listing_limit - 1) await nudgeSeller(run, stall.owner_id, "listings_almost");
+        if (count + 1 >= plan.listing_limit) await nudgeSeller(run, stall.owner_id, "listings_full");
+      }
       return { ...product, stalls: stall };
     });
   },
@@ -674,7 +994,7 @@ export const cartStore = {
 };
 
 // ── Orders ────────────────────────────────────────────────────────────────────
-const ORDER_COLUMNS = "id, buyer_id, seller_id, stall_id, total, status, delivery_notes, fulfillment, cancelled_at, created_at";
+const ORDER_COLUMNS = "id, buyer_id, seller_id, stall_id, total, status, delivery_notes, fulfillment, cancelled_at, cancel_reason, created_at";
 
 /** Attach items (purchase-time snapshots) to order rows. */
 const attachOrderItems = async (run, orders) => {
@@ -783,7 +1103,7 @@ export const orderStore = {
     return listOrders("o.seller_id = $1 AND ($2::text IS NULL OR o.status = $2)", [sellerId, status || null]);
   },
 
-  async updateStatus(orderId, status, actorId, actorRole) {
+  async updateStatus(orderId, status, actorId, actorRole, cancelReason = null) {
     return tx(async (run) => {
       // Row lock: a repeated cancel waits, then sees "cancelled" and can't restore stock twice.
       const [order] = await run(`SELECT ${ORDER_COLUMNS} FROM orders WHERE id = $1 FOR UPDATE`, [orderId]);
@@ -794,6 +1114,7 @@ export const orderStore = {
       const buyerCancellation = actorId === order.buyer_id && actorRole !== "admin";
       if (buyerCancellation) {
         if (status !== "cancelled") fail("Buyers can only cancel their orders.", 403);
+        if (LOCKED_STATUSES.has(order.status)) fail("The seller has already prepared this order, so it can no longer be cancelled.", 409);
         if (!canBuyerCancel(order)) fail("You can cancel an unfinished order only within 10 minutes of placing it.", 409);
       } else if (!(ORDER_TRANSITIONS[order.status] || []).includes(status)) {
         fail("Invalid order status transition.");
@@ -805,11 +1126,16 @@ export const orderStore = {
         }
       }
       const [updated] = await run(
-        `UPDATE orders SET status = $2, cancelled_at = CASE WHEN $2 = 'cancelled' THEN now() ELSE cancelled_at END
+        `UPDATE orders SET status = $2, cancelled_at = CASE WHEN $2 = 'cancelled' THEN now() ELSE cancelled_at END,
+           cancel_reason = CASE WHEN $2 = 'cancelled' THEN $3 ELSE cancel_reason END
          WHERE id = $1 RETURNING ${ORDER_COLUMNS}`,
-        [orderId, status],
+        [orderId, status, cancelReason || null],
       );
       await notifyOrderParties(run, updated, withItems.items, buyerCancellation ? "buyer_cancelled" : "status_changed");
+      if (["completed", "delivered"].includes(status)) {
+        const [{ count }] = await run("SELECT count(*) FROM orders WHERE seller_id = $1 AND status IN ('completed', 'delivered')", [order.seller_id]);
+        if (count >= FIRST_SALES_NUDGE_AT) await nudgeSeller(run, order.seller_id, "first_sales");
+      }
       return { ...updated, items: withItems.items };
     });
   },
@@ -853,6 +1179,130 @@ const notifyOrderParties = async (run, order, lines, event) => {
   if (event === "buyer_cancelled") {
     await insertNotification(run, { userId: order.seller_id, orderId: order.id, status: order.status, link: "/seller/orders", ...sellerCancelledMessage(order, context) });
   }
+};
+
+// ── Premium plan: nudges, requests, expiry ────────────────────────────────────
+// Upgrade nudges are notifications of type "plan" sent at most once per seller per kind,
+// and only while the stall is on Free.
+const PLAN_NUDGES = {
+  listings_almost: ["One listing slot left", "You've used 4 of your 5 Free listings. Premium gives you up to 25, plus analytics and the point of sale."],
+  listings_full: ["You've reached 5 listings", "Your Free plan is full. Request Premium to list up to 25 products."],
+  locked_analytics: ["Unlock product analytics", "See your best sellers, revenue trends and counter sales with Premium."],
+  locked_pos: ["Sell at the counter with Premium", "The point of sale records cash sales and prints receipts. Request Premium to use it."],
+  first_sales: ["3 completed orders — nice!", "See which products sell best with Premium analytics."],
+};
+const FIRST_SALES_NUDGE_AT = 3;
+
+const insertPlanNotification = (run, userId, kind, title, body) =>
+  run("INSERT INTO notifications (user_id, type, status, title, body, link) VALUES ($1, 'plan', $2, $3, $4, '/seller/plans')",
+    [userId, kind, title, body]);
+
+/** Sends one upgrade nudge if this seller is on Free and hasn't had this kind before. */
+const nudgeSeller = async (run, ownerId, kind) => {
+  const [stall] = await run("SELECT tier FROM stalls WHERE owner_id = $1", [ownerId]);
+  if (!stall || stall.tier === "premium") return false;
+  const [fresh] = await run("INSERT INTO plan_nudges (user_id, kind) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING kind", [ownerId, kind]);
+  if (!fresh) return false;
+  await insertPlanNotification(run, ownerId, kind, ...PLAN_NUDGES[kind]);
+  return true;
+};
+
+const formatDay = (value) => new Date(value).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", month: "long", day: "numeric", year: "numeric" });
+const REQUEST_SELECT = `SELECT r.*, s.name AS stall_name, s.location AS stall_location, s.tier, s.premium_until AS current_premium_until,
+  u.name AS seller_name, u.email AS seller_email, u.campus_id AS seller_id_no, a.name AS reviewer_name,
+  (SELECT count(*) FROM products p WHERE p.stall_id = s.id) AS listings
+  FROM plan_requests r JOIN stalls s ON s.id = r.stall_id JOIN users u ON u.id = r.seller_id LEFT JOIN users a ON a.id = r.reviewed_by`;
+
+export const planStore = {
+  /** Premium that ran past its end date drops back to Free; the seller is told. Safe to call often. */
+  async expireDue() {
+    return tx(async (run) => {
+      const expired = await run(`UPDATE stalls SET tier = 'free', premium_until = NULL
+                                 WHERE tier = 'premium' AND premium_until IS NOT NULL AND premium_until <= now() RETURNING id, owner_id`);
+      for (const stall of expired) {
+        await insertPlanNotification(run, stall.owner_id, "plan_expired", "Your Premium plan has ended",
+          "Your stall is back on Free (5 listings). Request Premium again to keep analytics and the point of sale.");
+        await audit(run, null, "stall.plan_expired", stall.id);
+      }
+      return expired.length;
+    });
+  },
+
+  /** What the seller's Plans page shows. `feature` (analytics | pos) records that they tried a locked page. */
+  async overview(ownerId, { feature } = {}) {
+    await this.expireDue();
+    const stall = await stallStore.getMy(ownerId);
+    const base = { plans: PLANS, price: process.env.PREMIUM_PRICE || "", payment_info: process.env.PREMIUM_PAYMENT_INFO || "" };
+    if (!stall) return { ...base, stall: null, listings: 0, pending: null, history: [] };
+    if (["analytics", "pos"].includes(feature)) await tx((run) => nudgeSeller(run, ownerId, `locked_${feature}`));
+    const [{ count }] = await q("SELECT count(*) FROM products WHERE stall_id = $1", [stall.id]);
+    const history = await q(`${REQUEST_SELECT} WHERE r.stall_id = $1 ORDER BY r.created_at DESC LIMIT 5`, [stall.id]);
+    return {
+      ...base,
+      stall: { id: stall.id, name: stall.name, status: stall.status, tier: stall.tier, premium_until: stall.premium_until, plan: stall.plan },
+      listings: count,
+      pending: history.find((item) => item.status === "pending") || null,
+      history,
+    };
+  },
+
+  async request(ownerId, { note = "", payment_reference = null }) {
+    return tx(async (run) => {
+      const [stall] = await run("SELECT * FROM stalls WHERE owner_id = $1 FOR UPDATE", [ownerId]);
+      if (!stall) fail("Create your stall first.", 404);
+      if (stall.status !== "approved") fail("Your stall needs to be approved before you can request Premium.", 403);
+      // Renewal opens 30 days before an end date; otherwise Premium stalls don't need to ask.
+      const renewing = stall.tier === "premium" && stall.premium_until && Date.parse(stall.premium_until) - Date.now() < 30 * 86400000;
+      if (stall.tier === "premium" && !renewing) fail("Your stall is already on Premium.", 409);
+      if ((await run("SELECT 1 FROM plan_requests WHERE stall_id = $1 AND status = 'pending'", [stall.id]))[0]) {
+        fail("You already have a Premium request waiting for review.", 409);
+      }
+      const [row] = await run(
+        "INSERT INTO plan_requests (stall_id, seller_id, note, payment_reference) VALUES ($1, $2, $3, $4) RETURNING id",
+        [stall.id, ownerId, note, payment_reference || null],
+      );
+      await audit(run, ownerId, "plan.requested", stall.id, note || null);
+      return (await run(`${REQUEST_SELECT} WHERE r.id = $1`, [row.id]))[0];
+    });
+  },
+
+  async cancel(ownerId) {
+    const row = await q1("UPDATE plan_requests SET status = 'cancelled' WHERE seller_id = $1 AND status = 'pending' RETURNING id", [ownerId]);
+    if (!row) fail("No pending request to cancel.", 404);
+    return { ok: true };
+  },
+
+  async listRequests({ status = "pending" } = {}) {
+    const rows = await q(
+      `${REQUEST_SELECT} WHERE ($1::text = 'all' OR r.status = $1) ORDER BY (r.status = 'pending') DESC, r.created_at ${status === "pending" ? "" : "DESC"} LIMIT 100`,
+      [status],
+    );
+    return rows;
+  },
+
+  /** Approve (optionally until a date) or decline; the seller gets a notification either way. */
+  async review(actorId, requestId, { decision, note = "", premium_until = null }) {
+    return tx(async (run) => {
+      const [request] = await run("SELECT * FROM plan_requests WHERE id = $1 FOR UPDATE", [requestId]);
+      if (!request) fail("Request not found.", 404);
+      if (request.status !== "pending") fail("This request has already been handled.", 409);
+      // An end date means the end of that day in Philippine time.
+      const until = premium_until ? new Date(`${premium_until}T23:59:59+08:00`).toISOString() : null;
+      if (until && Date.parse(until) <= Date.now()) fail("Pick an end date in the future.");
+      if (decision === "approved") {
+        await run("UPDATE stalls SET tier = 'premium', premium_until = $2 WHERE id = $1", [request.stall_id, until]);
+        await insertPlanNotification(run, request.seller_id, "plan_approved", "Your stall is now Premium 🎉",
+          `You can now list up to 25 products and use analytics and the point of sale${until ? ` until ${formatDay(until)}` : ""}.${note ? ` Note from the admin: ${note}` : ""}`);
+      } else {
+        await insertPlanNotification(run, request.seller_id, "plan_declined", "Premium request not approved",
+          note || "An administrator didn't approve this request. You can send a new one.");
+      }
+      await run(`UPDATE plan_requests SET status = $2, review_note = $3, reviewed_by = $4, reviewed_at = now(), premium_until = $5 WHERE id = $1`,
+        [requestId, decision, note || null, actorId, decision === "approved" ? until : null]);
+      await audit(run, actorId, `plan.${decision}`, request.stall_id, note || null);
+      return (await run(`${REQUEST_SELECT} WHERE r.id = $1`, [requestId]))[0];
+    });
+  },
 };
 
 export const notificationStore = {
@@ -1282,7 +1732,8 @@ export const adminStore = {
              (SELECT count(*) FROM pos_sales) AS pos_sales,
              (SELECT count(*) FROM users WHERE status = 'pending' AND role <> 'admin') AS pending_registrations,
              (SELECT count(*) FROM stalls WHERE status = 'pending') AS pending_stalls,
-             (SELECT count(*) FROM seller_applications WHERE lower(status) = 'pending') AS pending_event_applications`);
+             (SELECT count(*) FROM seller_applications WHERE lower(status) = 'pending') AS pending_event_applications,
+             (SELECT count(*) FROM plan_requests WHERE status = 'pending') AS pending_plan_requests`);
     const roles = await q("SELECT role, count(*) AS value FROM users GROUP BY role");
     const monthly = await q(`
       SELECT to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM') AS month, sum(total) AS sales

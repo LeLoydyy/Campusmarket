@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, ArrowRight, BarChart3, ClipboardList, PackageCheck, RefreshCw, ShoppingBag, TrendingUp, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowRight, BarChart3, Crown, X, ClipboardList, PackageCheck, RefreshCw, ShoppingBag, TrendingUp, Wallet } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import Sidebar from "../../components/common/Sidebar.jsx";
 import StatCard from "../../components/ui/StatCard.jsx";
@@ -12,6 +12,7 @@ import { analyticsService, orderService, productService, stallService } from "..
 import { formatCurrency } from "../../utils/formatCurrency.js";
 import { plural } from "../../utils/marketplace.js";
 import "./Dashboard.css";
+import "./Plans.css";
 
 const DAY = 86400000;
 const DONE = new Set(["completed", "delivered"]);
@@ -82,6 +83,11 @@ export default function SellerDashboard() {
   const avg = kpis.cur.orders ? kpis.cur.revenue / kpis.cur.orders : 0;
   const prevAvg = kpis.prev.orders ? kpis.prev.revenue / kpis.prev.orders : 0;
   const firstName = user?.name?.split(" ")[0] || "seller";
+  // Free stalls see a Premium banner until they close it (remembered on this device).
+  const bannerKey = `cm-premium-banner-${user?.id}`;
+  const [bannerClosed, setBannerClosed] = useState(() => { try { return localStorage.getItem(bannerKey) === "closed"; } catch { return false; } });
+  const closeBanner = () => { setBannerClosed(true); try { localStorage.setItem(bannerKey, "closed"); } catch { /* storage blocked */ } };
+  const showBanner = !loading && data.stall && data.stall.tier !== "premium" && !bannerClosed;
 
   return (
     <div className="dashboard-layout sd-shell">
@@ -101,6 +107,18 @@ export default function SellerDashboard() {
         </header>
 
         <div className="dashboard-content sd-content">
+          {showBanner && (
+            <section className="pl-banner" aria-label="Premium">
+              <Crown aria-hidden="true" />
+              <div>
+                <strong>Grow with Premium</strong>
+                <p>Get 25 listings, product analytics and the point of sale for counter sales.</p>
+              </div>
+              <Link to="/seller/plans" className="btn btn-primary btn-sm">See Premium</Link>
+              <button type="button" className="pl-banner-close" onClick={closeBanner} aria-label="Close Premium banner"><X aria-hidden="true" size={18} /></button>
+            </section>
+          )}
+
           {pending > 0 && (
             <Link to="/seller/orders" className="sd-alert">
               <ClipboardList aria-hidden="true" />
@@ -132,7 +150,7 @@ export default function SellerDashboard() {
                 <Link to="/seller/analytics" className="cm-link">Full analytics <ArrowRight aria-hidden="true" /></Link>
               </div>
               {loading ? <SkeletonBlock height={260} /> : !data.analytics ? (
-                <EmptyState compact illustration="sprout" title="Revenue charts are a Premium feature" description="Your KPIs above still count your completed online orders. Ask the campus administrator to switch your stall to Premium for charts and POS analytics." />
+                <EmptyState compact illustration="sprout" title="Revenue charts are a Premium feature" description="Your KPIs above still count your completed online orders. Premium adds charts, best sellers and point-of-sale analytics." action={{ label: "See Premium", to: "/seller/plans?feature=analytics" }} />
               ) : kpis.timeline.length === 0 ? (
                 <EmptyState compact illustration="sprout" title="No completed sales yet" description="When orders are completed or delivered, your daily revenue will grow here." action={{ label: "Review orders", to: "/seller/orders" }} />
               ) : (
@@ -165,7 +183,7 @@ export default function SellerDashboard() {
                 <BarChart3 className="sd-head-icon" aria-hidden="true" />
               </div>
               {loading ? <SkeletonBlock height={160} /> : data.top.length === 0 ? (
-                <EmptyState compact illustration="bag" title={data.analytics ? "No sales yet" : "Premium feature"} description={data.analytics ? "Your best sellers will rank here." : "Product rankings come with Premium analytics."} />
+                <EmptyState compact illustration="bag" title={data.analytics ? "No sales yet" : "Premium feature"} description={data.analytics ? "Your best sellers will rank here." : "Product rankings come with Premium analytics."} action={data.analytics ? undefined : { label: "See Premium", to: "/seller/plans?feature=analytics" }} />
               ) : (
                 <ol className="sd-top">
                   {data.top.map((row, index) => {

@@ -44,7 +44,7 @@ export const sellerNewOrderMessage = (order, { buyerName, itemCount }) => ({
   body: `${buyerName || "A buyer"} ordered ${items(itemCount)} · ${peso(order.total)} (${order.fulfillment === "delivery" ? "delivery" : "pickup"}).`,
 });
 
-export const sellerCancelledMessage = (_order, { buyerName }) => ({
+export const sellerCancelledMessage = (order, { buyerName }) => ({
   title: "Order cancelled by buyer",
-  body: `${buyerName || "The buyer"} cancelled their order. The stock is back on your shelf.`,
+  body: `${buyerName || "The buyer"} cancelled their order${order.cancel_reason ? ` — reason: “${order.cancel_reason}”` : ""}. The stock is back on your shelf.`,
 });

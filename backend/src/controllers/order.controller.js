@@ -1,5 +1,8 @@
 import { orderStore } from "../data/marketStore.js";
 
+// Room for several listed reasons plus a written one.
+const CANCEL_REASON_MAX = 600;
+
 // ── POST /api/orders ──────────────────────────────────────────────────────────
 export const createOrder = async (req, res, next) => {
   try {
@@ -49,11 +52,23 @@ export const updateOrderStatus = async (req, res, next) => {
       return res.status(400).json({ error: "Invalid status" });
     }
 
+    const reason =
+      typeof req.body.cancel_reason === "string"
+        ? req.body.cancel_reason.replace(/\s+/g, " ").trim()
+        : "";
+    if (reason.length > CANCEL_REASON_MAX) {
+      return res.status(400).json({ error: `Keep the reason under ${CANCEL_REASON_MAX} characters.` });
+    }
+    if (status === "cancelled" && req.user.role === "buyer" && reason.length < 3) {
+      return res.status(400).json({ error: "Tell the seller why you're cancelling this order." });
+    }
+
     const order = await orderStore.updateStatus(
       req.params.id,
       status,
       req.user.id,
       req.user.role,
+      status === "cancelled" ? reason || null : null,
     );
     res.json(order);
   } catch (err) {

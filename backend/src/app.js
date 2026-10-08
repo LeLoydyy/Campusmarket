@@ -18,7 +18,8 @@ import posRoutes from "./routes/pos.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import statsRoutes from "./routes/stats.routes.js";
 import { productPhotoDirectory } from "./middleware/productPhoto.js";
-import { ready } from "./data/marketStore.js";
+import { planStore, ready } from "./data/marketStore.js";
+import planRoutes from "./routes/plan.routes.js";
 import { databaseLabel } from "./db/index.js";
 import { usingSupabaseStorage } from "./services/photoStorage.js";
 import { checkEmailConfig } from "./services/email.js";
@@ -60,7 +61,7 @@ const authLimiter = rateLimit({
   message: { error: "Too many attempts. Please wait 15 minutes and try again." },
 });
 // Prefix match: also covers /login/verify, /login/resend and /email/* (code guessing and email spam).
-app.use(["/api/auth/login", "/api/auth/register", "/api/auth/password", "/api/auth/email"], authLimiter);
+app.use(["/api/auth/login", "/api/auth/register", "/api/auth/password", "/api/auth/email", "/api/auth/forgot"], authLimiter);
 app.use("/api/product-images", express.static(productPhotoDirectory, { dotfiles: "deny", index: false, maxAge: "1d" }));
 
 // ── Health check ─────────────────────────────────────────────────────────────
@@ -75,6 +76,7 @@ app.use("/api/cart", cartRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/plans", planRoutes);
 app.use("/api/behavior", behaviorRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/stalls", stallRoutes);
@@ -101,7 +103,7 @@ app.use((err, _req, res, _next) => {
     res.set("Retry-After", String(err.retryAfter));
     return res.status(status).json({ error: message, retry_after: err.retryAfter });
   }
-  res.status(status).json({ error: message });
+  res.status(status).json({ error: message, ...(err.code && typeof err.code === "string" && status < 500 ? { code: err.code } : {}) });
 });
 
 // Connect and apply the schema before accepting requests.
@@ -110,6 +112,10 @@ ready()
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT} (database: ${databaseLabel()}, photos: ${usingSupabaseStorage() ? "Supabase Storage" : "local disk"})`);
       checkEmailConfig();
+      // Premium with an end date drops back to Free on its own; check every 10 minutes.
+      const expirePremium = () => planStore.expireDue().catch((error) => console.error("[plans] Expiry check failed:", error.message));
+      expirePremium();
+      setInterval(expirePremium, 10 * 60 * 1000).unref();
       if (process.env.NODE_ENV === "production" && !usingSupabaseStorage()) {
         console.warn("[photos] Product photos are stored on local disk and will be lost if this host's disk is reset. Set PHOTO_STORAGE=supabase.");
       }

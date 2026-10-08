@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, BadgeCheck, Check, IdCard, KeyRound, Mail, ShieldCheck, ShoppingBag, Store, User, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BadgeCheck, Check, IdCard, Mail, ShieldCheck, ShoppingBag, Store, User, X } from "lucide-react";
 import AuthLayout from "../../components/layout/AuthLayout.jsx";
 import OtpInput, { DevCodeHint, ResendCode } from "../../components/auth/OtpInput.jsx";
 import PasswordField, { PasswordStrength, passwordMeetsRules } from "../../components/auth/PasswordField.jsx";
+import RecoveryQuestions, { emptyRecoveryQuestions, recoveryQuestionsComplete } from "../../components/auth/RecoveryQuestions.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { authService } from "../../services/api";
 
@@ -14,14 +15,6 @@ const ROLE_CARDS = [
 ];
 // Three short steps so each one fits on a single screen.
 const STEPS = ["Account", "Security", "CSUCC ID"];
-const SECURITY_QUESTIONS = [
-  "What was the name of your first pet?",
-  "What was the name of your elementary school?",
-  "What was your childhood nickname?",
-  "In what town or city was your mother born?",
-  "What is the name of your favorite teacher?",
-  "What was the first concert or event you attended?",
-];
 // Email confirmation: idle → sent (code boxes open) → verified (token in hand).
 const NO_OTP = { status: "idle", code: "", error: "", busy: false, resendAt: 0, devCode: "", token: "" };
 const apiError = (err, fallback) => err.response?.data?.details?.map((detail) => detail.message).join(" ") || err.response?.data?.error || fallback;
@@ -31,7 +24,7 @@ export default function Register() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
-    name: "", emailUser: "", password: "", confirmPassword: "", security_question: SECURITY_QUESTIONS[0], security_answer: "",
+    name: "", emailUser: "", password: "", confirmPassword: "", security_questions: emptyRecoveryQuestions(),
     role: "buyer", campus_id: "", affiliation: "student", department: "", store_name: "", campus_location: "",
   });
   const [showPass, setShowPass] = useState(false);
@@ -97,6 +90,7 @@ export default function Register() {
     const errors = {};
     if (!passwordMeetsRules(form.password)) errors.password = "Your password needs 8+ characters, a letter and a number.";
     else if (form.password !== form.confirmPassword) errors.confirmPassword = "The passwords don't match.";
+    if (!errors.password && !errors.confirmPassword && !recoveryQuestionsComplete(form.security_questions)) errors.security = "Answer all three security questions (2+ characters each).";
     setFieldErrors(errors);
     if (!e.currentTarget.reportValidity() || Object.values(errors).some(Boolean)) return;
     goTo(2);
@@ -109,7 +103,7 @@ export default function Register() {
     try {
       await register({
         name: form.name, email, email_token: otp.token, password: form.password,
-        security_question: form.security_question, security_answer: form.security_answer,
+        security_questions: form.security_questions.map((item) => ({ question: item.question, answer: item.answer.trim() })),
         role: form.role, campus_id: form.campus_id, affiliation: form.affiliation, department: form.department,
         store_name: form.store_name, campus_location: form.campus_location,
       });
@@ -243,21 +237,8 @@ export default function Register() {
           <PasswordStrength id="reg-password-strength" value={form.password} />
           {fieldErrors.password && <p className="field-note is-error" role="alert">{fieldErrors.password}</p>}
 
-          <fieldset className="reg-security">
-            <legend><KeyRound aria-hidden="true" /> Account recovery</legend>
-            <p className="reg-note">Can't open your email when signing in? You'll answer this instead.</p>
-            <div className="form-group">
-              <label className="form-label" htmlFor="sec-question">Security question</label>
-              <select id="sec-question" className="form-input form-select" value={form.security_question} onChange={set("security_question")}>
-                {SECURITY_QUESTIONS.map((question) => <option key={question}>{question}</option>)}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label" htmlFor="sec-answer">Your answer</label>
-              <input id="sec-answer" className="form-input" autoComplete="off" spellCheck={false} required minLength={2} maxLength={100}
-                placeholder="Not case-sensitive" value={form.security_answer} onChange={set("security_answer")} />
-            </div>
-          </fieldset>
+          <RecoveryQuestions idPrefix="reg" value={form.security_questions} onChange={(security_questions) => setForm({ ...form, security_questions })} />
+          {fieldErrors.security && <p className="field-note is-error" role="alert">{fieldErrors.security}</p>}
 
           <div className="reg-actions">
             <button type="button" className="btn btn-outline btn-lg" onClick={() => goTo(0)}><ArrowLeft aria-hidden="true" /> Back</button>

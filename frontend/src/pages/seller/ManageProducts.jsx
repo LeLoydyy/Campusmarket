@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import Sidebar from "../../components/common/Sidebar.jsx";
 import { Modal } from "../../components/common/Ui.jsx";
 import { productService, stallService } from "../../services/api.js";
@@ -416,7 +417,7 @@ export default function ManageProducts() {
         </header>
 
         <div className="dashboard-content manage-products-content">
-          {stall?.plan && <p className="card" style={{ padding: "1rem" }}>{stall.plan.name} plan · {products.length} / {stall.plan.listing_limit} listings{stall.plan.analytics ? " · Point of sale, product analytics and landing-page advertising included" : " · Contact the campus administrator for Premium: 25 listings, point of sale, analytics and advertising"}</p>}
+          {stall?.plan && <p className="card" style={{ padding: "1rem" }}>{stall.plan.name} plan · {products.length} / {stall.plan.listing_limit} listings{stall.plan.analytics ? " · Point of sale, product analytics and landing-page advertising included" : <> · Premium gives 25 listings, point of sale, analytics and advertising. <Link to="/seller/plans" className="cm-link">See Premium</Link></>}</p>}
           {!loading && stall && !canManageProducts && (
             <div className="manage-products-notice" role="status">
               <FiAlertCircle />

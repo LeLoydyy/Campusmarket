@@ -7,6 +7,9 @@ import { formatCurrency } from "../../utils/formatCurrency.js";
 import { plural } from "../../utils/marketplace.js";
 import StallMap, { isFree, LANDMARKS, MAP_COLS, MAP_ROWS, placeSpaces, SPACE_CATEGORIES, SPACE_STATUSES, StallMapLegend } from "./StallMap.jsx";
 
+// crypto.randomUUID only exists on https:// or localhost; phones on http://192.168… need the fallback.
+const tempId = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
+
 const LANDMARK_SIZES = { stage: [6, 3], entrance: [3, 1], exit: [3, 1], restroom: [2, 2], info: [2, 2], custom: [3, 2] };
 
 /** First free top-left position for a w×h box, scanning row by row. */
@@ -57,7 +60,7 @@ export default function StallMapEditor({ event: initialEvent, stalls: initialSta
   const addSpace = () => {
     const box = firstFree(3, 2, all);
     if (!box) return toast.error("The map is full. Make room or shrink a space first.");
-    const item = { id: `new-${crypto.randomUUID()}`, stall_number: Math.max(0, ...stalls.map((s) => s.stall_number)) + 1, category: "food", status: "available", size: "3m x 3m", price: 0, ...box };
+    const item = { id: `new-${tempId()}`, stall_number: Math.max(0, ...stalls.map((s) => s.stall_number)) + 1, category: "food", status: "available", size: "3m x 3m", price: 0, ...box };
     change(() => setStalls((items) => [...items, item]));
     setSelected({ id: item.id, kind: "space" });
   };
@@ -66,7 +69,7 @@ export default function StallMapEditor({ event: initialEvent, stalls: initialSta
     const [w, h] = LANDMARK_SIZES[type];
     const box = firstFree(w, h, all);
     if (!box) return toast.error("No free room for that landmark.");
-    const item = { id: `lm-${crypto.randomUUID()}`, type, label: LANDMARKS[type].label, ...box };
+    const item = { id: `lm-${tempId()}`, type, label: LANDMARKS[type].label, ...box };
     change(() => setLandmarks((items) => [...items, item]));
     setSelected({ id: item.id, kind: "landmark" });
   };

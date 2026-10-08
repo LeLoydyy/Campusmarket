@@ -8,6 +8,7 @@ import {
   FiRefreshCw,
   FiSearch,
   FiStar,
+  FiX,
 } from "react-icons/fi";
 import "./Reviews.css";
 import EmptyState from "../../components/ui/EmptyState.jsx";
@@ -217,59 +218,41 @@ export default function Reviews() {
             </div>
           )}
 
-          <section className="seller-reviews-hero">
-            <div>
-              <span>Buyer feedback</span>
-              <h2>Turn every review into a better customer experience.</h2>
-              <p>
-                Monitor ratings across your catalog and spot the products buyers
-                value most.
-              </p>
-            </div>
-            <div className="seller-reviews-score">
-              <strong>{summary.average.toFixed(1)}</strong>
-              <Stars value={Math.round(summary.average)} />
-              <span>
-                {summary.total} review{summary.total === 1 ? "" : "s"}
-              </span>
-            </div>
-          </section>
-
-          <section className="seller-reviews-metrics">
+          <section className="seller-reviews-metrics" aria-label="Review summary">
             <article>
-              <span>
+              <span className="tone-blue">
                 <FiMessageSquare />
               </span>
               <div>
                 <small>Total reviews</small>
-                <strong>{summary.total}</strong>
+                <strong>{loading ? "—" : summary.total}</strong>
               </div>
             </article>
-            <article className="gold">
-              <span>
+            <article>
+              <span className="tone-gold">
                 <FiStar />
               </span>
               <div>
                 <small>Average rating</small>
-                <strong>{summary.average.toFixed(1)}</strong>
+                <strong>{loading ? "—" : summary.total ? summary.average.toFixed(1) : "No ratings"}</strong>
               </div>
             </article>
-            <article className="green">
-              <span>
+            <article>
+              <span className="tone-green">
                 <FiStar />
               </span>
               <div>
                 <small>Five-star share</small>
-                <strong>{summary.fiveStarRate}%</strong>
+                <strong>{loading ? "—" : `${summary.fiveStarRate}%`}</strong>
               </div>
             </article>
-            <article className="blue">
-              <span>
+            <article>
+              <span className="tone-blue">
                 <FiPackage />
               </span>
               <div>
                 <small>Products reviewed</small>
-                <strong>{summary.products}</strong>
+                <strong>{loading ? "—" : summary.products}</strong>
               </div>
             </article>
           </section>
@@ -281,14 +264,6 @@ export default function Reviews() {
                   <small>Recent feedback</small>
                   <h2>Customer reviews</h2>
                 </div>
-                <label className="seller-reviews-search">
-                  <FiSearch />
-                  <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search reviews"
-                  />
-                </label>
               </div>
 
               <div className="seller-reviews-filters">
@@ -297,6 +272,7 @@ export default function Reviews() {
                     key={rating}
                     type="button"
                     className={ratingFilter === rating ? "active" : ""}
+                    aria-pressed={ratingFilter === rating}
                     onClick={() => setRatingFilter(rating)}
                   >
                     {rating === "all" ? (
@@ -306,8 +282,30 @@ export default function Reviews() {
                         {rating} <FiStar />
                       </>
                     )}
+                    <span>
+                      {rating === "all"
+                        ? summary.total
+                        : summary.distribution.find((row) => row.rating === Number(rating))?.count ?? 0}
+                    </span>
                   </button>
                 ))}
+              </div>
+
+              <div className="seller-reviews-filter-row">
+                <label className="seller-reviews-search">
+                  <FiSearch />
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search buyer, product, or comment"
+                  />
+                  {search && (
+                    <button type="button" onClick={() => setSearch("")} aria-label="Clear search">
+                      <FiX />
+                    </button>
+                  )}
+                </label>
               </div>
 
               {loading ? (
@@ -357,9 +355,27 @@ export default function Reviews() {
             <aside className="seller-rating-breakdown">
               <small>Rating breakdown</small>
               <h2>Customer sentiment</h2>
-              <div>
+              <div className="seller-reviews-score">
+                <strong>{summary.total ? summary.average.toFixed(1) : "—"}</strong>
+                <div>
+                  <Stars value={Math.round(summary.average)} />
+                  <span>
+                    {summary.total
+                      ? `Based on ${summary.total} review${summary.total === 1 ? "" : "s"}`
+                      : "No ratings yet"}
+                  </span>
+                </div>
+              </div>
+              <div className="seller-rating-rows">
                 {summary.distribution.map(({ rating, count }) => (
-                  <div className="seller-rating-row" key={rating}>
+                  <button
+                    type="button"
+                    className={`seller-rating-row${ratingFilter === String(rating) ? " is-selected" : ""}`}
+                    key={rating}
+                    onClick={() => setRatingFilter(ratingFilter === String(rating) ? "all" : String(rating))}
+                    aria-pressed={ratingFilter === String(rating)}
+                    aria-label={`Show ${rating}-star reviews (${count})`}
+                  >
                     <span>
                       {rating} <FiStar />
                     </span>
@@ -371,12 +387,12 @@ export default function Reviews() {
                       />
                     </i>
                     <em>{count}</em>
-                  </div>
+                  </button>
                 ))}
               </div>
               <p>
-                Ratings are calculated from verified product feedback returned
-                by your product API.
+                Ratings come from buyers who reviewed your products. Click a
+                row to see only those reviews.
               </p>
             </aside>
           </div>

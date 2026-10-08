@@ -57,7 +57,7 @@ test("campus email codes, sign-in codes, security question fallback and lockout"
 
   const account = {
     name: "Juan Dela Cruz", email, password: "campus-pass-1", role: "buyer", campus_id: "2024-00001", affiliation: "student",
-    department: "BSIT", security_question: "What was the name of your first pet?", security_answer: "Mang  Kiko",
+    department: "BSIT", security_questions: [{ question: "What was the name of your first pet?", answer: "Mang  Kiko" }, { question: "What was your childhood nickname?", answer: "Jun" }, { question: "What is the name of your favorite teacher?", answer: "Mrs. Reyes" }],
   };
   assert.equal((await request("/auth/register", null, account)).status, 400, "Registration needs the email token");
   assert.equal((await request("/auth/register", null, { ...account, email_token: "forged" })).status, 400);
@@ -72,7 +72,7 @@ test("campus email codes, sign-in codes, security question fallback and lockout"
   assert.equal(first.status, 200);
   assert.equal(first.data.accessToken, undefined);
   assert.equal(first.data.sent_to, "j••••••z@csucc.edu.ph");
-  assert.equal(first.data.security_question, account.security_question);
+  assert.equal(first.data.security_question, account.security_questions[0].question);
   assert.equal((await request("/auth/me", first.data.challenge)).status, 401, "Challenge tokens are not sessions");
   assert.equal((await request("/auth/refresh", null, { refreshToken: first.data.challenge })).status, 401);
   assert.equal((await request("/auth/login/verify", null, { challenge: first.data.challenge, code: wrongCode(first.data.dev_code) })).status, 400);

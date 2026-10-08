@@ -73,6 +73,7 @@ export const sendEmail = async ({ to, subject, text, html }) => {
 const PURPOSE_TEXT = {
   register: ["Confirm your CSUCC email", "Use this code to confirm your email and finish creating your Campus Market account."],
   login: ["Your sign-in code", "Use this code to finish signing in to Campus Market. If this wasn't you, change your password now."],
+  reset: ["Reset your password", "Use this code to reset your Campus Market password. If you didn't ask for this, you can ignore this email."],
 };
 
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
@@ -90,6 +91,31 @@ export const sendCodeEmail = (to, code, purpose, minutes) => {
   <p style="margin:0 0 20px;color:#4A5A50;line-height:1.5">${escapeHtml(lead)}</p>
   <p style="margin:0 0 20px;padding:16px;background:#E3F4E9;border-radius:12px;text-align:center;font-size:32px;font-weight:800;letter-spacing:8px;color:#0B3D24">${escapeHtml(code)}</p>
   <p style="margin:0;color:#4A5A50;font-size:13px;line-height:1.5">The code expires in ${minutes} minutes. ${escapeHtml(warning)}</p>
+</div>`,
+  });
+};
+
+/** Sign-in details for an administrator account created (or reset) by another admin. */
+export const sendAdminCredentialsEmail = ({ to, username, password, shift, createdBy, reset = false }) => {
+  const loginUrl = `${(process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "")}/login`;
+  const heading = reset ? "Your administrator password was reset" : "You're now a Campus Market administrator";
+  const lead = reset
+    ? `${createdBy} reset your administrator password. Sign in with the details below and set a new one.`
+    : `${createdBy} created an administrator account for you. Sign in with the details below — you'll set your own password and security questions on first sign-in.`;
+  const rows = [["Username", username], ["Starter password", password], ["Duty shift", `${shift} (Philippine time)`]];
+  return sendEmail({
+    to,
+    subject: reset ? "Your Campus Market admin password was reset" : "Your Campus Market administrator account",
+    text: `${heading}\n\n${lead}\n\n${rows.map(([label, value]) => `${label}: ${value}`).join("\n")}\n\nSign in: ${loginUrl}\n\nNever share this password. It stops working once you set your own.`,
+    html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#14201A">
+  <p style="margin:0 0 4px;color:#13703C;font-weight:800;font-size:13px;letter-spacing:.04em">CAMPUS MARKET</p>
+  <h1 style="margin:0 0 12px;font-size:22px">${escapeHtml(heading)}</h1>
+  <p style="margin:0 0 20px;color:#4A5A50;line-height:1.5">${escapeHtml(lead)}</p>
+  <table style="width:100%;border-collapse:collapse;margin:0 0 20px;background:#E3F4E9;border-radius:12px">
+    ${rows.map(([label, value]) => `<tr><td style="padding:10px 16px;color:#4A5A50;font-size:13px">${escapeHtml(label)}</td><td style="padding:10px 16px;font-weight:800;font-size:16px;color:#0B3D24;font-family:Consolas,monospace">${escapeHtml(value)}</td></tr>`).join("")}
+  </table>
+  <p style="margin:0 0 20px"><a href="${escapeHtml(loginUrl)}" style="display:inline-block;padding:12px 22px;background:#13703C;color:#fff;border-radius:999px;text-decoration:none;font-weight:700">Sign in</a></p>
+  <p style="margin:0;color:#4A5A50;font-size:13px;line-height:1.5">Never share this password. It stops working once you set your own.</p>
 </div>`,
   });
 };

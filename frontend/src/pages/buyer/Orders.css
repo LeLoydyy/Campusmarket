@@ -124,6 +124,8 @@
 .buyer-orders-shell .buyer-order-progress { grid-column: 1; display: grid; gap: .7rem; padding: 1.1rem 1.25rem .2rem; }
 .buyer-order-status-text { display: flex; align-items: center; gap: .45rem; color: var(--ink-900); font-size: var(--text-sm); font-weight: 700; }
 .buyer-order-status-text svg { width: 16px; height: 16px; color: var(--green-700); }
+.buyer-order-cancel-reason { display: flex; flex-wrap: wrap; align-items: baseline; gap: .45rem; margin-top: .5rem; padding: .55rem .75rem; color: var(--ink-900); background: var(--cream-100); border-radius: 10px; font-size: var(--text-sm); overflow-wrap: anywhere; }
+.buyer-order-cancel-reason span { color: var(--ink-600); font-size: .6875rem; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
 .buyer-orders-shell .buyer-order-pickup { grid-column: 1; display: flex; align-items: center; gap: .8rem; margin: .8rem 1.25rem 0; padding: .75rem .9rem; background: var(--gold-100); border: 1.5px solid var(--gold-500); border-radius: 16px; }
 .buyer-order-pickup.is-delivery { background: var(--teal-100); border-color: var(--teal-700); }
 .buyer-order-pickup-icon { flex: 0 0 auto; width: 42px; height: 42px; display: grid; place-items: center; color: var(--green-900); background: var(--gold-500); border-radius: 12px; }

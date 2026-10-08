@@ -1,4 +1,4 @@
-import { Grid3X3, Heart, KeyRound, MessageSquare, Package, Store, UserRound } from "lucide-react";
+import { Grid3X3, Heart, History, KeyRound, MessageSquare, Package, Store, UserRound } from "lucide-react";
 
 /** Account links shared by the desktop account menu and the mobile Profile sheet. */
 export const accountLinks = (user) => [
@@ -9,5 +9,6 @@ export const accountLinks = (user) => [
   user.role === "buyer" && { to: "/messages", label: "Messages", icon: MessageSquare },
   user.role === "seller" && { to: "/seller", label: "Seller dashboard", icon: Grid3X3 },
   ["admin", "super_admin"].includes(user.role) && { to: "/admin", label: "Admin panel", icon: Grid3X3 },
-  { to: "/account/password", label: "Change password", icon: KeyRound },
+  { to: "/account/password", label: "Password & security", icon: KeyRound },
+  { to: "/account/logins", label: "Login history", icon: History },
 ].filter(Boolean);

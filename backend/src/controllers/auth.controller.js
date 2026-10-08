@@ -1,21 +1,41 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { authStore, CODE_TTL_MINUTES } from "../data/marketStore.js";
+import { authStore, sessionStore, stallStore, CODE_TTL_MINUTES } from "../data/marketStore.js";
+import { isOnShift, withShift } from "../config/admins.js";
 import { issuedBeforePasswordChange } from "../middleware/auth.js";
 import { exposeDevCodes, sendCodeEmail } from "../services/email.js";
 
 // ── TOKEN HELPERS ─────────────────────────────────────────────
-const signAccessToken = (user) =>
+// `sid` is the login-log row of this sign-in: logout closes it, and a closed one can't be refreshed.
+const signAccessToken = (user, sid) =>
   jwt.sign(
-    { id: user.id, email: user.email, role: user.role, name: user.name },
+    { id: user.id, email: user.email, role: user.role, name: user.name, ...(sid ? { sid } : {}) },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || "15m" },
   );
 
-const signRefreshToken = (userId) =>
-  jwt.sign({ id: userId, type: "refresh" }, process.env.JWT_SECRET, {
+const signRefreshToken = (userId, sid) =>
+  jwt.sign({ id: userId, type: "refresh", ...(sid ? { sid } : {}) }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
   });
+
+/** The user as the browser sees it: shift details for admins, the stall plan for sellers (drives PRO badges). */
+const accountView = async (user) => {
+  const view = withShift(user);
+  if (user.role !== "seller") return view;
+  const stall = await stallStore.getMy(user.id);
+  return { ...view, stall_plan: stall ? { tier: stall.tier, premium_until: stall.premium_until } : null };
+};
+
+/** Records the sign-in in the login log and returns the session payload sent to the browser. */
+const openSession = async (req, userId) => {
+  const user = await authStore.getUserById(userId);
+  const sid = await sessionStore.start(user, { ip: req.ip, userAgent: req.get("user-agent") });
+  return { user: await accountView(user), accessToken: signAccessToken(user, sid), refreshToken: signRefreshToken(user.id, sid) };
+};
+
+/** Same session, new tokens (after a password change, which invalidates older tokens). */
+const renewTokens = (req, user) => ({ user: withShift(user), accessToken: signAccessToken(user, req.sid), refreshToken: signRefreshToken(user.id, req.sid) });
 
 // Short-lived proofs between steps. They carry a `type`, so they never work as sessions.
 const signEmailToken = (email) => jwt.sign({ email, type: "email_verified" }, process.env.JWT_SECRET, { expiresIn: "30m" });
@@ -78,21 +98,22 @@ export const register = async (req, res, next) => {
       return res.status(400).json({ error: "Confirm your email with the code we sent you.", code: "EMAIL_UNVERIFIED" });
     }
     const user = await authStore.registerUser({ ...payload, email_verified: true });
-
-    const accessToken = signAccessToken(user);
-    const refreshToken = signRefreshToken(user.id);
-
-    res.status(201).json({ user, accessToken, refreshToken });
+    res.status(201).json(await openSession(req, user.id));
   } catch (err) {
     next(err);
   }
 };
 
 // ── LOGIN (password, then an emailed code or the security question) ──
+const DEMO_EMAILS = new Set(["seller@campusmarket.test", "buyer@campusmarket.test"]);
+
 export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const user = await authStore.loginUser(email, password);
+    // Admins and the seeded demo accounts skip the emailed code locally for quick access; production still requires it.
+    const skipsCode = user.role === "admin" || DEMO_EMAILS.has(user.email.toLowerCase());
+    if (skipsCode && process.env.NODE_ENV !== "production") return res.json(await openSession(req, user.id));
     res.json({
       otp_required: true,
       challenge: signChallenge(user.id),
@@ -110,7 +131,8 @@ const challengeUser = async (challenge) => {
   const payload = readToken(challenge, "login_challenge");
   if (!payload) throw Object.assign(new Error("Your sign-in timed out. Enter your password again."), { status: 401, code: "CHALLENGE_EXPIRED" });
   const user = await authStore.getUserWithSecrets(payload.id);
-  if (user.is_banned) throw Object.assign(new Error("Account suspended"), { status: 403 });
+  if (user.is_banned || user.deleted_at) throw Object.assign(new Error("Account suspended"), { status: 403 });
+  if (!isOnShift(user)) throw Object.assign(new Error("Your shift has ended. Sign in during your next shift."), { status: 403, code: "OFF_SHIFT" });
   return user;
 };
 
@@ -123,8 +145,7 @@ export const verifyLogin = async (req, res, next) => {
     } else {
       await authStore.verifySecurityAnswer(user, req.body.security_answer);
     }
-    const userSafe = await authStore.getUserById(user.id);
-    res.json({ user: userSafe, accessToken: signAccessToken(userSafe), refreshToken: signRefreshToken(user.id) });
+    res.json(await openSession(req, user.id));
   } catch (err) {
     if (err.code === "CHALLENGE_EXPIRED") return res.status(401).json({ error: err.message, code: err.code });
     next(err);
@@ -162,12 +183,17 @@ export const refresh = async (req, res, next) => {
     }
 
     const user = await authStore.getUserById(payload.id);
-    if (user.is_banned) return res.status(403).json({ error: "Account suspended." });
+    if (user.is_banned || user.deleted_at) return res.status(403).json({ error: "Account suspended." });
     if (issuedBeforePasswordChange(payload, user)) return res.status(401).json({ error: "Session expired. Please log in again." });
-    const newAccessToken = signAccessToken(user);
-    const newRefreshToken = signRefreshToken(user.id);
+    // Signed out, blocked, reset or ended by a shift: this sign-in is over.
+    if (payload.sid && !(await sessionStore.isOpen(payload.sid, user.id))) return res.status(401).json({ error: "Session ended. Please log in again." });
+    if (!isOnShift(user)) {
+      if (payload.sid) await sessionStore.end(payload.sid, user.id, "shift_ended");
+      return res.status(401).json({ error: "Your shift has ended. You've been signed out.", code: "SHIFT_ENDED" });
+    }
+    if (payload.sid) await sessionStore.touch(payload.sid, user.id);
 
-    res.json({ accessToken: newAccessToken, refreshToken: newRefreshToken });
+    res.json({ accessToken: signAccessToken(user, payload.sid), refreshToken: signRefreshToken(user.id, payload.sid) });
   } catch (err) {
     next(err);
   }
@@ -177,7 +203,76 @@ export const refresh = async (req, res, next) => {
 export const me = async (req, res, next) => {
   try {
     const user = await authStore.getUserById(req.user.id);
-    res.json(user);
+    res.json(await accountView(user));
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── LOGOUT (closes this sign-in in the login log) ────────────
+export const logout = async (req, res, next) => {
+  try {
+    if (req.sid) await sessionStore.end(req.sid, req.user.id, req.body?.reason === "shift_ended" ? "shift_ended" : "logout");
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── FIRST-LOGIN SETUP (admins created by another admin) ──────
+export const completeSetup = async (req, res, next) => {
+  try {
+    const user = await authStore.completeSetup(req.user.id, req.body);
+    res.json(renewTokens(req, user));
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── RECOVERY QUESTIONS (set or replace all three) ────────────
+export const setRecoveryQuestions = async (req, res, next) => {
+  try {
+    res.json(withShift(await authStore.setRecoveryQuestions(req.user.id, req.body.current_password, req.body.security_questions)));
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── FORGOT PASSWORD: code → questions → new password ─────────
+// Unknown emails get the same answer as real ones, so the form can't be used to find accounts.
+export const forgotStart = async (req, res, next) => {
+  try {
+    const account = await authStore.resetAccount(req.body.email);
+    if (!account) return res.json({ sent_to: maskEmail(req.body.email), expires_in: CODE_TTL_MINUTES * 60, resend_in: 60 });
+    res.json({ sent_to: maskEmail(account.email), ...(await deliverCode(account.email, "reset")) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const forgotVerify = async (req, res, next) => {
+  try {
+    res.json(await authStore.checkResetCode(req.body.email, req.body.code));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const forgotComplete = async (req, res, next) => {
+  try {
+    const { email, code, answers, new_password } = req.body;
+    await authStore.completeReset(email, code, answers, new_password);
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── MY LOGIN HISTORY ─────────────────────────────────────────
+export const myLogins = async (req, res, next) => {
+  try {
+    const { month, date, page, limit } = req.query;
+    res.json(await sessionStore.list({ userId: req.user.id, month, date, page, limit }));
   } catch (err) {
     next(err);
   }
@@ -204,7 +299,8 @@ export const changePassword = async (req, res, next) => {
   try {
     const { current_password, new_password } = req.body;
     const user = await authStore.changePassword(req.user.id, current_password, new_password);
-    res.json({ user, accessToken: signAccessToken(user), refreshToken: signRefreshToken(user.id) });
+    await sessionStore.endOthers(user.id, req.sid, "password_changed");
+    res.json(renewTokens(req, user));
   } catch (err) {
     next(err);
   }
@@ -221,6 +317,8 @@ export const getAllUsers = async (req, res, next) => {
       role: req.query.role,
       status: req.query.status,
       q: req.query.q,
+      month: req.query.month,
+      date: req.query.date,
       page: req.query.page || 1,
       limit: req.query.limit || 20,
     });

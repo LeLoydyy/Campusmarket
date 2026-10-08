@@ -219,6 +219,71 @@ CREATE TABLE IF NOT EXISTS auth_codes (
 );
 CREATE INDEX IF NOT EXISTS auth_codes_lookup_idx ON auth_codes (email, purpose, created_at DESC);
 
+-- Password reset codes share the table with sign-up and sign-in codes.
+ALTER TABLE auth_codes DROP CONSTRAINT IF EXISTS auth_codes_purpose_check;
+ALTER TABLE auth_codes ADD CONSTRAINT auth_codes_purpose_check CHECK (purpose IN ('register', 'login', 'reset'));
+
+-- Administrators: sign-in username, duty shift (minutes after midnight, Philippine time; NULL = any time),
+-- privileges (NULL = all) and a first-login setup flag for accounts created by another admin.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS users_username_key ON users (lower(username));
+ALTER TABLE users ADD COLUMN IF NOT EXISTS shift_start SMALLINT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS shift_end SMALLINT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS must_setup BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+-- Three recovery questions: [{ "question": "...", "answer_hash": "<bcrypt>" }]. Answers are never stored in plain text.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_questions JSONB;
+-- Removed accounts keep their row (orders and logs still point at it) with who removed it and why.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_by TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS delete_reason TEXT;
+
+-- One row per sign-in. Name and ID number are copied so the log still reads correctly after edits.
+CREATE TABLE IF NOT EXISTS login_logs (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  user_id      TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  id_no        TEXT,
+  full_name    TEXT NOT NULL,
+  role         TEXT NOT NULL,
+  time_in      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  time_out     TIMESTAMPTZ,
+  end_reason   TEXT,
+  ip           TEXT,
+  user_agent   TEXT
+);
+CREATE INDEX IF NOT EXISTS login_logs_time_idx ON login_logs (time_in DESC);
+CREATE INDEX IF NOT EXISTS login_logs_user_idx ON login_logs (user_id, time_in DESC);
+
+-- Why an order was cancelled (buyers pick a reason or write their own).
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancel_reason TEXT;
+
+-- Premium plan: optional end date (NULL = no end), sellers' upgrade requests, and one-time upgrade nudges.
+ALTER TABLE stalls ADD COLUMN IF NOT EXISTS premium_until TIMESTAMPTZ;
+CREATE TABLE IF NOT EXISTS plan_requests (
+  id                TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  stall_id          TEXT NOT NULL REFERENCES stalls (id) ON DELETE CASCADE,
+  seller_id         TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  note              TEXT NOT NULL DEFAULT '',
+  payment_reference TEXT,
+  status            TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'declined', 'cancelled')),
+  review_note       TEXT,
+  reviewed_by       TEXT,
+  reviewed_at       TIMESTAMPTZ,
+  premium_until     TIMESTAMPTZ,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS plan_requests_one_pending ON plan_requests (stall_id) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS plan_requests_status_idx ON plan_requests (status, created_at);
+CREATE TABLE IF NOT EXISTS plan_nudges (
+  user_id    TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, kind)
+);
+
 -- One active application per seller per event.
 CREATE UNIQUE INDEX IF NOT EXISTS seller_applications_active_key
   ON seller_applications (seller_id, event_id) WHERE status IN ('pending', 'approved', 'reserved');
@@ -248,6 +313,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
   note       TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS audit_log_time_idx ON audit_log (created_at DESC);
 
 -- Supabase only: public bucket for product photos (PHOTO_STORAGE=supabase).
 -- Skipped on plain PostgreSQL/PGlite, where the storage schema doesn't exist.
@@ -281,3 +347,6 @@ ALTER TABLE seller_applications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_log           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE auth_codes          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE login_logs          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE plan_requests       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE plan_nudges         ENABLE ROW LEVEL SECURITY;

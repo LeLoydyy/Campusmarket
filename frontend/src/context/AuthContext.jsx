@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import toast from "react-hot-toast";
 import { authService } from "../services/api";
 import { clearTokens, getAccessToken, saveTokens } from "../services/tokens";
 
@@ -28,25 +29,52 @@ export function AuthProvider({ children }) {
     return data.user;
   };
 
-  /** Checks the password; resolves with the sign-in challenge (code sent, security question). */
-  const login = useCallback(async (email, password) => (await authService.login({ email, password })).data, []);
+  /**
+   * Checks the password; resolves with the sign-in challenge (code sent, security question),
+   * or — when the server skips the code (admins in development) — starts the session and resolves with `{ user }`.
+   */
+  const login = useCallback(async (email, password, remember = true) => {
+    const { data } = await authService.login({ email, password });
+    return data.accessToken ? { user: startSession(data, remember) } : data;
+  }, []);
 
   /** Finishes sign-in with { challenge, code } or { challenge, security_answer }; `remember` keeps the session after the browser closes. */
   const verifyLogin = useCallback(async (payload, remember = true) => startSession((await authService.verifyLogin(payload)).data, remember), []);
 
   const register = useCallback(async (formData) => startSession((await authService.register(formData)).data), []);
 
-  const logout = useCallback(() => {
+  // Tells the server first so the login log gets a time out; signing out never waits on or fails because of it.
+  const logout = useCallback(async (reason) => {
+    if (getAccessToken()) await authService.logout(reason).catch(() => {});
     clearTokens();
     setUser(null);
   }, []);
+
+  /** First-login setup for admins created by another admin; returns the updated user. */
+  const completeSetup = useCallback(async (payload) => startSession((await authService.completeSetup(payload)).data), []);
+
+  // Admin shifts: warn 5 minutes before the end, then sign out and explain why.
+  const shiftEndsAt = user?.shift?.ends_at;
+  useEffect(() => {
+    if (!shiftEndsAt) return undefined;
+    const msLeft = Date.parse(shiftEndsAt) - Date.now();
+    const timers = [];
+    if (msLeft > 5 * 60000) {
+      timers.push(setTimeout(() => toast("Your shift ends in 5 minutes. Save your work — you'll be signed out automatically.", { icon: "⏰", duration: 10000 }), msLeft - 5 * 60000));
+    }
+    timers.push(setTimeout(async () => {
+      await logout("shift_ended");
+      window.location.assign("/login?reason=shift_ended");
+    }, Math.max(0, msLeft)));
+    return () => timers.forEach(clearTimeout);
+  }, [shiftEndsAt, logout]);
 
   const updateUser = useCallback((updates) => {
     setUser((prev) => ({ ...prev, ...updates }));
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, verifyLogin, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, login, verifyLogin, register, logout, updateUser, completeSetup }}>
       {children}
     </AuthContext.Provider>
   );

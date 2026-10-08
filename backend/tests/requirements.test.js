@@ -38,10 +38,11 @@ test("CSUCC registration, store plans, ownership, public visibility, messaging a
     const sent = await request("/auth/email/send-code", null, { email: body.email });
     if (sent.status !== 200) return sent;
     const { data } = await request("/auth/email/verify", null, { email: body.email, code: sent.data.dev_code });
-    return request("/auth/register", null, { ...body, email_token: data.email_token, security_question: "What was the name of your first pet?", security_answer: "Bantay" });
+    return request("/auth/register", null, { ...body, email_token: data.email_token, security_questions: [{ question: "What was the name of your first pet?", answer: "Bantay" }, { question: "What was your childhood nickname?", answer: "Jun" }, { question: "What is the name of your favorite teacher?", answer: "Mrs. Reyes" }] });
   };
   const signIn = async (email, password) => {
     const first = await request("/auth/login", null, { email, password });
+    if (first.data?.accessToken) return first; // admins skip the code outside production
     return first.status === 200 ? request("/auth/login/verify", null, { challenge: first.data.challenge, code: first.data.dev_code }) : first;
   };
   const admin = (await signIn("admin@test.invalid", "testpassword")).data.accessToken;

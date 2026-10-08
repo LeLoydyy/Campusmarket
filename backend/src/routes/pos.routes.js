@@ -11,7 +11,7 @@ router.use(verifyToken, requireRole("seller"));
 const requirePos = async (req, res, next) => {
   try {
     const stall = await stallStore.getMy(req.user.id);
-    if (!getPlan(stall?.tier).pos) return res.status(403).json({ error: "The point of sale is included in Premium. Contact the campus administrator to request a plan change.", code: "PREMIUM_REQUIRED" });
+    if (!getPlan(stall?.tier).pos) return res.status(403).json({ error: "The point of sale is included in Premium. Request Premium from the Plans page in your seller dashboard.", code: "PREMIUM_REQUIRED" });
     next();
   } catch (error) { next(error); }
 };

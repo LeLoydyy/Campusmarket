@@ -22,13 +22,33 @@ let refreshing = null;
 const refreshTokens = async () => {
   const refreshToken = getRefreshToken();
   if (!refreshToken) throw new Error("No refresh token");
-  const { data } = await axios.post(`${api.defaults.baseURL}/auth/refresh`, { refreshToken });
+  const { data } = await axios.post(`${api.defaults.baseURL}/auth/refresh`, { refreshToken }).catch((refreshError) => {
+    if (refreshError.response?.data?.code === "SHIFT_ENDED") signOutTo("shift_ended");
+    throw refreshError;
+  });
   saveTokens(data);
   return data.accessToken;
 };
 
+/** Ends the session in this tab and shows the sign-in page with a reason (?reason=shift_ended). */
+const signOutTo = (reason) => {
+  clearTokens();
+  if (window.location.pathname !== "/login") window.location.assign(`/login?reason=${reason}`);
+};
+
 api.interceptors.response.use(undefined, async (error) => {
   const original = error.config;
+  const code = error.response?.data?.code;
+  // An admin's shift ended: no refresh will help.
+  if (code === "SHIFT_ENDED") {
+    signOutTo("shift_ended");
+    throw error;
+  }
+  // A new admin must finish first-login setup before anything else.
+  if (code === "SETUP_REQUIRED" && window.location.pathname !== "/admin/setup") {
+    window.location.assign("/admin/setup");
+    throw error;
+  }
   const isAuthCall = /\/auth\/(login|register|refresh|email)(\/|$)/.test(original?.url || "");
   if (error.response?.status !== 401 || !original || original._retried || isAuthCall) {
     throw error;
@@ -69,8 +89,11 @@ export const productService = {
 export const orderService = {
   getBuyerOrders: () => api.get("/orders/buyer"),
   getSellerOrders: (params = {}) => api.get("/orders/seller", { params }),
-  updateStatus: (orderId, status) =>
-    api.put(`/orders/${orderId}/status`, { status }),
+  updateStatus: (orderId, status, cancelReason) =>
+    api.put(`/orders/${orderId}/status`, {
+      status,
+      ...(cancelReason ? { cancel_reason: cancelReason } : {}),
+    }),
 };
 
 export const messageService = {
@@ -109,15 +132,19 @@ export const authService = {
 
   getCurrentUser: () => api.get("/auth/me"),
 
-  logout: () => {
-    clearTokens();
+  // Records the time out in the login log; the caller clears the tokens either way.
+  logout: (reason) => api.post("/auth/logout", reason ? { reason } : {}),
 
-    return Promise.resolve({
-      data: {
-        message: "Logged out successfully",
-      },
-    });
-  },
+  completeSetup: (data) => api.put("/auth/setup", data),
+
+  setRecoveryQuestions: (data) => api.put("/auth/recovery-questions", data),
+
+  myLogins: (params = {}) => api.get("/auth/logins", { params }),
+
+  // Forgot password: emailed code → recovery questions → new password.
+  forgotStart: (email) => api.post("/auth/forgot/start", { email }),
+  forgotVerify: (email, code) => api.post("/auth/forgot/verify", { email, code }),
+  forgotComplete: (data) => api.post("/auth/forgot/complete", data),
 };
 
 export const settingsService = {
@@ -155,6 +182,29 @@ export const adminService = {
   getPendingStalls: () => api.get("/admin/stalls/pending"),
 
   banUser: (userId, ban) => api.put(`/admin/users/${userId}/ban`, { ban }),
+  updateUser: (userId, data) => api.put(`/admin/users/${userId}`, data),
+  removeUser: (userId, reason) => api.delete(`/admin/users/${userId}`, { data: { reason } }),
+  restoreUser: (userId) => api.post(`/admin/users/${userId}/restore`),
+  signOutUser: (userId) => api.post(`/admin/users/${userId}/sign-out`),
+
+  getAdmins: () => api.get("/admin/admins"),
+  getAdminOptions: () => api.get("/admin/admins/options"),
+  createAdmin: (data) => api.post("/admin/admins", data),
+  updateAdmin: (id, data) => api.put(`/admin/admins/${id}`, data),
+  resetAdminPassword: (id) => api.post(`/admin/admins/${id}/reset-password`),
+
+  getPlanRequests: (status = "pending") => api.get("/admin/plan-requests", { params: { status } }),
+  reviewPlanRequest: (id, data) => api.put(`/admin/plan-requests/${id}`, data),
+
+  getLoginLogs: (params = {}) => api.get("/admin/logs", { params }),
+  getActivity: (params = {}) => api.get("/admin/activity", { params }),
+};
+
+// Seller plans: current plan, Premium requests.
+export const planService = {
+  getMy: (feature) => api.get("/plans/my", { params: feature ? { feature } : {} }),
+  request: (data) => api.post("/plans/requests", data),
+  cancel: () => api.delete("/plans/requests/pending"),
 };
 
 export const stallService = {

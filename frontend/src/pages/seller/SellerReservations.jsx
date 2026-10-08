@@ -13,6 +13,7 @@ import {
   FiRefreshCw,
   FiSearch,
   FiShoppingBag,
+  FiX,
   FiXCircle,
 } from "react-icons/fi";
 import "./SellerReservations.css";
@@ -237,61 +238,44 @@ export default function SellerReservations() {
             </div>
           )}
 
-          <section className="seller-reservations-hero">
-            <div>
-              <span>Campus opportunities</span>
-              <h2>Plan where your stall shows up next.</h2>
-              <p>
-                Keep every event request, approval, and reserved space organized
-                in one place.
-              </p>
-            </div>
-            <div className="seller-reservations-hero-stat">
-              <FiCalendar />
-              <small>Active requests</small>
-              <strong>{counts.pending + counts.approved}</strong>
-              <p>{counts.pending} awaiting review</p>
-            </div>
-          </section>
-
           <section
             className="seller-reservations-summary"
             aria-label="Application summary"
           >
             <article>
-              <span>
+              <span className="tone-blue">
                 <FiFileText />
               </span>
               <div>
                 <small>Applications</small>
-                <strong>{counts.all}</strong>
+                <strong>{loading ? "—" : counts.all}</strong>
               </div>
             </article>
-            <article className="tone-gold">
-              <span>
+            <article>
+              <span className="tone-gold">
                 <FiClock />
               </span>
               <div>
-                <small>Pending</small>
-                <strong>{counts.pending}</strong>
+                <small>Pending review</small>
+                <strong>{loading ? "—" : counts.pending}</strong>
               </div>
             </article>
-            <article className="tone-green">
-              <span>
+            <article>
+              <span className="tone-green">
                 <FiCheckCircle />
               </span>
               <div>
                 <small>Approved</small>
-                <strong>{counts.approved}</strong>
+                <strong>{loading ? "—" : counts.approved}</strong>
               </div>
             </article>
-            <article className="tone-red">
-              <span>
+            <article>
+              <span className="tone-red">
                 <FiXCircle />
               </span>
               <div>
                 <small>Not approved</small>
-                <strong>{counts.rejected}</strong>
+                <strong>{loading ? "—" : counts.rejected}</strong>
               </div>
             </article>
           </section>
@@ -303,14 +287,6 @@ export default function SellerReservations() {
                   <small>Your activity</small>
                   <h2>Stall applications</h2>
                 </div>
-                <label className="seller-reservations-search">
-                  <FiSearch />
-                  <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search applications"
-                  />
-                </label>
               </div>
 
               <div
@@ -333,6 +309,27 @@ export default function SellerReservations() {
                     <span>{counts[filter]}</span>
                   </button>
                 ))}
+              </div>
+
+              <div className="seller-reservations-filter-row">
+                <label className="seller-reservations-search">
+                  <FiSearch />
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search stall, business, or event"
+                  />
+                  {search && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch("")}
+                      aria-label="Clear search"
+                    >
+                      <FiX />
+                    </button>
+                  )}
+                </label>
               </div>
 
               {loading ? (

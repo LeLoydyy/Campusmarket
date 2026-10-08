@@ -10,7 +10,7 @@ import {
   submitSellerApplication,
 } from "../controllers/event.controller.js";
 
-import { requireRole, verifyToken } from "../middleware/auth.js";
+import { requireRole, requirePermission, verifyToken } from "../middleware/auth.js";
 import { validate, reviewApplicationSchema } from "../middleware/validate.js";
 
 const eventRouter = Router();
@@ -51,6 +51,7 @@ eventRouter.put(
   "/seller-applications/:id/review",
   verifyToken,
   requireRole("admin"),
+  requirePermission("marketplace"),
   validate(reviewApplicationSchema),
   reviewSellerApplication,
 );

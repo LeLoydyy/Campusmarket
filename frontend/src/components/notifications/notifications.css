@@ -153,3 +153,26 @@
   .navbar-actions .navbar-utilities { display: flex; padding-right: 0; border-right: 0; }
   .navbar-actions .navbar-utilities > :not(.notif-bell) { display: none; }
 }
+
+/* Step labels: a label may wrap inside its own column but never run into the next one. */
+.onc-steps li { min-width: 0; }
+.onc-steps li small { max-width: 100%; overflow-wrap: anywhere; hyphens: auto; }
+.onc-step-short { display: none; }
+@media (max-width: 520px) {
+  .onc-steps li > span { width: 24px; height: 24px; }
+  .onc-steps li > span svg { width: 12px; height: 12px; }
+  .onc-steps li::before { top: 11px; }
+  .onc-steps li small { font-size: .625rem; letter-spacing: -.01em; }
+  .onc-step-long { display: none; }
+  .onc-step-short { display: inline; }
+  .onc-title-row strong { font-size: .85rem; }
+  .onc-meta { gap: .35rem; padding: .6rem .7rem; }
+  .onc-meta dt { font-size: .625rem; }
+  .onc-meta dd { font-size: .78rem; }
+}
+
+/* Premium plan notifications */
+.onc-app--plan { color: var(--green-900); background: var(--gold-500); }
+.onc-thumb--plan { color: var(--gold-700); background: radial-gradient(circle at 30% 25%, #fff, var(--gold-100) 70%); border-color: var(--gold-500); }
+.onc-thumb--plan svg { width: 24px; height: 24px; }
+.onc-art--plan { visibility: hidden; }

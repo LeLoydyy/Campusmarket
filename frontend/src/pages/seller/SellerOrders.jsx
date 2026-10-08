@@ -5,12 +5,18 @@ import toast from "react-hot-toast";
 import { format } from "date-fns";
 import {
   FiAlertCircle,
+  FiArrowRight,
   FiCheck,
   FiCheckCircle,
   FiClock,
+  FiCopy,
+  FiGrid,
+  FiList,
+  FiMapPin,
   FiPackage,
   FiRefreshCw,
   FiSearch,
+  FiTruck,
   FiX,
 } from "react-icons/fi";
 import "./SellerOrders.css";
@@ -25,6 +31,7 @@ const STATUS_FLOW = {
 };
 
 const STATUS_TABS = [
+  { key: "active", label: "Needs action" },
   { key: "all", label: "All orders" },
   { key: "pending", label: "Pending" },
   { key: "confirmed", label: "Confirmed" },
@@ -34,6 +41,23 @@ const STATUS_TABS = [
 ];
 
 const ORDER_STEPS = ["pending", "confirmed", "ready", "delivered"];
+const ACTIVE_STATUSES = ["pending", "confirmed", "ready"];
+const POLL_INTERVAL_MS = 30000;
+// An active order untouched this long is flagged so it doesn't get forgotten.
+const STALE_AFTER_MINUTES = 30;
+const VIEW_KEY = "seller-orders-view";
+
+const readSavedView = () => {
+  try {
+    return localStorage.getItem(VIEW_KEY) === "compact" ? "compact" : "cards";
+  } catch {
+    return "cards";
+  }
+};
+
+const matchesTab = (order, tab) =>
+  tab === "all" ||
+  (tab === "active" ? ACTIVE_STATUSES.includes(order.status) : order.status === tab);
 
 const normalizeStatus = (value) => {
   const status = String(value || "pending")
@@ -118,16 +142,60 @@ const formatDate = (value) => {
     : format(date, "MMM d, yyyy · h:mm a");
 };
 
+const formatWaiting = (value, now) => {
+  const created = new Date(value).getTime();
+  if (!value || Number.isNaN(created)) return null;
+  const minutes = Math.max(0, Math.floor((now - created) / 60000));
+  let label;
+  if (minutes < 1) label = "Just now";
+  else if (minutes < 60) label = `Waiting ${minutes} min`;
+  else if (minutes < 1440) label = `Waiting ${Math.floor(minutes / 60)} hr${minutes % 60 ? ` ${minutes % 60} min` : ""}`;
+  else label = `Waiting ${Math.floor(minutes / 1440)} day${minutes >= 2880 ? "s" : ""}`;
+  return { minutes, label };
+};
+
+const summarizeItems = (items) => {
+  if (!items.length) return "No item details";
+  const units = items.reduce((sum, item) => sum + item.quantity, 0);
+  const extra = items.length > 1 ? ` +${items.length - 1} more` : "";
+  return `${items[0].name}${extra} · ${units} unit${units === 1 ? "" : "s"}`;
+};
+
+function WaitingChip({ order, now }) {
+  if (!ACTIVE_STATUSES.includes(order.status)) return null;
+  const waiting = formatWaiting(order.createdAt, now);
+  if (!waiting) return null;
+  const stale = waiting.minutes >= STALE_AFTER_MINUTES;
+  return (
+    <span
+      className={`seller-order-waiting${stale ? " is-stale" : ""}`}
+      title={stale ? "This order has been waiting a while" : "Time since the order was placed"}
+    >
+      <FiClock /> {waiting.label}
+    </span>
+  );
+}
+
+function FulfillmentChip({ order }) {
+  const delivery = order.fulfillment === "delivery";
+  return (
+    <span className="seller-order-fulfillment">
+      {delivery ? <FiTruck /> : <FiMapPin />} {delivery ? "Campus delivery" : "Pickup"}
+    </span>
+  );
+}
+
 const getOrderCode = (id) =>
   String(id || "")
     .slice(0, 8)
     .toUpperCase();
 
-function OrderProgress({ status }) {
+function OrderProgress({ status, reason }) {
   if (status === "cancelled") {
     return (
       <div className="seller-order-cancelled">
-        <FiX /> Order cancelled
+        <span><FiX /> Order cancelled</span>
+        {reason && <p><strong>Reason:</strong> {reason}</p>}
       </div>
     );
   }
@@ -151,21 +219,87 @@ function OrderProgress({ status }) {
   );
 }
 
-function OrderCard({ order, updating, onAdvance, onCancel }) {
+function OrderActions({ order, updating, onAdvance, onCancel, compact = false }) {
   const flow = STATUS_FLOW[order.status] || STATUS_FLOW.delivered;
+  if (!flow.next) return null;
+  return (
+    <>
+      {order.status === "pending" && (
+        <button
+          type="button"
+          className="seller-order-cancel-button"
+          onClick={onCancel}
+          disabled={updating}
+          aria-label={compact ? `Cancel order #${getOrderCode(order.id)}` : undefined}
+          title={compact ? "Cancel order" : undefined}
+        >
+          {compact ? <FiX /> : "Cancel order"}
+        </button>
+      )}
+      <button
+        type="button"
+        className="seller-order-next-button"
+        onClick={() => onAdvance(flow.next)}
+        disabled={updating}
+      >
+        {updating ? <span className="seller-orders-mini-spinner" /> : flow.label}
+      </button>
+    </>
+  );
+}
+
+function OrderRow({ order, now, isNew, updating, onAdvance, onCancel }) {
+  return (
+    <article className={`seller-order-row status-${order.status}${isNew ? " is-new" : ""}`}>
+      <div className="seller-order-row-main">
+        <strong>
+          #{getOrderCode(order.id)}
+          {isNew && <em className="seller-order-new">New</em>}
+        </strong>
+        <small>{formatDate(order.createdAt)}</small>
+      </div>
+      <div className="seller-order-row-buyer">
+        <strong>{order.buyer.name}</strong>
+        <small>{order.status === "cancelled" && order.cancel_reason ? `Cancelled: ${order.cancel_reason}` : summarizeItems(order.items)}</small>
+      </div>
+      <div className="seller-order-row-chips">
+        <span className={`seller-order-badge status-${order.status}`}>{order.status}</span>
+        <WaitingChip order={order} now={now} />
+      </div>
+      <strong className="seller-order-row-total">{formatCurrency(order.total)}</strong>
+      <div className="seller-order-row-actions">
+        <OrderActions order={order} updating={updating} onAdvance={onAdvance} onCancel={onCancel} compact />
+      </div>
+    </article>
+  );
+}
+
+function OrderCard({ order, now, isNew, updating, onAdvance, onCancel }) {
   const detailsRef = useRef(null);
   const openDetails = () => {
     detailsRef.current.open = true;
     detailsRef.current.querySelector("summary").focus();
   };
+  const copyReference = async () => {
+    try {
+      await navigator.clipboard.writeText(order.id);
+      toast.success("Order reference copied");
+    } catch {
+      toast.error("Couldn't copy the reference");
+    }
+  };
 
   return (
-    <article className="seller-order-card">
+    <article className={`seller-order-card status-${order.status}${isNew ? " is-new" : ""}`}>
       <header className="seller-order-card-header">
         <div>
-          <span>Order</span>
+          <span>Order {isNew && <em className="seller-order-new">New</em>}</span>
           <h2>#{getOrderCode(order.id)}</h2>
           <p>{formatDate(order.createdAt)}</p>
+          <div className="seller-order-chips">
+            <WaitingChip order={order} now={now} />
+            <FulfillmentChip order={order} />
+          </div>
         </div>
         <div>
           <span className={`seller-order-badge status-${order.status}`}>
@@ -175,7 +309,7 @@ function OrderCard({ order, updating, onAdvance, onCancel }) {
         </div>
       </header>
 
-      <OrderProgress status={order.status} />
+      <OrderProgress status={order.status} reason={order.cancel_reason} />
 
       <div className="seller-order-buyer">
         <div className="seller-order-avatar">
@@ -190,6 +324,11 @@ function OrderCard({ order, updating, onAdvance, onCancel }) {
           <strong>{order.buyer.name}</strong>
           {order.buyer.email && <p>{order.buyer.email}</p>}
         </div>
+        {order.notes && (
+          <button type="button" className="seller-order-note-flag" onClick={openDetails}>
+            Buyer note
+          </button>
+        )}
       </div>
 
       <div className="seller-order-items">
@@ -233,37 +372,20 @@ function OrderCard({ order, updating, onAdvance, onCancel }) {
           <p>{order.notes || "The buyer did not add a note to this order."}</p>
         </div>
         <dl>
-          <dt>Order reference</dt><dd>{order.id}</dd>
+          <dt>Order reference</dt>
+          <dd className="seller-order-reference">
+            <code>{order.id}</code>
+            <button type="button" onClick={copyReference} aria-label="Copy order reference" title="Copy">
+              <FiCopy />
+            </button>
+          </dd>
           <dt>Fulfillment</dt><dd>{order.fulfillment === "delivery" ? "Campus delivery" : "Campus pickup"}</dd>
         </dl>
       </details>
 
-      {(flow.next || order.status === "pending") && (
+      {STATUS_FLOW[order.status]?.next && (
         <footer className="seller-order-card-footer">
-          {order.status === "pending" && (
-            <button
-              type="button"
-              className="seller-order-cancel-button"
-              onClick={onCancel}
-              disabled={updating}
-            >
-              Cancel order
-            </button>
-          )}
-          {flow.next && (
-            <button
-              type="button"
-              className="seller-order-next-button"
-              onClick={() => onAdvance(flow.next)}
-              disabled={updating}
-            >
-              {updating ? (
-                <span className="seller-orders-mini-spinner" />
-              ) : (
-                flow.label
-              )}
-            </button>
-          )}
+          <OrderActions order={order} updating={updating} onAdvance={onAdvance} onCancel={onCancel} />
         </footer>
       )}
     </article>
@@ -275,7 +397,12 @@ export default function SellerOrders() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState("active");
+  const [view, setView] = useState(readSavedView);
+  const [now, setNow] = useState(() => Date.now());
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [newIds, setNewIds] = useState(() => new Set());
+  const knownIds = useRef(null);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [updatingId, setUpdatingId] = useState(null);
@@ -286,7 +413,23 @@ export default function SellerOrders() {
 
     try {
       const { data } = await orderService.getSellerOrders({});
-      setOrders(extractOrders(data).map(normalizeOrder));
+      const next = extractOrders(data).map(normalizeOrder);
+      // Anything not seen since the page opened is a new order.
+      if (knownIds.current) {
+        const arrived = next.filter((order) => !knownIds.current.has(order.id));
+        if (arrived.length) {
+          toast.success(
+            arrived.length === 1
+              ? `New order #${getOrderCode(arrived[0].id)} from ${arrived[0].buyer.name}`
+              : `${arrived.length} new orders arrived`,
+          );
+          setNewIds((current) => new Set([...current, ...arrived.map((order) => order.id)]));
+        }
+      }
+      knownIds.current = new Set(next.map((order) => order.id));
+      setOrders(next);
+      setLastUpdated(new Date());
+      setNow(Date.now());
     } catch (requestError) {
       setError(
         requestError.response?.data?.error ||
@@ -303,13 +446,28 @@ export default function SellerOrders() {
     fetchOrders();
   }, [fetchOrders]);
 
+  // Live queue: refresh quietly while the tab is visible, and keep waiting times ticking.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+      if (document.visibilityState === "visible") fetchOrders({ quiet: true });
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [fetchOrders]);
+
+  const changeView = (value) => {
+    setView(value);
+    try {
+      localStorage.setItem(VIEW_KEY, value);
+    } catch {
+      // The preference just won't be remembered.
+    }
+  };
+
   const tabCounts = useMemo(
     () =>
       STATUS_TABS.reduce((counts, tab) => {
-        counts[tab.key] =
-          tab.key === "all"
-            ? orders.length
-            : orders.filter((order) => order.status === tab.key).length;
+        counts[tab.key] = orders.filter((order) => matchesTab(order, tab.key)).length;
         return counts;
       }, {}),
     [orders],
@@ -318,7 +476,7 @@ export default function SellerOrders() {
   const displayedOrders = useMemo(() => {
     const term = search.trim().toLowerCase();
     const filtered = orders.filter((order) => {
-      const matchesStatus = activeTab === "all" || order.status === activeTab;
+      const matchesStatus = matchesTab(order, activeTab);
       const haystack = [
         order.id,
         order.buyer.name,
@@ -342,6 +500,11 @@ export default function SellerOrders() {
   const summary = useMemo(
     () => ({
       pending: orders.filter((order) => order.status === "pending").length,
+      stalePending: orders.filter(
+        (order) =>
+          order.status === "pending" &&
+          (formatWaiting(order.createdAt, now)?.minutes ?? 0) >= STALE_AFTER_MINUTES,
+      ).length,
       processing: orders.filter((order) =>
         ["confirmed", "ready"].includes(order.status),
       ).length,
@@ -350,7 +513,7 @@ export default function SellerOrders() {
         .filter((order) => order.status === "delivered")
         .reduce((sum, order) => sum + order.total, 0),
     }),
-    [orders],
+    [now, orders],
   );
 
   const handleStatusUpdate = async (order, newStatus) => {
@@ -370,6 +533,12 @@ export default function SellerOrders() {
           item.id === order.id ? { ...item, status: savedStatus } : item,
         ),
       );
+      setNewIds((current) => {
+        if (!current.has(order.id)) return current;
+        const next = new Set(current);
+        next.delete(order.id);
+        return next;
+      });
       toast.success(`Order marked as ${savedStatus.replace(/-/g, " ")}`);
     } catch (requestError) {
       toast.error(
@@ -380,10 +549,11 @@ export default function SellerOrders() {
     }
   };
 
-  const clearFilters = () => {
+  const showTab = (tab) => {
     setSearch("");
-    setActiveTab("all");
+    setActiveTab(tab);
   };
+  const clearFilters = () => showTab("all");
 
   return (
     <div className="dashboard-layout seller-orders-shell">
@@ -397,14 +567,21 @@ export default function SellerOrders() {
               <p>Review, prepare, and complete incoming buyer orders.</p>
             </div>
           </div>
-          <button
-            type="button"
-            className="seller-orders-refresh"
-            onClick={() => fetchOrders({ quiet: true })}
-            disabled={loading || refreshing}
-          >
-            <FiRefreshCw className={refreshing ? "is-spinning" : ""} /> Refresh
-          </button>
+          <div className="seller-orders-topbar-actions">
+            {lastUpdated && (
+              <span className="seller-orders-live" title="Orders refresh automatically every 30 seconds">
+                <i aria-hidden="true" /> Live · updated {format(lastUpdated, "h:mm a")}
+              </span>
+            )}
+            <button
+              type="button"
+              className="seller-orders-refresh"
+              onClick={() => fetchOrders({ quiet: true })}
+              disabled={loading || refreshing}
+            >
+              <FiRefreshCw className={refreshing ? "is-spinning" : ""} /> Refresh
+            </button>
+          </div>
         </header>
 
         <div className="dashboard-content seller-orders-content">
@@ -421,8 +598,32 @@ export default function SellerOrders() {
             </div>
           )}
 
+          {!loading && summary.pending > 0 && activeTab !== "pending" && (
+            <div className={`seller-orders-alert${summary.stalePending ? " is-urgent" : ""}`} role="status">
+              <span className="seller-orders-alert-icon"><FiClock /></span>
+              <div>
+                <strong>
+                  {summary.pending} order{summary.pending === 1 ? " is" : "s are"} waiting for you to confirm
+                </strong>
+                <p>
+                  {summary.stalePending
+                    ? `${summary.stalePending} ${summary.stalePending === 1 ? "has" : "have"} been waiting over ${STALE_AFTER_MINUTES} minutes. Buyers can't pick up until you confirm.`
+                    : "Confirm quickly so buyers know their order is being prepared."}
+                </p>
+              </div>
+              <button type="button" onClick={() => showTab("pending")}>
+                Review pending <FiArrowRight />
+              </button>
+            </div>
+          )}
+
           <section className="seller-orders-summary" aria-label="Order summary">
-            <article>
+            <button
+              type="button"
+              className={activeTab === "pending" ? "is-selected" : ""}
+              onClick={() => showTab("pending")}
+              disabled={loading}
+            >
               <span className="tone-gold">
                 <FiClock />
               </span>
@@ -430,8 +631,13 @@ export default function SellerOrders() {
                 <small>Pending</small>
                 <strong>{loading ? "—" : summary.pending}</strong>
               </div>
-            </article>
-            <article>
+            </button>
+            <button
+              type="button"
+              className={activeTab === "active" ? "is-selected" : ""}
+              onClick={() => showTab("active")}
+              disabled={loading}
+            >
               <span className="tone-blue">
                 <FiPackage />
               </span>
@@ -439,8 +645,13 @@ export default function SellerOrders() {
                 <small>In progress</small>
                 <strong>{loading ? "—" : summary.processing}</strong>
               </div>
-            </article>
-            <article>
+            </button>
+            <button
+              type="button"
+              className={activeTab === "delivered" ? "is-selected" : ""}
+              onClick={() => showTab("delivered")}
+              disabled={loading}
+            >
               <span className="tone-green">
                 <FiCheckCircle />
               </span>
@@ -448,7 +659,7 @@ export default function SellerOrders() {
                 <small>Delivered</small>
                 <strong>{loading ? "—" : summary.delivered}</strong>
               </div>
-            </article>
+            </button>
             <article>
               <span className="tone-dark">₱</span>
               <div>
@@ -508,6 +719,26 @@ export default function SellerOrders() {
                   <option value="total-high">Highest total</option>
                   <option value="total-low">Lowest total</option>
                 </select>
+                <div className="seller-orders-view-toggle" role="group" aria-label="Layout">
+                  <button
+                    type="button"
+                    className={view === "cards" ? "active" : ""}
+                    aria-pressed={view === "cards"}
+                    onClick={() => changeView("cards")}
+                    title="Detailed cards"
+                  >
+                    <FiGrid /> Cards
+                  </button>
+                  <button
+                    type="button"
+                    className={view === "compact" ? "active" : ""}
+                    aria-pressed={view === "compact"}
+                    onClick={() => changeView("compact")}
+                    title="Compact list"
+                  >
+                    <FiList /> Compact
+                  </button>
+                </div>
               </div>
             </section>
           )}
@@ -525,6 +756,14 @@ export default function SellerOrders() {
               description="Orders placed by campus buyers will appear here automatically. Keep your listings stocked so they can find you."
               action={{ label: "Manage products", to: "/seller/products" }}
             />
+          ) : displayedOrders.length === 0 && activeTab === "active" && !search ? (
+            <EmptyState
+              compact
+              illustration="box"
+              title="You're all caught up"
+              description="No orders need action right now. New orders will show up here automatically."
+              action={{ label: "View all orders", onClick: clearFilters }}
+            />
           ) : displayedOrders.length === 0 ? (
             <EmptyState compact illustration="search" title="No matching orders" description="Try another search or return to all order statuses." action={{ label: "Clear filters", onClick: clearFilters }} />
           ) : (
@@ -539,16 +778,21 @@ export default function SellerOrders() {
                 </div>
                 <p>Process orders from oldest to newest when possible.</p>
               </div>
-              <div className="seller-orders-list">
-                {displayedOrders.map((order) => (
-                  <OrderCard
-                    key={order.id}
-                    order={order}
-                    updating={updatingId === order.id}
-                    onAdvance={(status) => handleStatusUpdate(order, status)}
-                    onCancel={() => handleStatusUpdate(order, "cancelled")}
-                  />
-                ))}
+              <div className={`seller-orders-list${view === "compact" ? " is-compact" : ""}`}>
+                {displayedOrders.map((order) => {
+                  const Item = view === "compact" ? OrderRow : OrderCard;
+                  return (
+                    <Item
+                      key={order.id}
+                      order={order}
+                      now={now}
+                      isNew={newIds.has(order.id)}
+                      updating={updatingId === order.id}
+                      onAdvance={(status) => handleStatusUpdate(order, status)}
+                      onCancel={() => handleStatusUpdate(order, "cancelled")}
+                    />
+                  );
+                })}
               </div>
             </section>
           )}

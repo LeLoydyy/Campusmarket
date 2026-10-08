@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { ArrowRight, CalendarDays, Check, ClipboardList, RefreshCw, Store, UserCheck, Users, Wallet, X } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, ClipboardList, Crown, RefreshCw, Store, UserCheck, Users, Wallet, X } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import Sidebar from "../../components/common/Sidebar.jsx";
 import StatCard from "../../components/ui/StatCard.jsx";
@@ -54,6 +54,7 @@ export default function AdminDashboard() {
   const actions = stats ? [
     { key: "registrations", count: stats.pending_registrations, label: "Registrations to verify", hint: "Check CSUCC ID numbers against school records", to: "/admin/users", icon: UserCheck },
     { key: "stalls", count: stats.pending_stalls, label: "Stall applications", hint: "New stores waiting for approval", to: "/admin/stalls", icon: Store },
+    { key: "premium", count: stats.pending_plan_requests, label: "Premium requests", hint: "Sellers asking to upgrade their stall", to: "/admin/stalls#premium-requests", icon: Crown },
     { key: "events", count: stats.pending_event_applications, label: "Event space requests", hint: "Sellers asking for a spot at a fair", to: "/admin/applications", icon: CalendarDays },
   ] : [];
   const openActions = actions.filter((item) => Number(item.count) > 0);
@@ -92,7 +93,7 @@ export default function AdminDashboard() {
                 <Illustration name="check" size={120} />
                 <div>
                   <h3>All clear</h3>
-                  <p>No registrations, stalls or event requests are waiting. New ones will show up here.</p>
+                  <p>No registrations, stalls, Premium or event requests are waiting. New ones will show up here.</p>
                 </div>
               </div>
             ) : (

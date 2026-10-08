@@ -263,7 +263,7 @@ export default function Analytics() {
     PERIOD_OPTIONS.find((option) => option.value === period)?.label ||
     `${period} days`;
 
-  if (premiumRequired) return <div className="dashboard-layout"><Sidebar /><main className="dashboard-main"><div className="dashboard-content"><section className="card" style={{ padding: "2rem" }}><h1>Product analytics with Premium</h1><p>Understand sales, popular products, and category performance. Premium also includes up to 25 listings, the point of sale with printable receipts, and landing-page advertising.</p><p>Contact the campus administrator to request a plan change.</p><a href="/seller/products" className="btn btn-primary">Back to my products</a></section></div></main></div>;
+  if (premiumRequired) return <div className="dashboard-layout"><Sidebar /><main className="dashboard-main"><div className="dashboard-content"><section className="card" style={{ padding: "2rem" }}><h1>Product analytics with Premium</h1><p>Understand sales, popular products, and category performance. Premium also includes up to 25 listings, the point of sale with printable receipts, and landing-page advertising.</p><a href="/seller/plans?feature=analytics" className="btn btn-primary">See Premium</a></section></div></main></div>;
 
   return (
     <div className="dashboard-layout seller-analytics-shell">

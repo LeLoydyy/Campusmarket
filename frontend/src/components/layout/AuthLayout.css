@@ -1,7 +1,8 @@
 /* ── Auth (login / register / account status) ─────────────────────────────── */
 /* A centred card: brand wave + students art on the left, the form on white on the right. */
-.auth2 { min-height: 100vh; display: grid; place-items: center; padding: 1rem; background: var(--cream-100); }
-.auth2-card { width: min(1080px, 100%); min-height: min(680px, calc(100vh - 2rem)); display: grid; grid-template-columns: minmax(340px, .9fr) minmax(0, 1.1fr); overflow: hidden; background: var(--surface); border-radius: 28px; box-shadow: var(--shadow-3); }
+/* Same dark green and leaf pattern as the dashboard sidebar. */
+.auth2 { min-height: 100vh; display: grid; place-items: center; padding: 1rem; background: var(--green-900) var(--texture-leaf-light); }
+.auth2-card { width: min(1080px, 100%); min-height: min(680px, calc(100vh - 2rem)); display: grid; grid-template-columns: minmax(340px, .9fr) minmax(0, 1.1fr); overflow: hidden; background: var(--surface); border-radius: 28px; box-shadow: 0 24px 60px rgba(0, 0, 0, .35), 0 0 0 1px rgba(245, 184, 46, .18); }
 
 .auth2-brand { position: relative; display: flex; flex-direction: column; overflow: hidden; background: linear-gradient(180deg, var(--cream-50) 40%, #EAF5EC 100%); }
 .auth2-wave { position: relative; display: grid; justify-items: center; gap: .45rem; padding: 2.2rem 2rem .4rem; color: #fff; text-align: center; background: var(--green-700); }
@@ -204,4 +205,88 @@
   .auth2 .form-input { min-height: 46px; }
   .email-send, .email-verified, .otp-entry .btn { min-height: 46px; }
   .auth2 .auth-footer { margin-top: .8rem; }
+}
+
+/* Three recovery questions (registration, admin setup, password page) */
+.rq-item { display: grid; grid-template-columns: 1fr; gap: .5rem; padding-top: .7rem; border-top: 1px dashed var(--line); }
+.rq-item:first-of-type { padding-top: 0; border-top: 0; }
+.form-input-wrap .form-input.rq-answer { padding-left: 1rem; padding-right: 2.75rem; }
+/* Edge draws its own reveal eye on password inputs; ours already toggles. */
+.form-input::-ms-reveal, .form-input::-ms-clear { display: none; }
+
+/* First-login admin setup */
+.setup-facts { display: grid; gap: .35rem; margin-bottom: .9rem; padding: .75rem 1rem; background: var(--green-100); border-radius: 14px; font-size: var(--text-sm); color: var(--ink-900); }
+.setup-facts p { display: flex; align-items: center; gap: .45rem; margin: 0; }
+.setup-facts svg { width: 17px; height: 17px; color: var(--green-700); flex: none; }
+
+/* Password & security page: two tabs, each a short panel that fits the card */
+.cp-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: .3rem; margin-bottom: 1rem; padding: .3rem; background: var(--cream-100); border-radius: var(--radius-pill); }
+.cp-tabs button { position: relative; display: flex; align-items: center; justify-content: center; gap: .4rem; min-height: 44px; padding: 0 .8rem; color: var(--ink-600); background: none; border: 0; border-radius: var(--radius-pill); font: 800 var(--text-sm) var(--font-body); cursor: pointer; }
+.cp-tabs button svg { width: 17px; height: 17px; }
+.cp-tabs button.is-on { color: var(--green-900); background: var(--surface); box-shadow: var(--shadow-1); }
+.cp-dot { width: 8px; height: 8px; background: var(--coral-500); border-radius: 50%; }
+.cp-panel { display: grid; gap: .85rem; }
+.cp-panel .reg-progress { display: flex; margin: 0; }
+.cp-panel .reg-progress li { flex: 0 0 auto; }
+.cp-panel .reg-progress li.is-current { flex: 1 1 auto; }
+.cp-panel .reg-progress em { font-style: normal; }
+.cp-summary { justify-items: center; padding: 1rem 0 .4rem; text-align: center; }
+.cp-summary h2 { font-size: 1.15rem; }
+.cp-badge { width: 64px; height: 64px; display: grid; place-items: center; color: var(--green-700); background: var(--green-100); border-radius: 50%; }
+.cp-badge svg { width: 30px; height: 30px; }
+.cp-review { display: grid; gap: .45rem; margin: 0; padding: 0; list-style: none; }
+.cp-review li { display: flex; align-items: center; gap: .65rem; padding: .6rem .8rem; background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; }
+.cp-review li > span { width: 26px; height: 26px; display: grid; place-items: center; flex: none; color: #fff; background: var(--green-700); border-radius: 50%; font-weight: 900; font-size: var(--text-xs); }
+.cp-review p { flex: 1; min-width: 0; margin: 0; color: var(--ink-900); font-weight: 700; font-size: var(--text-sm); line-height: 1.35; }
+.cp-review small { display: block; color: var(--ink-600); font-weight: 600; letter-spacing: .08em; }
+.cp-links { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; margin-top: 1.1rem; }
+.cp-links .cm-link { display: inline-flex; align-items: center; gap: .35rem; }
+.cp-links .cm-link svg { width: 16px; height: 16px; }
+.auth-success svg { width: 16px; height: 16px; vertical-align: -3px; }
+.cp-solo { display: grid; }
+
+/* ── Phones: keep the form inside the screen and use a smaller type scale ─────
+   A grid column sizes to its widest content by default; minmax(0, 1fr) lets it
+   shrink to the screen so nothing spills off the right edge. */
+@media (max-width: 920px) {
+  .auth2-card { grid-template-columns: minmax(0, 1fr); }
+  .auth2-form, .auth2-form-inner { min-width: 0; }
+}
+@media (max-width: 520px) {
+  .auth2-wave { padding: 1rem 1rem 0; gap: .15rem; }
+  .auth2-logo { gap: .2rem; }
+  .auth2-logo img { width: 40px; }
+  .auth2-logo span { font-size: 1.25rem; }
+  .auth2-tagline { font-size: .85rem; }
+  .auth2-blurb { display: none; }
+  .auth2-swoosh { width: 34px; }
+  .auth2-wave-edge { height: 28px; }
+  .auth2-form { padding: .25rem 1rem 1.25rem; }
+
+  .auth2 .auth-form-header { margin-bottom: .9rem; }
+  .auth2 .auth-form-header h1 { font-size: 1.5rem; }
+  .auth2 .auth-form-header p { font-size: .875rem; }
+  .auth2 .auth-form { gap: .75rem; }
+  .auth2 .form-label { font-size: .8rem; }
+  /* 16px text stops phones from zooming into the field on focus. */
+  .auth2 .form-input { min-height: 44px; font-size: 16px; border-radius: 12px; }
+  .auth2 .btn-lg { min-height: 46px; padding-block: .6rem; font-size: .95rem; }
+  .auth2 .auth-footer { margin-top: .9rem; font-size: .8rem; }
+  .reg-note, .field-note { font-size: .75rem; }
+
+  .reg-progress { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .35rem; margin-bottom: .75rem; }
+  .reg-progress li { gap: .3rem; padding: .3rem .4rem; overflow: hidden; font-size: .72rem; }
+  .reg-progress li span { width: 22px; height: 22px; font-size: .72rem; }
+  .reg-progress li span svg { width: 13px; height: 13px; }
+
+  .reg-roles { gap: .5rem; }
+  .reg-roles legend { font-size: .8rem; }
+  .reg-role { gap: .55rem; padding: .55rem .7rem; border-radius: 14px; }
+  .reg-role-icon { width: 34px; height: 34px; border-radius: 10px; }
+  .reg-role-icon svg { width: 18px; height: 18px; }
+  .reg-role-text strong { font-size: .9rem; }
+  .reg-role-text small, .reg-role-text span { font-size: .75rem; }
+
+  .reg-security { padding: .75rem; }
+  .cp-tabs button { min-height: 40px; font-size: .8rem; }
 }

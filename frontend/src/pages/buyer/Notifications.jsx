@@ -3,6 +3,8 @@ import { Bell, BellRing, CheckCheck } from "lucide-react";
 import EmptyState from "../../components/ui/EmptyState.jsx";
 import toast from "react-hot-toast";
 import Navbar from "../../components/common/Navbar.jsx";
+import Sidebar from "../../components/common/Sidebar.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
 import OrderNotificationCard from "../../components/notifications/OrderNotificationCard.jsx";
 import { useNotifications } from "../../context/NotificationContext.jsx";
 
@@ -16,6 +18,7 @@ const FILTERS = [
 
 export default function Notifications() {
   const { notifications, unread, loading, error, permission, refresh, markRead, markAllRead, enableSystemAlerts } = useNotifications();
+  const { user } = useAuth();
   const [filter, setFilter] = useState("all");
   const [markingAll, setMarkingAll] = useState(false);
 
@@ -54,9 +57,7 @@ export default function Notifications() {
   };
 
   return (
-    <div className="notifications-shell">
-      <Navbar />
-
+    <Layout seller={user?.role === "seller"}>
       <main className="notifications-page">
         <header className="notifications-header">
           <div className="notifications-title-wrap">
@@ -133,6 +134,24 @@ export default function Notifications() {
           </section>
         )}
       </main>
+    </Layout>
+  );
+}
+
+/** Sellers read their notifications inside the dashboard; buyers with the shop navigation. */
+function Layout({ seller, children }) {
+  if (seller) {
+    return (
+      <div className="dashboard-layout">
+        <Sidebar />
+        <div className="dashboard-main">{children}</div>
+      </div>
+    );
+  }
+  return (
+    <div className="notifications-shell">
+      <Navbar />
+      {children}
     </div>
   );
 }

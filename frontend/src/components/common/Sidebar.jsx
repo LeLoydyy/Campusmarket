@@ -3,6 +3,8 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { ChevronRight, LogOut, Menu, ShieldCheck, X } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { clearTokens } from "../../services/tokens.js";
+import { can } from "../../utils/adminAccess.js";
+import { useNotifications } from "../../context/NotificationContext.jsx";
 import {
   ADMIN_NAV,
   BUYER_NAV,
@@ -20,14 +22,15 @@ const NAVIGATION = {
 const GROUP_LABELS = {
   seller: [
     ["Workspace", ["Dashboard", "My Stall", "Stall Branding", "Products", "Point of Sale", "Orders"]],
-    ["Growth", ["Events & Reservations", "Analytics", "Messages"]],
-    ["Account", ["Reviews", "Settings", "Password"]],
+    ["Growth", ["Events & Reservations", "Analytics", "Messages", "Notifications", "Premium"]],
+    ["Account", ["Reviews", "Settings", "Password", "Login History"]],
   ],
   admin: [
     ["Overview", ["Dashboard", "Analytics", "Reports"]],
     ["Management", ["Registration & Users", "Stores & Plans", "Event Applications"]],
+    ["Security", ["Administrators", "Login Logs"]],
     ["Operations", ["Events", "Stall Map", "Reservations", "Complaints"]],
-    ["Account", ["Settings", "Password"]],
+    ["Account", ["Settings", "Password", "Login History"]],
   ],
   buyer: [["Marketplace", []]],
 };
@@ -48,7 +51,13 @@ export default function Sidebar({ open, isOpen: legacyOpen, onClose }) {
   const [internalOpen, setInternalOpen] = useState(false);
 
   const role = user?.role || "seller";
-  const navItems = NAVIGATION[role] || SELLER_NAV;
+  const isPremium = user?.stall_plan?.tier === "premium";
+  const { unread } = useNotifications();
+  // Admins only see pages their privileges open.
+  const navItems = useMemo(
+    () => (NAVIGATION[role] || SELLER_NAV).filter((item) => !item.permission || can(user, item.permission)),
+    [role, user],
+  );
   const controlledOpen = typeof open === "boolean" ? open : legacyOpen;
   const isControlled = typeof controlledOpen === "boolean";
   const isOpen = (isControlled && controlledOpen) || internalOpen;
@@ -111,26 +120,17 @@ export default function Sidebar({ open, isOpen: legacyOpen, onClose }) {
         <div className="cm-sidebar-brand">
           <Link
             to={homePath}
-            className={`cm-sidebar-logo${role === "seller" ? " cm-sidebar-logo--seller" : ""}`}
+            className="cm-sidebar-logo"
             aria-label="Campus Market dashboard"
           >
-            {role === "seller" ? (
-              <img
-                className="cm-sidebar-seller-wordmark"
-                src="/images/buyer/campusmarket-logo.png"
-                alt="Campus Market"
-              />
-            ) : (
-              <>
-                <span className="cm-sidebar-logo-mark">
-                  <img src="/images/logo.png" alt="" />
-                </span>
-                <span className="cm-sidebar-brand-copy">
-                  <strong>Campus Market</strong>
-                  <small>{ROLE_LABELS[role] || role} workspace</small>
-                </span>
-              </>
-            )}
+            {/* Same brand block on every dashboard; only the workspace name changes. */}
+            <span className="cm-sidebar-logo-mark">
+              <img src="/images/auth/logo-mark.png" alt="" />
+            </span>
+            <span className="cm-sidebar-brand-copy">
+              <strong>Campus Market</strong>
+              <small>{ROLE_LABELS[role] || role} workspace</small>
+            </span>
           </Link>
           <button
             type="button"
@@ -164,23 +164,30 @@ export default function Sidebar({ open, isOpen: legacyOpen, onClose }) {
             <div className="cm-sidebar-group" key={group.label}>
               <p className="cm-sidebar-group-label">{group.label}</p>
               <div className="cm-sidebar-group-links">
-                {group.items.map(({ to, label, icon: Icon }) => (
+                {group.items.map(({ to, label, icon: Icon, pro, badge }) => {
+                  // Free stalls: Premium pages show a PRO badge and open the Plans page instead.
+                  const locked = pro && !isPremium;
+                  const count = badge === "notifications" ? unread : 0;
+                  return (
                   <NavLink
                     key={to}
-                    to={to}
+                    to={locked ? `/seller/plans?feature=${pro}` : to}
                     // Exact match when another link lives under this path (e.g. My Stall → Stall Branding)
                     end={to === homePath || navItems.some((item) => item.to.startsWith(`${to}/`))}
                     className={({ isActive }) =>
-                      `cm-sidebar-link ${isActive ? "active" : ""}`
+                      `cm-sidebar-link ${isActive && !locked ? "active" : ""}`
                     }
                   >
                     <span className="cm-sidebar-link-icon">
                       <Icon size={18} />
                     </span>
                     <span>{label}</span>
+                    {locked && <b className="cm-sidebar-pro" title="Premium feature">PRO</b>}
+                    {count > 0 && <b className="cm-sidebar-count" aria-label={`${count} unread`}>{count > 9 ? "9+" : count}</b>}
                     <i className="cm-sidebar-active-dot" />
                   </NavLink>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -190,8 +197,12 @@ export default function Sidebar({ open, isOpen: legacyOpen, onClose }) {
           <div className="cm-sidebar-secure-note">
             <ShieldCheck size={15} />
             <span>
-              <strong>Secure workspace</strong>
-              <small>{role === "admin" ? "Campus Market administration" : "Your account data is protected"}</small>
+              <strong>{role === "admin" && user?.shift?.ends_at ? "On duty" : "Secure workspace"}</strong>
+              <small>
+                {role !== "admin" ? "Your account data is protected"
+                  : user?.shift?.ends_at ? `Shift ends ${new Date(user.shift.ends_at).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit" })}`
+                    : "Campus Market administration"}
+              </small>
             </span>
           </div>
           <button

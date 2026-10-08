@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { KeyRound, Mail, MailCheck, UserRound } from "lucide-react";
 import AuthLayout from "../../components/layout/AuthLayout.jsx";
 import OtpInput, { DevCodeHint, ResendCode } from "../../components/auth/OtpInput.jsx";
@@ -27,9 +27,17 @@ const apiError = (err, fallback) =>
   err.response?.data?.error ||
   (!err.response ? "Unable to connect to the server. Please make sure the backend is running and try again." : fallback);
 
+// Why the person landed here (set by automatic sign-outs and the password reset page).
+const NOTICES = {
+  shift_ended: "Your shift has ended, so you were signed out. You can sign in again during your next shift.",
+  password_reset: "Your password was changed. Sign in with your new password.",
+};
+
 export default function Login() {
   const { login, verifyLogin } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const notice = NOTICES[searchParams.get("reason")];
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPass, setShowPass] = useState(false);
   const [remember, setRemember] = useState(getRememberPreference);
@@ -61,7 +69,8 @@ export default function Login() {
   const updateGuard = (next) => { setGuard(next); writeGuard(next); setNow(Date.now()); };
 
   const goHome = (user) => {
-    if (user?.status !== "approved") navigate("/account-status");
+    if (user?.must_setup) navigate("/admin/setup");
+    else if (user?.status !== "approved") navigate("/account-status");
     else if (user?.role === "admin") navigate("/admin");
     else if (user?.role === "seller") navigate("/seller");
     else navigate("/");
@@ -83,8 +92,12 @@ export default function Login() {
     setLoading(true);
     setError("");
     try {
-      const data = await login(form.email.trim(), form.password);
+      const data = await login(form.email.trim(), form.password, remember);
       updateGuard({ failures: 0, until: 0 });
+      if (data.user) {
+        setRememberPreference(remember);
+        return goHome(data.user);
+      }
       setChallenge({ ...data, resendAt: Date.now() + data.resend_in * 1000 });
       setMethod("code");
       setCode("");
@@ -152,6 +165,11 @@ export default function Login() {
       title={challenge ? "Confirm it's you" : "Welcome Back!"}
       subtitle={challenge ? "One more step keeps your account safe, even if someone learns your password." : "Log in to your Campus Market account."}
     >
+      {notice && !error && !challenge && (
+        <div className="auth-success" role="status">
+          {notice}
+        </div>
+      )}
       {error && (
         <div className="auth-error" role="alert">
           {error}
@@ -162,16 +180,18 @@ export default function Login() {
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label className="form-label" htmlFor="email">
-              Email
+              Email or username
             </label>
             <div className="form-input-wrap">
               <Mail size={18} className="form-input-icon" aria-hidden="true" />
               <input
                 id="email"
-                type="email"
+                type="text"
                 name="email"
                 className="form-input"
                 autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
                 placeholder="you@csucc.edu.ph"
                 value={form.email}
                 required
@@ -196,8 +216,7 @@ export default function Login() {
               <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
               <span>Remember me</span>
             </label>
-            {/* Offered once two passwords in a row were wrong. */}
-            {guard.failures >= FREE_FAILURES && <Link to="/forgot-password" className="login-forgot">Forgot password?</Link>}
+            <Link to="/forgot-password" className="login-forgot">Forgot password?</Link>
           </div>
           <button type="submit" className="btn btn-primary btn-lg w-full" disabled={loading || coolingDown} style={{ width: "100%" }} aria-describedby={coolingDown ? "login-wait" : undefined}>
             {loading ? <span className="spinner" /> : coolingDown ? <span id="login-wait">Try again in {formatWait(waitSeconds)}</span> : "Log In"}

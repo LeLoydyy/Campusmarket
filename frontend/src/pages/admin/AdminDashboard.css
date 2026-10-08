@@ -9,7 +9,7 @@
 .ad-actions h2 { color: #fff; font: 900 1.45rem/1.15 var(--font-display); }
 .ad-actions-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
 .ad-actions-total { padding: .35rem .8rem; color: var(--green-900); background: var(--gold-500); border-radius: var(--radius-pill); font: 800 var(--text-xs) var(--font-body); }
-.ad-action-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; list-style: none; }
+.ad-action-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; list-style: none; }
 .ad-action { display: flex; align-items: center; gap: .8rem; min-height: 84px; padding: .9rem 1rem; color: var(--ink-900); background: var(--cream-50); border-radius: 18px; text-decoration: none; transition: transform var(--dur) var(--ease-out), box-shadow var(--dur); }
 .ad-action:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0, 0, 0, .2); }
 .ad-action.is-done { background: rgba(255, 251, 242, .9); }
@@ -61,3 +61,4 @@
   .ad-approvals li { flex-wrap: wrap; }
   .ad-approvals .btn { flex: 1; }
 }
+@media (min-width: 1700px) { .ad-action-list { grid-template-columns: repeat(4, minmax(0, 1fr)); } }

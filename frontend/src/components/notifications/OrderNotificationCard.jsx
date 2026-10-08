@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Check, ChevronDown, Package, Store } from "lucide-react";
+import { Check, ChevronDown, Crown, Package, Sparkles, Store } from "lucide-react";
 import { orderSteps, stageFor, stepIndex } from "./orderStages.js";
 import "./notifications.css";
 
@@ -26,7 +26,11 @@ export default function OrderNotificationCard({ notification, variant = "list", 
   const [expanded, setExpanded] = useState(defaultExpanded);
   const order = notification.order;
   const fulfillment = order?.fulfillment;
-  const stage = stageFor(notification.status, fulfillment);
+  // Plan notifications (Premium nudges and decisions) reuse the card with a crown instead of order art.
+  const isPlan = notification.type === "plan";
+  const stage = isPlan
+    ? { key: "plan", icon: Sparkles, tone: ["plan_declined", "plan_expired"].includes(notification.status) ? "cancelled" : notification.status === "plan_approved" ? "done" : "active" }
+    : stageFor(notification.status, fulfillment);
   const Art = stage.icon;
   const image = order?.first_item?.image_url;
   const unread = !notification.read;
@@ -42,8 +46,8 @@ export default function OrderNotificationCard({ notification, variant = "list", 
 
   const summary = (
     <>
-      <span className="onc-app" aria-hidden="true">
-        {order?.stall_logo ? <img src={order.stall_logo} alt="" /> : <Store />}
+      <span className={`onc-app${isPlan ? " onc-app--plan" : ""}`} aria-hidden="true">
+        {isPlan ? <Crown /> : order?.stall_logo ? <img src={order.stall_logo} alt="" /> : <Store />}
       </span>
       <span className="onc-text">
         <span className="onc-title-row">
@@ -65,8 +69,8 @@ export default function OrderNotificationCard({ notification, variant = "list", 
         <span className="onc-body">{notification.body}</span>
       </span>
       <span className={`onc-art onc-art--${stage.key}`} aria-hidden="true"><Art /></span>
-      <span className="onc-thumb" aria-hidden="true">
-        {image ? <img src={image} alt="" loading="lazy" /> : <Package />}
+      <span className={`onc-thumb${isPlan ? " onc-thumb--plan" : ""}`} aria-hidden="true">
+        {isPlan ? <Crown /> : image ? <img src={image} alt="" loading="lazy" /> : <Package />}
       </span>
     </>
   );
@@ -101,7 +105,8 @@ export default function OrderNotificationCard({ notification, variant = "list", 
                   return (
                     <li key={step.key} className={`is-${state}`}>
                       <span>{state === "done" ? <Check /> : <step.icon />}</span>
-                      <small>{step.label}</small>
+                      {/* Phones show the short name ("Ready") so five steps fit side by side. */}
+                      <small>{step.short ? <><span className="onc-step-long">{step.label}</span><span className="onc-step-short" aria-hidden="true">{step.short}</span></> : step.label}</small>
                     </li>
                   );
                 })}
@@ -117,7 +122,7 @@ export default function OrderNotificationCard({ notification, variant = "list", 
           )}
           {notification.link && (
             <Link className="btn btn-primary btn-sm onc-open" to={notification.link} onClick={open}>
-              View order
+              {isPlan ? "See plans" : "View order"}
             </Link>
           )}
         </div>

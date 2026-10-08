@@ -3,7 +3,7 @@ import {
   getStalls, getStall, createStall, updateStall,
   updateStallStatus, getMyStall, uploadStallBranding, removeStallBranding,
 } from "../controllers/stall.controller.js";
-import { verifyToken, requireRole } from "../middleware/auth.js";
+import { verifyToken, requireRole, requirePermission } from "../middleware/auth.js";
 import { validate, stallSchema } from "../middleware/validate.js";
  
 const stallRouter = StallRouter();
@@ -15,6 +15,6 @@ stallRouter.delete("/my/branding/:kind", verifyToken, requireRole("seller"), rem
 stallRouter.get("/:id", getStall);
 stallRouter.post("/", verifyToken, requireRole("seller"), validate(stallSchema), createStall);
 stallRouter.put("/:id", verifyToken, requireRole("seller"), validate(stallSchema.partial()), updateStall);
-stallRouter.put("/:id/status", verifyToken, requireRole("admin"), updateStallStatus);
+stallRouter.put("/:id/status", verifyToken, requireRole("admin"), requirePermission("marketplace"), updateStallStatus);
  
 export { stallRouter as default };
