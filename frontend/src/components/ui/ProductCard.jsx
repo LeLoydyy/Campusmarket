@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Check, Heart, MapPin, ShoppingBag, ShoppingCart, Star, BadgeCheck } from "lucide-react";
 import toast from "react-hot-toast";
 import { useCart } from "../../context/CartContext.jsx";
@@ -8,6 +8,7 @@ import { behaviorService } from "../../services/api.js";
 import favoriteService from "../../services/favoriteService.js";
 import { formatCurrency } from "../../utils/formatCurrency.js";
 import { isNewProduct } from "../../utils/marketplace.js";
+import { discountLabel, effectivePrice, isOnSale, productOptions } from "../../utils/pricing.js";
 import { CategoryChip } from "./Chip.jsx";
 
 /**
@@ -32,6 +33,8 @@ export default function ProductCard({ product, showStall = true }) {
   const reviews = Number(product.review_count || 0);
   const isBuyerOrGuest = !user || user.role === "buyer";
   const canFavorite = user?.role === "buyer";
+  const hasOptions = productOptions(product).length > 0;
+  const navigate = useNavigate();
 
   useEffect(() => { setImageFailed(false); }, [product.image_url]);
 
@@ -57,6 +60,11 @@ export default function ProductCard({ product, showStall = true }) {
     if (!user) return toast.error("Log in to add items to your cart");
     if (user.role !== "buyer") return toast.error("Only buyer accounts can use the cart");
     if (outOfStock) return toast.error("This product is out of stock");
+    // Sizes and flavours are chosen on the product page.
+    if (hasOptions) {
+      toast("Choose an option first", { icon: "👕" });
+      return navigate(`/products/${product.id}`);
+    }
     try {
       setAdding(true);
       await addItem(product);
@@ -94,6 +102,7 @@ export default function ProductCard({ product, showStall = true }) {
           )}
           <span className="pc-tags">
             <CategoryChip category={product.category} size="sm" />
+            {isOnSale(product) && <span className="pc-sale-tag">Sale {discountLabel(product)}</span>}
             {isNewProduct(product) && <span className="cm-chip cm-chip--new cm-chip--sm">New</span>}
           </span>
           {lowStock && <span className="pc-stock">Only {stock} left</span>}
@@ -126,7 +135,10 @@ export default function ProductCard({ product, showStall = true }) {
               <><Star aria-hidden="true" /> <span>No reviews yet</span></>
             )}
           </p>
-          <p className="pc-price">{formatCurrency(product.price)}</p>
+          <p className="pc-price">
+            {formatCurrency(effectivePrice(product))}
+            {isOnSale(product) && <s className="pc-price-was" aria-label={`Regular price ${formatCurrency(product.price)}`}>{formatCurrency(product.price)}</s>}
+          </p>
         </div>
       </Link>
 
@@ -149,7 +161,7 @@ export default function ProductCard({ product, showStall = true }) {
           className={`pc-cart ${added ? "is-added" : ""}`}
           onClick={handleAddToCart}
           disabled={adding || outOfStock}
-          aria-label={outOfStock ? `${product.name} is sold out` : added ? `${product.name} added to cart` : `Add ${product.name} to cart`}
+          aria-label={outOfStock ? `${product.name} is sold out` : added ? `${product.name} added to cart` : hasOptions ? `Choose options for ${product.name}` : `Add ${product.name} to cart`}
         >
           {added ? <Check aria-hidden="true" /> : <ShoppingCart aria-hidden="true" />}
           {adding && <span className="pc-cart-spin" aria-hidden="true" />}

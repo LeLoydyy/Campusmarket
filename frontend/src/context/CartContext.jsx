@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { cartService } from "../services/api.js";
 import { useAuth } from "./AuthContext.jsx";
+import { effectivePrice } from "../utils/pricing.js";
 
 const CartContext = createContext(null);
 
@@ -26,8 +27,8 @@ export function CartProvider({ children }) {
     fetchCart();
   }, [fetchCart]);
 
-  const addItem = useCallback(async (product, quantity = 1) => {
-    const { data } = await cartService.add(product.id, quantity);
+  const addItem = useCallback(async (product, quantity = 1, optionId = null) => {
+    const { data } = await cartService.add(product.id, quantity, optionId);
     await fetchCart();
     return data;
   }, [fetchCart]);
@@ -50,7 +51,7 @@ export function CartProvider({ children }) {
   }, []);
 
   const total = items.reduce(
-    (sum, item) => sum + (item.products?.price || item.price || 0) * item.quantity,
+    (sum, item) => sum + (item.products ? effectivePrice(item.products) : Number(item.price) || 0) * item.quantity,
     0
   );
   const count = items.reduce((sum, item) => sum + item.quantity, 0);

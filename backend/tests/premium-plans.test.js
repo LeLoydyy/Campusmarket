@@ -48,6 +48,7 @@ test("Premium: plan page, one-time nudges, request, review, notifications", asyn
   assert.equal(free.data.price, "₱150 per semester");
   assert.equal(free.data.plans.premium.listing_limit, 25);
   assert.equal((await request("/auth/me", seller)).data.stall_plan.tier, "free");
+  assert.ok((await planNotes()).some((item) => item.status === "plan_downgraded"), "The seller is told about the switch");
 
   // Tapping a locked feature: one nudge, never repeated.
   await request("/plans/my?feature=analytics", seller);
@@ -62,7 +63,7 @@ test("Premium: plan page, one-time nudges, request, review, notifications", asyn
   assert.equal((await request("/products", seller, product("Banana cue"))).status, 201);
   assert.ok((await planNotes()).some((item) => item.status === "listings_full"));
   assert.equal((await request("/products", seller, product("Kwek-kwek"))).status, 403);
-  assert.equal((await planNotes()).length, 3);
+  assert.equal((await planNotes()).length, 4, "The switch to Free plus three one-time nudges");
 
   // Request Premium (with a payment reference), once at a time; the admin dashboard counts it.
   const sent = await request("/plans/requests", seller, { note: "For the food fair", payment_reference: "GCash 1029384756" });

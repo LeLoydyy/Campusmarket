@@ -98,7 +98,7 @@ const tx = async (fn) => {
 };
 
 // ── Shared SQL fragments ──────────────────────────────────────────────────────
-const USER_COLUMNS = `id, name, email, role, status, campus_id, affiliation, department, campus, avatar_url,
+const USER_COLUMNS = `id, name, email, role, status, campus_id, affiliation, department, campus, avatar_url, phone, address, notification_prefs,
   is_banned, review_note, reviewed_by, reviewed_at, password_changed_at, created_at, username, shift_start, shift_end,
   permissions, must_setup, created_by, last_login_at, deleted_at, deleted_by, delete_reason,
   (recovery_questions IS NOT NULL) AS has_recovery_questions`;
@@ -110,7 +110,12 @@ const STALL_SELECT = `SELECT s.*, coalesce(o.name, 'Campus seller') AS seller_na
   (SELECT count(*) FROM products c WHERE c.stall_id = s.id) AS product_count
   FROM stalls s LEFT JOIN users o ON o.id = s.owner_id`;
 const withPlan = (stall) => stall && { ...stall, plan: getPlan(stall.tier) };
-const PRODUCT_SELECT = `SELECT p.*, to_jsonb(s) AS stalls FROM products p
+const PRODUCT_SELECT = `SELECT p.*, to_jsonb(s) AS stalls,
+  (SELECT round(avg(r.rating)::numeric, 1)::float FROM reviews r WHERE r.product_id = p.id) AS avg_rating,
+  (SELECT count(*)::int FROM reviews r WHERE r.product_id = p.id) AS review_count,
+  (SELECT coalesce(json_agg(json_build_object('id', po.id, 'label', po.label, 'stock', po.stock) ORDER BY po.position, po.label), '[]'::json)
+     FROM product_options po WHERE po.product_id = p.id) AS options
+  FROM products p
   JOIN stalls s ON s.id = p.stall_id LEFT JOIN users o ON o.id = s.owner_id`;
 
 const isApprovedUser = async (run, id) =>
@@ -118,6 +123,102 @@ const isApprovedUser = async (run, id) =>
 
 const audit = (run, actorId, action, targetId, note = null) =>
   run("INSERT INTO audit_log (actor_id, action, target_id, note) VALUES ($1, $2, $3, $4)", [actorId, action, targetId, note]);
+
+/** Optional notifications a user can turn off (Settings). A missing key means "on". */
+export const NOTIFICATION_PREFS = ["orderUpdates", "reviewAlerts", "stockAlerts"];
+const wantsNotice = async (run, userId, key) => {
+  const [row] = await run("SELECT notification_prefs ->> $2 AS value FROM users WHERE id = $1", [userId, key]);
+  return row?.value !== "false";
+};
+
+// ── Products: sale price, options, low-stock alerts ──────────────────────────
+/** What a buyer pays: the sale price when one is set below the regular price. */
+const unitPrice = (product) => (product.sale_price != null && Number(product.sale_price) < Number(product.price) ? product.sale_price : product.price);
+export const LOW_STOCK_AT = 3;
+
+/** Keeps products.stock equal to the total of its options (no-op for products without options). */
+const syncOptionStock = (run, productId) => run(
+  `UPDATE products SET stock = (SELECT sum(stock) FROM product_options WHERE product_id = $1)
+   WHERE id = $1 AND EXISTS (SELECT 1 FROM product_options WHERE product_id = $1)`, [productId]);
+
+/** Replaces a product's options; options keep their IDs (and cart lines) when the label stays the same. */
+const saveOptions = async (run, productId, options) => {
+  const clean = [];
+  const seen = new Set();
+  for (const option of options) {
+    const label = String(option.label || "").trim();
+    if (!label || seen.has(label.toLowerCase())) continue;
+    seen.add(label.toLowerCase());
+    clean.push({ label, stock: Math.max(0, Math.floor(Number(option.stock) || 0)) });
+  }
+  await run("DELETE FROM product_options WHERE product_id = $1 AND NOT (label = ANY($2))", [productId, clean.map((option) => option.label)]);
+  for (const [position, option] of clean.entries()) {
+    await run(
+      `INSERT INTO product_options (product_id, label, stock, position) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (product_id, label) DO UPDATE SET stock = EXCLUDED.stock, position = EXCLUDED.position`,
+      [productId, option.label, option.stock, position],
+    );
+  }
+  await syncOptionStock(run, productId);
+};
+
+/** Tells the seller when a product (or one of its options) drops to the low-stock line or sells out. */
+const lowStockNotice = async (run, productId, before, after, optionLabel = null) => {
+  if (!(before > LOW_STOCK_AT && after <= LOW_STOCK_AT) && !(before > 0 && after === 0)) return;
+  const [product] = await run("SELECT p.name, s.owner_id FROM products p JOIN stalls s ON s.id = p.stall_id WHERE p.id = $1", [productId]);
+  if (!product || !(await wantsNotice(run, product.owner_id, "stockAlerts"))) return;
+  const name = optionLabel ? `${product.name} (${optionLabel})` : product.name;
+  await run(
+    `INSERT INTO notifications (user_id, type, status, title, body, link) VALUES ($1, 'stock', $2, $3, $4, '/seller/products')`,
+    [product.owner_id, after === 0 ? "sold_out" : "low_stock",
+      after === 0 ? `${name} is sold out` : `${name} is running low`,
+      after === 0 ? "Buyers can't order it until you add more stock." : `Only ${after} left. Restock it in Products.`],
+  );
+};
+
+/** Takes stock for a product or one of its options, alerting the seller if it gets low. */
+const takeStock = async (run, productId, optionId, quantity) => {
+  if (optionId) {
+    const [option] = await run("UPDATE product_options SET stock = stock - $2 WHERE id = $1 RETURNING label, stock", [optionId, quantity]);
+    await lowStockNotice(run, productId, option.stock + quantity, option.stock, option.label);
+    const [{ stock: before }] = await run("SELECT stock FROM products WHERE id = $1", [productId]);
+    await syncOptionStock(run, productId);
+    const [{ stock: after }] = await run("SELECT stock FROM products WHERE id = $1", [productId]);
+    if (after === 0) await lowStockNotice(run, productId, before, after);
+    return;
+  }
+  const [{ stock }] = await run("UPDATE products SET stock = stock - $2 WHERE id = $1 RETURNING stock", [productId, quantity]);
+  await lowStockNotice(run, productId, stock + quantity, stock);
+};
+
+/** Gives stock back (cancelled orders); an option that was since removed returns nothing. */
+const returnStock = async (run, productId, optionId, quantity) => {
+  if (optionId) {
+    await run("UPDATE product_options SET stock = stock + $2 WHERE id = $1", [optionId, quantity]);
+    await syncOptionStock(run, productId);
+    return;
+  }
+  await run("UPDATE products SET stock = stock + $2 WHERE id = $1 AND NOT EXISTS (SELECT 1 FROM product_options WHERE product_id = $1)", [productId, quantity]);
+};
+
+/** Checks a requested product/option line against what's in stock; returns the matching option (or null). */
+const pickOption = (product, options, optionId) => {
+  const own = options.filter((option) => option.product_id === product.id);
+  if (!own.length) {
+    if (optionId) fail(`${product.name} has no options to choose from.`);
+    return null;
+  }
+  const option = own.find((entry) => entry.id === optionId);
+  if (!option) fail(`Choose an option for ${product.name}.`);
+  return option;
+};
+/** A sale price must be below the regular price; empty means no sale. */
+const checkedSalePrice = (salePrice, price) => {
+  if (salePrice == null || salePrice === "") return null;
+  if (Number(salePrice) >= Number(price)) fail("The sale price must be lower than the regular price.");
+  return Number(salePrice);
+};
+const lineName = (product, option) => (option ? `${product.name} (${option.label})` : product.name);
 
 const escapeLike = (value) => String(value).replace(/[\\%_]/g, "\\$&");
 const pageParams = (page, limit, max = 100) => {
@@ -316,6 +417,15 @@ export const authStore = {
     return user;
   },
 
+  /** Saves which optional notifications the user wants (merged with what was saved before). */
+  async setNotificationPrefs(userId, prefs) {
+    const allowed = Object.fromEntries(NOTIFICATION_PREFS.filter((key) => typeof prefs[key] === "boolean").map((key) => [key, prefs[key]]));
+    const [user] = await q(`UPDATE users SET notification_prefs = notification_prefs || $2::jsonb WHERE id = $1 RETURNING ${USER_COLUMNS}`,
+      [userId, JSON.stringify(allowed)]);
+    if (!user) fail("User not found", 404);
+    return user;
+  },
+
   async updateUserProfile(userId, updates) {
     return tx(async (run) => {
       const [user] = await run("SELECT name, role FROM users WHERE id = $1 FOR UPDATE", [userId]);
@@ -332,9 +442,10 @@ export const authStore = {
           sets.push("status = 'pending'", "review_note = 'Your name changed. An administrator will recheck your campus credentials.'");
         }
       }
-      if (updates.avatar_url !== undefined) {
-        params.push(updates.avatar_url);
-        sets.push(`avatar_url = $${params.length}`);
+      for (const key of ["avatar_url", "phone", "address"]) {
+        if (updates[key] === undefined) continue;
+        params.push(updates[key]);
+        sets.push(`${key} = $${params.length}`);
       }
       if (!sets.length) return (await run(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [userId]))[0];
       return (await run(`UPDATE users SET ${sets.join(", ")} WHERE id = $1 RETURNING ${USER_COLUMNS}`, params))[0];
@@ -755,20 +866,33 @@ export const stallStore = {
     });
   },
 
-  async setPlan(stallId, tier, actorId) {
+  /** Admin switch: Free, Premium (optionally until a date), or a new end date for a Premium stall. The seller is told. */
+  async setPlan(stallId, { tier, premium_until = null, note = "" }, actorId) {
     return tx(async (run) => {
-      const [stall] = await run("SELECT id FROM stalls WHERE id = $1 FOR UPDATE", [stallId]);
+      const [stall] = await run("SELECT id, owner_id, tier, premium_until FROM stalls WHERE id = $1 FOR UPDATE", [stallId]);
       if (!stall) fail("Stall not found.", 404);
       if (!["free", "premium"].includes(tier)) fail("Invalid plan.");
-      const [{ count }] = await run("SELECT count(*) FROM products WHERE stall_id = $1", [stallId]);
-      if (count > getPlan(tier).listing_limit) fail("Remove excess listings before changing to this plan.", 409);
-      // A manual switch has no end date, and settles any request that was waiting.
-      await run("UPDATE stalls SET tier = $2, premium_until = NULL WHERE id = $1", [stallId, tier]);
+      const until = tier === "premium" ? endOfDay(premium_until) : null;
+      const extending = tier === "premium" && stall.tier === "premium";
+      const hidden = await changeTier(run, stallId, tier, until);
+      const adminNote = note ? ` Note from the admin: ${note}` : "";
       if (tier === "premium") {
-        await run(`UPDATE plan_requests SET status = 'approved', reviewed_by = $2, reviewed_at = now(), review_note = 'Switched to Premium in Stores & Plans'
-                   WHERE stall_id = $1 AND status = 'pending'`, [stallId, actorId]);
+        // A manual switch settles any request that was waiting.
+        await run(`UPDATE plan_requests SET status = 'approved', reviewed_by = $2, reviewed_at = now(), premium_until = $3,
+                   review_note = 'Switched to Premium in Stores & Plans' WHERE stall_id = $1 AND status = 'pending'`, [stallId, actorId, until]);
+        const ends = until ? `until ${formatDay(until)}` : "with no end date";
+        if (extending) {
+          await insertPlanNotification(run, stall.owner_id, "plan_extended", "Your Premium plan was updated", `Your stall stays on Premium ${ends}.${adminNote}`);
+        } else {
+          await insertPlanNotification(run, stall.owner_id, "plan_approved", "Your stall is now Premium 🎉",
+            `An administrator moved your stall to Premium ${ends}: up to 25 listings, analytics, the point of sale and featured products.${adminNote}`);
+        }
+      } else if (stall.tier === "premium") {
+        await insertPlanNotification(run, stall.owner_id, "plan_downgraded", "Your stall is now on Free",
+          `An administrator moved your stall to the Free plan.${hiddenListingsNote(hidden)}${adminNote}`);
       }
-      await audit(run, actorId, "stall.plan", stallId, tier);
+      await audit(run, actorId, extending ? "stall.plan_extended" : "stall.plan", stallId,
+        [tier, until && `until ${until.slice(0, 10)}`, hidden.length && `${hidden.length} hidden`].filter(Boolean).join(" · "));
       return getStallDetails(run, "s.id = $1", [stallId]);
     });
   },
@@ -819,7 +943,7 @@ export const productStore = {
     ];
     const where = `(NOT $1 OR (${PUBLIC_STALL})) AND (NOT $2 OR p.is_active)
       AND ($3::numeric IS NULL OR p.price >= $3) AND ($4::numeric IS NULL OR p.price <= $4)
-      AND (NOT $5 OR s.tier = 'premium') AND ($6::text IS NULL OR p.category = $6)
+      AND (NOT $5 OR (s.tier = 'premium' AND p.is_featured)) AND ($6::text IS NULL OR p.category = $6)
       AND ($7::text IS NULL OR p.stall_id = $7)
       AND ($8::text IS NULL OR (p.name || ' ' || p.description || ' ' || s.name) ILIKE '%' || $8 || '%')
       AND ($9::text IS NULL OR s.location = $9)`;
@@ -847,10 +971,11 @@ export const productStore = {
     if (!product) fail("Product not found", 404);
     const visible = await q1(`SELECT 1 FROM stalls s LEFT JOIN users o ON o.id = s.owner_id WHERE s.id = $1 AND ${PUBLIC_STALL}`, [product.stall_id]);
     if ((!product.is_active || !visible) && actor?.role !== "admin" && actor?.id !== product.stalls.owner_id) fail("Product not found.", 404);
+    const reviews = await q(`${REVIEW_SELECT} WHERE r.product_id = $1 ORDER BY r.created_at DESC LIMIT 50`, [productId]);
     // Previews (e.g. the product pinned in a chat) don't count as views.
-    if (!countView) return product;
+    if (!countView) return { ...product, reviews };
     const [{ view_count }] = await q("UPDATE products SET view_count = view_count + 1 WHERE id = $1 RETURNING view_count", [productId]);
-    return { ...product, view_count };
+    return { ...product, reviews, view_count };
   },
 
   async create(stallId, payload) {
@@ -863,11 +988,13 @@ export const productStore = {
       const [{ count }] = await run("SELECT count(*) FROM products WHERE stall_id = $1", [stallId]);
       if (count >= plan.listing_limit) fail(`${plan.name} plan limit of ${plan.listing_limit} listings reached`, 403);
       const [product] = await run(
-        `INSERT INTO products (stall_id, name, description, price, stock, category, image_url, is_active)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        `INSERT INTO products (stall_id, name, description, price, stock, category, image_url, is_active, sale_price, images)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
         [stallId, payload.name, payload.description || "", Number(payload.price), Number(payload.stock),
-          payload.category || "other", payload.image_url || "", payload.is_active !== false],
+          payload.category || "other", payload.image_url || "", payload.is_active !== false,
+          checkedSalePrice(payload.sale_price, payload.price), JSON.stringify(payload.images || [])],
       );
+      if (payload.options?.length) await saveOptions(run, product.id, payload.options);
       // Free stalls hear about Premium as they run out of listing slots.
       if (stall.tier !== "premium") {
         if (count + 1 === plan.listing_limit - 1) await nudgeSeller(run, stall.owner_id, "listings_almost");
@@ -880,9 +1007,15 @@ export const productStore = {
   async update(productId, payload, actor) {
     return tx(async (run) => {
       const [product] = await run(
-        "SELECT p.id, s.owner_id FROM products p JOIN stalls s ON s.id = p.stall_id WHERE p.id = $1 FOR UPDATE OF p", [productId]);
+        `SELECT p.id, p.stall_id, p.is_active, s.owner_id, s.tier FROM products p JOIN stalls s ON s.id = p.stall_id
+         WHERE p.id = $1 FOR UPDATE OF p, s`, [productId]);
       if (!product) fail("Product not found", 404);
       if (actor?.role !== "admin" && actor?.id !== product.owner_id) fail("You can only edit your own products.", 403);
+      if (payload.is_active === true && !product.is_active) {
+        const plan = getPlan(product.tier);
+        const [{ count }] = await run("SELECT count(*)::int AS count FROM products WHERE stall_id = $1 AND is_active", [product.stall_id]);
+        if (count >= plan.listing_limit) fail(`The ${plan.name} plan shows up to ${plan.listing_limit} products. Hide another product first.`, 403);
+      }
       const params = [productId];
       const sets = [];
       for (const key of ["name", "description", "price", "stock", "category", "image_url", "is_active"]) {
@@ -890,8 +1023,68 @@ export const productStore = {
         params.push(payload[key]);
         sets.push(`${key} = $${params.length}`);
       }
+      if (payload.sale_price !== undefined) {
+        const [{ price }] = await run("SELECT price FROM products WHERE id = $1", [productId]);
+        params.push(checkedSalePrice(payload.sale_price, payload.price ?? price));
+        sets.push(`sale_price = $${params.length}`);
+      }
+      if (payload.images !== undefined) {
+        params.push(JSON.stringify(payload.images));
+        sets.push(`images = $${params.length}::jsonb`);
+      }
+      // Showing or hiding by hand ends any plan hiding; a hidden product can't stay featured.
+      if (payload.is_active !== undefined) sets.push("hidden_by_plan = FALSE");
+      if (payload.is_active === false) sets.push("is_featured = FALSE");
       if (sets.length) await run(`UPDATE products SET ${sets.join(", ")} WHERE id = $1`, params);
+      if (payload.options !== undefined) await saveOptions(run, productId, payload.options);
+      // A lowered regular price can't sit under an old sale price.
+      await run("UPDATE products SET sale_price = NULL WHERE id = $1 AND sale_price >= price", [productId]);
       return (await run(`${PRODUCT_SELECT} WHERE p.id = $1`, [productId]))[0];
+    });
+  },
+
+  /** Premium stalls pick up to `featured_limit` visible products for the buyer home page. */
+  async setFeatured(productId, featured, actor) {
+    return tx(async (run) => {
+      const [product] = await run(
+        `SELECT p.id, p.stall_id, p.is_active, s.owner_id, s.tier FROM products p JOIN stalls s ON s.id = p.stall_id
+         WHERE p.id = $1 FOR UPDATE OF p, s`, [productId]);
+      if (!product) fail("Product not found", 404);
+      if (actor?.role !== "admin" && actor?.id !== product.owner_id) fail("You can only feature your own products.", 403);
+      if (featured) {
+        const plan = getPlan(product.tier);
+        if (!plan.featured_limit) fail("Featured products are included in Premium. Request Premium from the Plans page.", 403);
+        if (!product.is_active) fail("Show this product to buyers before featuring it.", 409);
+        const [{ count }] = await run("SELECT count(*)::int AS count FROM products WHERE stall_id = $1 AND is_featured AND id <> $2", [product.stall_id, productId]);
+        if (count >= plan.featured_limit) fail(`You can feature up to ${plan.featured_limit} products. Stop featuring one first.`, 409);
+      }
+      await run("UPDATE products SET is_featured = $2 WHERE id = $1", [productId, Boolean(featured)]);
+      return (await run(`${PRODUCT_SELECT} WHERE p.id = $1`, [productId]))[0];
+    });
+  },
+
+  /**
+   * After a move to Free: the seller picks which products stay visible. Picked ones are shown;
+   * other visible or plan-hidden ones are hidden (and come back on Premium). Ones the seller hid stay hidden.
+   */
+  async chooseVisible(ownerId, productIds) {
+    return tx(async (run) => {
+      const [stall] = await run("SELECT id, tier FROM stalls WHERE owner_id = $1 FOR UPDATE", [ownerId]);
+      if (!stall) fail("Create your stall first.", 404);
+      const plan = getPlan(stall.tier);
+      const ids = [...new Set(productIds.map(String))];
+      if (ids.length > plan.listing_limit) fail(`Pick up to ${plan.listing_limit} products.`);
+      const owned = await run("SELECT id FROM products WHERE stall_id = $1 AND id = ANY($2)", [stall.id, ids]);
+      if (owned.length !== ids.length) fail("Pick products from your own stall.", 403);
+      await run(
+        `UPDATE products SET
+           is_active = (id = ANY($2)),
+           hidden_by_plan = NOT (id = ANY($2)),
+           is_featured = is_featured AND id = ANY($2)
+         WHERE stall_id = $1 AND (id = ANY($2) OR is_active OR hidden_by_plan)`,
+        [stall.id, ids],
+      );
+      return run(`${PRODUCT_SELECT} WHERE p.stall_id = $1 ORDER BY p.created_at DESC`, [stall.id]);
     });
   },
 
@@ -940,14 +1133,14 @@ const assertQuantity = (quantity) => {
 export const cartStore = {
   async list(userId) {
     return q(
-      `SELECT c.id, c.user_id, c.product_id, c.quantity, to_jsonb(p) AS products
-       FROM cart_items c LEFT JOIN products p ON p.id = c.product_id
+      `SELECT c.id, c.user_id, c.product_id, c.option_id, po.label AS option_label, po.stock AS option_stock, c.quantity, to_jsonb(p) AS products
+       FROM cart_items c LEFT JOIN products p ON p.id = c.product_id LEFT JOIN product_options po ON po.id = c.option_id
        WHERE c.user_id = $1 ORDER BY c.created_at, c.id`,
       [userId],
     );
   },
 
-  async add(userId, productId, quantity = 1) {
+  async add(userId, productId, quantity = 1, optionId = null) {
     return tx(async (run) => {
       const [product] = await run(
         `SELECT p.*, (p.is_active AND ${PUBLIC_STALL}) AS available FROM products p
@@ -955,14 +1148,15 @@ export const cartStore = {
       if (!product) fail("Product not found", 404);
       if (!product.available) fail("Product is unavailable.", 409);
       const amount = assertQuantity(quantity);
-      const [existing] = await run("SELECT quantity FROM cart_items WHERE user_id = $1 AND product_id = $2 FOR UPDATE", [userId, productId]);
-      if ((existing?.quantity || 0) + amount > product.stock) fail("Insufficient stock.", 409);
-      const [entry] = await run(
-        `INSERT INTO cart_items (user_id, product_id, quantity) VALUES ($1, $2, $3)
-         ON CONFLICT (user_id, product_id) DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity
-         RETURNING id, user_id, product_id, quantity`,
-        [userId, productId, amount],
-      );
+      const option = pickOption(product, await run("SELECT * FROM product_options WHERE product_id = $1", [productId]), optionId || null);
+      const [existing] = await run(
+        "SELECT id, quantity FROM cart_items WHERE user_id = $1 AND product_id = $2 AND coalesce(option_id, '') = coalesce($3, '') FOR UPDATE",
+        [userId, productId, option?.id || null]);
+      if ((existing?.quantity || 0) + amount > (option ? option.stock : product.stock)) fail("Insufficient stock.", 409);
+      const [entry] = existing
+        ? await run("UPDATE cart_items SET quantity = quantity + $2 WHERE id = $1 RETURNING id, user_id, product_id, option_id, quantity", [existing.id, amount])
+        : await run("INSERT INTO cart_items (user_id, product_id, option_id, quantity) VALUES ($1, $2, $3, $4) RETURNING id, user_id, product_id, option_id, quantity",
+          [userId, productId, option?.id || null, amount]);
       const { available: _, ...products } = product;
       return { ...entry, products };
     });
@@ -970,14 +1164,15 @@ export const cartStore = {
 
   async update(userId, itemId, quantity) {
     return tx(async (run) => {
-      const [entry] = await run("SELECT product_id FROM cart_items WHERE id = $1 AND user_id = $2 FOR UPDATE", [itemId, userId]);
+      const [entry] = await run("SELECT product_id, option_id FROM cart_items WHERE id = $1 AND user_id = $2 FOR UPDATE", [itemId, userId]);
       if (!entry) fail("Cart item not found", 404);
       const amount = assertQuantity(quantity);
       const [product] = await run(
-        `SELECT p.stock FROM products p JOIN stalls s ON s.id = p.stall_id LEFT JOIN users o ON o.id = s.owner_id
-         WHERE p.id = $1 AND p.is_active AND ${PUBLIC_STALL}`, [entry.product_id]);
+        `SELECT coalesce((SELECT stock FROM product_options WHERE id = $2), p.stock) AS stock
+         FROM products p JOIN stalls s ON s.id = p.stall_id LEFT JOIN users o ON o.id = s.owner_id
+         WHERE p.id = $1 AND p.is_active AND ${PUBLIC_STALL}`, [entry.product_id, entry.option_id]);
       if (!product || amount > product.stock) fail("Product or quantity unavailable.", 409);
-      return (await run("UPDATE cart_items SET quantity = $2 WHERE id = $1 RETURNING id, user_id, product_id, quantity", [itemId, amount]))[0];
+      return (await run("UPDATE cart_items SET quantity = $2 WHERE id = $1 RETURNING id, user_id, product_id, option_id, quantity", [itemId, amount]))[0];
     });
   },
 
@@ -994,13 +1189,16 @@ export const cartStore = {
 };
 
 // ── Orders ────────────────────────────────────────────────────────────────────
-const ORDER_COLUMNS = "id, buyer_id, seller_id, stall_id, total, status, delivery_notes, fulfillment, cancelled_at, cancel_reason, created_at";
+const ORDER_COLUMNS = "id, buyer_id, seller_id, stall_id, total, status, delivery_notes, fulfillment, delivery_address, buyer_phone, pickup_code, ready_by, cancelled_at, cancel_reason, created_at";
+/** The pickup code is the buyer's proof of collection, so sellers never receive it. */
+const withoutPickupCode = ({ pickup_code, ...order }) => ({ ...order, has_pickup_code: Boolean(pickup_code) });
+const HANDOVER_STATUSES = new Set(["completed", "delivered"]);
 
 /** Attach items (purchase-time snapshots) to order rows. */
 const attachOrderItems = async (run, orders) => {
   if (!orders.length) return [];
   const items = await run(
-    "SELECT order_id, product_id, name, image_url, quantity, unit_price FROM order_items WHERE order_id = ANY($1) ORDER BY id",
+    "SELECT order_id, product_id, option_id, option_label, name, image_url, quantity, unit_price FROM order_items WHERE order_id = ANY($1) ORDER BY id",
     [orders.map((order) => order.id)],
   );
   return orders.map((order) => ({
@@ -1047,9 +1245,13 @@ const ORDER_TRANSITIONS = {
 };
 
 export const orderStore = {
-  async create(buyerId, items, deliveryNotes = "", fulfillment = "pickup") {
+  async create(buyerId, items, deliveryNotes = "", fulfillment = "pickup", deliveryAddress = null) {
     return tx(async (run) => {
       if (!(await isApprovedUser(run, buyerId))) fail("An approved buyer account is required.", 403);
+      const [buyer] = await run("SELECT phone, address FROM users WHERE id = $1", [buyerId]);
+      // Delivery goes to the location given at checkout, or the one saved in the buyer's profile.
+      const address = String(deliveryAddress ?? buyer.address ?? "").trim();
+      if (fulfillment === "delivery" && !address) fail("Add a campus delivery location, or choose pickup.");
       const productIds = [...new Set(items.map((item) => item.product_id))];
       // Lock the product rows until commit so concurrent orders can't oversell.
       const products = await run(
@@ -1060,34 +1262,43 @@ export const orderStore = {
       );
       if (products.length !== productIds.length) fail("One or more products were not found", 404);
 
+      const options = await run("SELECT * FROM product_options WHERE product_id = ANY($1) ORDER BY id FOR UPDATE", [productIds]);
+      // One entry per product/option line, with the total asked for.
       const requested = new Map();
-      for (const item of items) requested.set(item.product_id, (requested.get(item.product_id) || 0) + item.quantity);
-      for (const product of products) {
-        if (!product.available) fail("A selected product is no longer available.", 409);
-        if (product.stock < requested.get(product.id)) fail(`Insufficient stock for ${product.name}.`, 409);
+      for (const item of items) {
+        const product = products.find((entry) => entry.id === item.product_id);
+        if (!product) continue;
+        const option = pickOption(product, options, item.option_id || null);
+        const key = `${product.id}:${option?.id || ""}`;
+        const line = requested.get(key) || { product, option, quantity: 0 };
+        line.quantity += item.quantity;
+        requested.set(key, line);
+      }
+      for (const product of products) if (!product.available) fail("A selected product is no longer available.", 409);
+      for (const { product, option, quantity } of requested.values()) {
+        if ((option ? option.stock : product.stock) < quantity) fail(`Insufficient stock for ${lineName(product, option)}.`, 409);
       }
       const sellers = new Set(products.map((product) => product.owner_id));
       if (sellers.size !== 1) fail("Place a separate order for each store.");
 
-      const lines = items.map((item) => {
-        const product = products.find((entry) => entry.id === item.product_id);
-        return { product_id: product.id, name: product.name, image_url: product.image_url || null, quantity: item.quantity, unit_price: product.price };
-      });
+      const lines = [...requested.values()].map(({ product, option, quantity }) => ({
+        product_id: product.id, option_id: option?.id || null, option_label: option?.label || null,
+        name: lineName(product, option), image_url: product.image_url || null, quantity, unit_price: unitPrice(product),
+      }));
       // Sum in cents to avoid floating-point drift (e.g. 0.1 + 0.2)
       const total = lines.reduce((sum, line) => sum + cents(line.unit_price) * line.quantity, 0) / 100;
 
-      for (const [productId, quantity] of requested) {
-        await run("UPDATE products SET stock = stock - $2 WHERE id = $1", [productId, quantity]);
-      }
+      for (const line of lines) await takeStock(run, line.product_id, line.option_id, line.quantity);
       const [order] = await run(
-        `INSERT INTO orders (buyer_id, seller_id, stall_id, total, delivery_notes, fulfillment)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${ORDER_COLUMNS}`,
-        [buyerId, [...sellers][0], products[0].stall_id, total, deliveryNotes || "", fulfillment],
+        `INSERT INTO orders (buyer_id, seller_id, stall_id, total, delivery_notes, fulfillment, delivery_address, buyer_phone, pickup_code)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING ${ORDER_COLUMNS}`,
+        [buyerId, [...sellers][0], products[0].stall_id, total, deliveryNotes || "", fulfillment,
+          fulfillment === "delivery" ? address : "", buyer.phone || "", String(randomInt(1000, 10000))],
       );
       for (const line of lines) {
         await run(
-          "INSERT INTO order_items (order_id, product_id, name, image_url, quantity, unit_price) VALUES ($1, $2, $3, $4, $5, $6)",
-          [order.id, line.product_id, line.name, line.image_url, line.quantity, line.unit_price],
+          "INSERT INTO order_items (order_id, product_id, option_id, option_label, name, image_url, quantity, unit_price) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+          [order.id, line.product_id, line.option_id, line.option_label, line.name, line.image_url, line.quantity, line.unit_price],
         );
       }
       await notifyOrderParties(run, order, lines, "created");
@@ -1095,15 +1306,23 @@ export const orderStore = {
     });
   },
 
+  /** Buyer's orders; items on finished orders carry the buyer's review (or null) so they can rate them. */
   async listBuyer(buyerId) {
-    return listOrders("o.buyer_id = $1", [buyerId]);
+    const orders = await listOrders("o.buyer_id = $1", [buyerId]);
+    const reviews = await q("SELECT order_id, product_id, rating, comment FROM reviews WHERE buyer_id = $1", [buyerId]);
+    const byKey = new Map(reviews.map((review) => [`${review.order_id}:${review.product_id}`, review]));
+    return orders.map((order) => ({
+      ...order,
+      items: order.items.map((item) => ({ ...item, review: byKey.get(`${order.id}:${item.product_id}`) || null })),
+    }));
   },
 
   async listSeller(sellerId, status) {
-    return listOrders("o.seller_id = $1 AND ($2::text IS NULL OR o.status = $2)", [sellerId, status || null]);
+    const orders = await listOrders("o.seller_id = $1 AND ($2::text IS NULL OR o.status = $2)", [sellerId, status || null]);
+    return orders.map(withoutPickupCode);
   },
 
-  async updateStatus(orderId, status, actorId, actorRole, cancelReason = null) {
+  async updateStatus(orderId, status, actorId, actorRole, cancelReason = null, pickupCode = null, readyInMinutes = null) {
     return tx(async (run) => {
       // Row lock: a repeated cancel waits, then sees "cancelled" and can't restore stock twice.
       const [order] = await run(`SELECT ${ORDER_COLUMNS} FROM orders WHERE id = $1 FOR UPDATE`, [orderId]);
@@ -1119,25 +1338,130 @@ export const orderStore = {
       } else if (!(ORDER_TRANSITIONS[order.status] || []).includes(status)) {
         fail("Invalid order status transition.");
       }
+      // Handing over a pickup order: the seller checks the buyer's code (admins can override).
+      const sellerHandover = actorId === order.seller_id && actorRole !== "admin" && HANDOVER_STATUSES.has(status);
+      if (sellerHandover && order.fulfillment === "pickup" && order.pickup_code && String(pickupCode || "").trim() !== order.pickup_code) {
+        fail(pickupCode ? "That pickup code doesn't match. Ask the buyer to show the code on their Orders page." : "Enter the buyer's pickup code to hand over this order.", 400);
+      }
 
       if (status === "cancelled") {
-        for (const item of withItems.items) {
-          await run("UPDATE products SET stock = stock + $2 WHERE id = $1", [item.product_id, item.quantity]);
-        }
+        const items = await run("SELECT product_id, option_id, quantity FROM order_items WHERE order_id = $1", [orderId]);
+        for (const item of items) await returnStock(run, item.product_id, item.option_id, item.quantity);
       }
+      // Confirming can promise a ready time (minutes from now); the buyer sees it.
+      const minutes = status === "confirmed" && readyInMinutes ? Math.min(24 * 60, Math.max(1, Math.round(Number(readyInMinutes)))) : null;
       const [updated] = await run(
         `UPDATE orders SET status = $2, cancelled_at = CASE WHEN $2 = 'cancelled' THEN now() ELSE cancelled_at END,
-           cancel_reason = CASE WHEN $2 = 'cancelled' THEN $3 ELSE cancel_reason END
+           cancel_reason = CASE WHEN $2 = 'cancelled' THEN $3 ELSE cancel_reason END,
+           ready_by = CASE WHEN $4::int IS NOT NULL THEN now() + make_interval(mins => $4::int) ELSE ready_by END
          WHERE id = $1 RETURNING ${ORDER_COLUMNS}`,
-        [orderId, status, cancelReason || null],
+        [orderId, status, cancelReason || null, minutes],
       );
       await notifyOrderParties(run, updated, withItems.items, buyerCancellation ? "buyer_cancelled" : "status_changed");
       if (["completed", "delivered"].includes(status)) {
         const [{ count }] = await run("SELECT count(*) FROM orders WHERE seller_id = $1 AND status IN ('completed', 'delivered')", [order.seller_id]);
         if (count >= FIRST_SALES_NUDGE_AT) await nudgeSeller(run, order.seller_id, "first_sales");
       }
-      return { ...updated, items: withItems.items };
+      const result = { ...updated, items: withItems.items };
+      return actorId === order.buyer_id ? result : withoutPickupCode(result);
     });
+  },
+};
+
+// ── Reviews ───────────────────────────────────────────────────────────────────
+const REVIEW_SELECT = `SELECT r.id, r.product_id, r.order_id, r.rating, r.comment, r.created_at, r.updated_at, r.seller_reply, r.seller_replied_at,
+  json_build_object('name', u.name, 'avatar_url', u.avatar_url) AS users
+  FROM reviews r JOIN users u ON u.id = r.buyer_id`;
+
+export const reviewStore = {
+  /** Rate a product from one of the buyer's finished orders; saving again edits the review. */
+  async save(buyerId, { order_id: orderId, product_id: productId, rating, comment = "" }) {
+    return tx(async (run) => {
+      const [order] = await run("SELECT id, buyer_id, seller_id, status FROM orders WHERE id = $1", [orderId]);
+      if (!order || order.buyer_id !== buyerId) fail("Order not found.", 404);
+      if (!HANDOVER_STATUSES.has(order.status)) fail("You can review a product once you've received your order.", 409);
+      const [item] = await run("SELECT name FROM order_items WHERE order_id = $1 AND product_id = $2 LIMIT 1", [orderId, productId]);
+      if (!item) fail("That product isn't part of this order.", 404);
+      if (!(await run("SELECT 1 FROM products WHERE id = $1", [productId]))[0]) fail("This product is no longer listed, so it can't be reviewed.", 410);
+      const text = String(comment || "").trim();
+      const [saved] = await run(
+        `INSERT INTO reviews (product_id, order_id, buyer_id, rating, comment) VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (order_id, product_id) DO UPDATE SET rating = EXCLUDED.rating, comment = EXCLUDED.comment, updated_at = now()
+         RETURNING id, (xmax = 0) AS created`,
+        [productId, orderId, buyerId, rating, text],
+      );
+      // Sellers hear about new reviews (not edits).
+      if (saved.created && (await wantsNotice(run, order.seller_id, "reviewAlerts"))) {
+        await run(
+          `INSERT INTO notifications (user_id, type, status, title, body, link) VALUES ($1, 'review', 'review_new', $2, $3, '/seller/reviews')`,
+          [order.seller_id, `New ${rating}★ review on ${item.name}`, text ? `“${text.slice(0, 140)}${text.length > 140 ? "…" : ""}”` : "A buyer rated this product."],
+        );
+      }
+      return (await run(`${REVIEW_SELECT} WHERE r.id = $1`, [saved.id]))[0];
+    });
+  },
+
+  /** The seller answers a review publicly (empty text removes the reply); the buyer is told about a new reply. */
+  async reply(sellerId, reviewId, text) {
+    return tx(async (run) => {
+      const [review] = await run(
+        `SELECT r.id, r.buyer_id, r.product_id, r.seller_reply, p.name, s.owner_id FROM reviews r
+         JOIN products p ON p.id = r.product_id JOIN stalls s ON s.id = p.stall_id WHERE r.id = $1 FOR UPDATE OF r`, [reviewId]);
+      if (!review || review.owner_id !== sellerId) fail("Review not found.", 404);
+      const reply = String(text || "").trim();
+      await run("UPDATE reviews SET seller_reply = $2, seller_replied_at = CASE WHEN $2::text IS NULL THEN NULL ELSE now() END WHERE id = $1",
+        [reviewId, reply || null]);
+      if (reply && !review.seller_reply) {
+        await run(
+          `INSERT INTO notifications (user_id, type, status, title, body, link) VALUES ($1, 'review', 'review_reply', $2, $3, $4)`,
+          [review.buyer_id, `The seller replied to your review of ${review.name}`, `“${reply.slice(0, 140)}${reply.length > 140 ? "…" : ""}”`, `/products/${review.product_id}`],
+        );
+      }
+      return (await run(`${REVIEW_SELECT} WHERE r.id = $1`, [reviewId]))[0];
+    });
+  },
+
+  /** Every review on the seller's products, newest first, with the product attached. */
+  async listForSeller(ownerId) {
+    return q(
+      `SELECT x.*, json_build_object('id', p.id, 'name', p.name, 'image_url', p.image_url) AS product
+       FROM (${REVIEW_SELECT}) x JOIN products p ON p.id = x.product_id JOIN stalls s ON s.id = p.stall_id
+       WHERE s.owner_id = $1 ORDER BY x.created_at DESC LIMIT 500`,
+      [ownerId],
+    );
+  },
+};
+
+// ── Favorites ─────────────────────────────────────────────────────────────────
+export const favoriteStore = {
+  /** Saved products that buyers can still see, most recently saved first. */
+  async list(userId) {
+    return q(
+      `${PRODUCT_SELECT} JOIN favorites f ON f.product_id = p.id AND f.user_id = $1
+       WHERE p.is_active AND ${PUBLIC_STALL} ORDER BY f.created_at DESC`,
+      [userId],
+    );
+  },
+
+  async ids(userId) {
+    return (await q("SELECT product_id FROM favorites WHERE user_id = $1", [userId])).map((row) => row.product_id);
+  },
+
+  /** Saves one or more products (unknown IDs are skipped, so old browser lists import safely). */
+  async add(userId, productIds) {
+    const ids = [...new Set(productIds.map(String))].slice(0, 200);
+    if (ids.length) {
+      await q(
+        `INSERT INTO favorites (user_id, product_id) SELECT $1, id FROM products WHERE id = ANY($2) ON CONFLICT DO NOTHING`,
+        [userId, ids],
+      );
+    }
+    return this.ids(userId);
+  },
+
+  async remove(userId, productId) {
+    await q("DELETE FROM favorites WHERE user_id = $1 AND product_id = $2", [userId, String(productId)]);
+    return this.ids(userId);
   },
 };
 
@@ -1173,10 +1497,11 @@ const notifyOrderParties = async (run, order, lines, event) => {
   if (event !== "buyer_cancelled") {
     await insertNotification(run, { userId: order.buyer_id, orderId: order.id, status: order.status, link: "/orders", ...buyerOrderMessage(order, context) });
   }
-  if (event === "created") {
+  const sellerWants = event !== "status_changed" && (await wantsNotice(run, order.seller_id, "orderUpdates"));
+  if (event === "created" && sellerWants) {
     await insertNotification(run, { userId: order.seller_id, orderId: order.id, status: order.status, link: "/seller/orders", ...sellerNewOrderMessage(order, context) });
   }
-  if (event === "buyer_cancelled") {
+  if (event === "buyer_cancelled" && sellerWants) {
     await insertNotification(run, { userId: order.seller_id, orderId: order.id, status: order.status, link: "/seller/orders", ...sellerCancelledMessage(order, context) });
   }
 };
@@ -1207,6 +1532,43 @@ const nudgeSeller = async (run, ownerId, kind) => {
   return true;
 };
 
+/**
+ * Puts a stall on a plan. Moving to Free hides visible listings beyond the Free limit (the newest
+ * stay) and clears featured picks; moving to Premium brings back whatever a downgrade hid.
+ * Returns the names of the listings it hid.
+ */
+const changeTier = async (run, stallId, tier, until = null) => {
+  await run("UPDATE stalls SET tier = $2, premium_until = $3 WHERE id = $1", [stallId, tier, tier === "premium" ? until : null]);
+  if (tier === "premium") {
+    await run("UPDATE products SET is_active = TRUE, hidden_by_plan = FALSE WHERE stall_id = $1 AND hidden_by_plan", [stallId]);
+    return [];
+  }
+  await run("UPDATE products SET is_featured = FALSE WHERE stall_id = $1 AND is_featured", [stallId]);
+  const hidden = await run(
+    `UPDATE products SET is_active = FALSE, hidden_by_plan = TRUE WHERE id IN (
+       SELECT id FROM products WHERE stall_id = $1 AND is_active ORDER BY created_at DESC, id OFFSET $2)
+     RETURNING name`,
+    [stallId, PLANS.free.listing_limit],
+  );
+  return hidden.map((row) => row.name);
+};
+
+/** " We hid A, B and 3 more …" — appended to Free notifications when listings were hidden. */
+const hiddenListingsNote = (names) => {
+  if (!names.length) return "";
+  const shown = names.slice(0, 3).join(", ");
+  const more = names.length > 3 ? ` and ${names.length - 3} more` : "";
+  return ` Free shows ${PLANS.free.listing_limit} products, so we hid ${shown}${more}. Choose which ${PLANS.free.listing_limit} stay visible in Products.`;
+};
+
+/** End of that day in Philippine time, as an ISO string; null for no end date. */
+const endOfDay = (day) => {
+  if (!day) return null;
+  const until = new Date(`${day}T23:59:59+08:00`).toISOString();
+  if (Date.parse(until) <= Date.now()) fail("Pick an end date in the future.");
+  return until;
+};
+
 const formatDay = (value) => new Date(value).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", month: "long", day: "numeric", year: "numeric" });
 const REQUEST_SELECT = `SELECT r.*, s.name AS stall_name, s.location AS stall_location, s.tier, s.premium_until AS current_premium_until,
   u.name AS seller_name, u.email AS seller_email, u.campus_id AS seller_id_no, a.name AS reviewer_name,
@@ -1217,12 +1579,13 @@ export const planStore = {
   /** Premium that ran past its end date drops back to Free; the seller is told. Safe to call often. */
   async expireDue() {
     return tx(async (run) => {
-      const expired = await run(`UPDATE stalls SET tier = 'free', premium_until = NULL
-                                 WHERE tier = 'premium' AND premium_until IS NOT NULL AND premium_until <= now() RETURNING id, owner_id`);
+      const expired = await run(`SELECT id, owner_id FROM stalls
+                                 WHERE tier = 'premium' AND premium_until IS NOT NULL AND premium_until <= now() FOR UPDATE`);
       for (const stall of expired) {
+        const hidden = await changeTier(run, stall.id, "free");
         await insertPlanNotification(run, stall.owner_id, "plan_expired", "Your Premium plan has ended",
-          "Your stall is back on Free (5 listings). Request Premium again to keep analytics and the point of sale.");
-        await audit(run, null, "stall.plan_expired", stall.id);
+          `Your stall is back on Free.${hiddenListingsNote(hidden)} Request Premium again to keep analytics, the point of sale and featured products.`);
+        await audit(run, null, "stall.plan_expired", stall.id, hidden.length ? `${hidden.length} hidden` : null);
       }
       return expired.length;
     });
@@ -1286,13 +1649,11 @@ export const planStore = {
       const [request] = await run("SELECT * FROM plan_requests WHERE id = $1 FOR UPDATE", [requestId]);
       if (!request) fail("Request not found.", 404);
       if (request.status !== "pending") fail("This request has already been handled.", 409);
-      // An end date means the end of that day in Philippine time.
-      const until = premium_until ? new Date(`${premium_until}T23:59:59+08:00`).toISOString() : null;
-      if (until && Date.parse(until) <= Date.now()) fail("Pick an end date in the future.");
+      const until = decision === "approved" ? endOfDay(premium_until) : null;
       if (decision === "approved") {
-        await run("UPDATE stalls SET tier = 'premium', premium_until = $2 WHERE id = $1", [request.stall_id, until]);
+        await changeTier(run, request.stall_id, "premium", until);
         await insertPlanNotification(run, request.seller_id, "plan_approved", "Your stall is now Premium 🎉",
-          `You can now list up to 25 products and use analytics and the point of sale${until ? ` until ${formatDay(until)}` : ""}.${note ? ` Note from the admin: ${note}` : ""}`);
+          `You can now list up to 25 products, feature 3 on the home page, and use analytics and the point of sale${until ? ` until ${formatDay(until)}` : ""}.${note ? ` Note from the admin: ${note}` : ""}`);
       } else {
         await insertPlanNotification(run, request.seller_id, "plan_declined", "Premium request not approved",
           note || "An administrator didn't approve this request. You can send a new one.");
@@ -1610,28 +1971,32 @@ export const posStore = {
         if (!stall) fail("Open an approved stall before recording a sale.", 403);
         const [buyer] = await run("SELECT id, name FROM users WHERE id = $1 AND role = 'buyer' AND status = 'approved' AND NOT is_banned", [buyer_id]);
         if (!buyer) fail("Choose an approved CSUCC buyer.", 403);
-        if (new Set(items.map((item) => item.product_id)).size !== items.length) fail("Duplicate product lines are not allowed.");
+        if (new Set(items.map((item) => `${item.product_id}:${item.option_id || ""}`)).size !== items.length) fail("Duplicate product lines are not allowed.");
 
-        const products = await run("SELECT * FROM products WHERE id = ANY($1) ORDER BY id FOR UPDATE", [items.map((item) => item.product_id)]);
+        const productIds = [...new Set(items.map((item) => item.product_id))];
+        const products = await run("SELECT * FROM products WHERE id = ANY($1) ORDER BY id FOR UPDATE", [productIds]);
+        const options = await run("SELECT * FROM product_options WHERE product_id = ANY($1) ORDER BY id FOR UPDATE", [productIds]);
         const lines = items.map((item) => {
           const product = products.find((entry) => entry.id === item.product_id);
           if (!product || product.stall_id !== stall.id || !product.is_active) fail("Choose an active product from your own stall.", 403);
-          if (product.stock < item.quantity) fail(`Insufficient stock for ${product.name}.`, 409);
-          return { product_id: product.id, name: product.name, quantity: item.quantity, unit_price: product.price };
+          const option = pickOption(product, options, item.option_id || null);
+          if ((option ? option.stock : product.stock) < item.quantity) fail(`Insufficient stock for ${lineName(product, option)}.`, 409);
+          return { product_id: product.id, option_id: option?.id || null, option_label: option?.label || null,
+            name: lineName(product, option), quantity: item.quantity, unit_price: unitPrice(product) };
         });
         const totalCents = lines.reduce((sum, line) => sum + cents(line.unit_price) * line.quantity, 0);
         const cashCents = cents(cash_received);
         if (cashCents < totalCents) fail("Cash received is less than the sale total.");
 
-        for (const line of lines) await run("UPDATE products SET stock = stock - $2 WHERE id = $1", [line.product_id, line.quantity]);
+        for (const line of lines) await takeStock(run, line.product_id, line.option_id, line.quantity);
         const [sale] = await run(
           `INSERT INTO pos_sales (request_id, seller_id, buyer_id, buyer_name, stall_id, stall_name, total, cash_received, change)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
           [request_id, sellerId, buyer.id, buyer.name, stall.id, stall.name, totalCents / 100, cashCents / 100, (cashCents - totalCents) / 100],
         );
         for (const line of lines) {
-          await run("INSERT INTO pos_sale_items (sale_id, product_id, name, quantity, unit_price) VALUES ($1, $2, $3, $4, $5)",
-            [sale.id, line.product_id, line.name, line.quantity, line.unit_price]);
+          await run("INSERT INTO pos_sale_items (sale_id, product_id, option_id, option_label, name, quantity, unit_price) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            [sale.id, line.product_id, line.option_id, line.option_label, line.name, line.quantity, line.unit_price]);
         }
         await audit(run, sellerId, "pos.sale", sale.id, "Cash sale recorded");
         return { ...sale, items: lines };
@@ -1669,20 +2034,47 @@ const periodParams = (userId, role, period) => {
 const money = (value) => Number(Number(value).toFixed(2));
 
 export const analyticsStore = {
+  /**
+   * Daily totals in campus time (only days with sales; the page fills the gaps), the period's
+   * totals split into online orders and counter sales, and the same totals for the period before.
+   */
   async salesSummary(userId, role, period = 30) {
+    const params = periodParams(userId, role, period);
     const timeline = await q(
       `${SCOPED_SALES}
-       SELECT to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS date, sum(total) AS revenue, count(*) AS orders
+       SELECT to_char(created_at AT TIME ZONE 'Asia/Manila', 'YYYY-MM-DD') AS date, sum(total)::float AS revenue, count(*)::int AS orders
        FROM scoped GROUP BY 1 ORDER BY 1`,
-      periodParams(userId, role, period),
+      params,
     );
-    const totalRevenue = timeline.reduce((sum, day) => sum + day.revenue, 0);
-    const totalOrders = timeline.reduce((sum, day) => sum + day.orders, 0);
+    const [split] = await q(
+      `${SCOPED_SALES}
+       SELECT count(*) FILTER (WHERE kind = 'order')::int AS online_orders, count(*) FILTER (WHERE kind = 'pos')::int AS pos_sales FROM scoped`,
+      params,
+    );
+    const days = Math.max(1, Math.min(365, Number(period) || 30));
+    const [previous] = await q(
+      `SELECT coalesce(sum(total), 0)::float AS revenue, count(*)::int AS orders FROM (
+         SELECT seller_id, total, status, created_at FROM orders
+         UNION ALL SELECT seller_id, total, status, created_at FROM pos_sales
+       ) sales
+       WHERE status IN ('completed', 'delivered') AND created_at >= $1::timestamptz - make_interval(days => $3) AND created_at < $1
+         AND ($2::text IS NULL OR seller_id = $2)`,
+      [...params, days],
+    );
+    const totalRevenue = timeline.reduce((sum, day) => sum + Number(day.revenue), 0);
+    const totalOrders = timeline.reduce((sum, day) => sum + Number(day.orders), 0);
     return {
       timeline,
       total_revenue: money(totalRevenue),
       total_orders: totalOrders,
       avg_order_value: totalOrders ? money(totalRevenue / totalOrders) : 0,
+      online_orders: split.online_orders,
+      pos_sales: split.pos_sales,
+      previous: {
+        revenue: money(previous.revenue),
+        orders: previous.orders,
+        avg_order_value: previous.orders ? money(previous.revenue / previous.orders) : 0,
+      },
     };
   },
 

@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Trash2, Minus, Plus } from "lucide-react";
+import { effectivePrice } from "../../utils/pricing.js";
 
 const formatPrice = (p) =>
   `₱${Number(p).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
@@ -11,7 +12,7 @@ const CartDrawer = ({ items, total, onRemove, onUpdateQty, onCheckout }) => {
       <div className="cart-items">
         {items.map((item) => {
           const product = item.products || item;
-          const price = product.price ?? item.price ?? 0;
+          const price = item.products ? effectivePrice(product) : Number(item.price) || 0;
           const lineTotal = price * item.quantity;
 
           return (
@@ -28,6 +29,7 @@ const CartDrawer = ({ items, total, onRemove, onUpdateQty, onCheckout }) => {
                 <Link to={`/products/${product.id}`} className="cart-item-name">
                   {product.name}
                 </Link>
+                {item.option_label && <span className="cart-item-option">{item.option_label}</span>}
                 <span className="cart-item-price">
                   {formatPrice(price)} each
                 </span>

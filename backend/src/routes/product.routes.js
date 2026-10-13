@@ -1,10 +1,10 @@
 import { Router as ProductRouter } from "express";
 import {
   getProducts, getProduct, createProduct, updateProduct,
-  deleteProduct, getRecommendations, getSimilar, getPickupLocations,
+  deleteProduct, getRecommendations, getSimilar, getPickupLocations, setFeatured, chooseVisible,
 } from "../controllers/product.controller.js";
 import { verifyToken, requireRole, optionalAuth } from "../middleware/auth.js";
-import { validate, productSchema, productUpdateSchema } from "../middleware/validate.js";
+import { validate, productSchema, productUpdateSchema, featuredSchema, visibleProductsSchema } from "../middleware/validate.js";
 import { uploadProductPhoto } from "../middleware/productPhoto.js";
  
 const productRouter = ProductRouter();
@@ -16,6 +16,8 @@ productRouter.get("/recommendations/:userId", verifyToken, getRecommendations);
 productRouter.get("/similar/:productId", getSimilar);
 productRouter.get("/:id", optionalAuth, getProduct);
 productRouter.post("/", verifyToken, requireRole("seller"), validate(productSchema), createProduct);
+productRouter.put("/visible", verifyToken, requireRole("seller"), validate(visibleProductsSchema), chooseVisible);
+productRouter.put("/:id/featured", verifyToken, requireRole("seller", "admin"), validate(featuredSchema), setFeatured);
 productRouter.put("/:id", verifyToken, requireRole("seller", "admin"), validate(productUpdateSchema), updateProduct);
 productRouter.delete("/:id", verifyToken, requireRole("seller", "admin"), deleteProduct);
  

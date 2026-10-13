@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuth } from "./AuthContext.jsx";
 import notificationService from "../services/notificationService.js";
@@ -10,6 +10,8 @@ const NotificationContext = createContext(null);
 const POLL_VISIBLE_MS = 20000;
 const POLL_HIDDEN_MS = 60000;
 const MAX_POPUPS = 3;
+// Sellers: re-read the plan on navigation at most this often (PRO badges, limits).
+const PLAN_REFRESH_MS = 60000;
 
 const systemSupported = () => typeof window !== "undefined" && "Notification" in window;
 
@@ -50,8 +52,20 @@ const showSystemNotification = async (notification) => {
 };
 
 export function NotificationProvider({ children }) {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const planCheckedAt = useRef(0);
+  const isSeller = user?.role === "seller";
+
+  const refreshPlan = useCallback(() => {
+    planCheckedAt.current = Date.now();
+    refreshUser();
+  }, [refreshUser]);
+
+  useEffect(() => {
+    if (isSeller && Date.now() - planCheckedAt.current > PLAN_REFRESH_MS) refreshPlan();
+  }, [isSeller, pathname, refreshPlan]);
   const [notifications, setNotifications] = useState([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -92,6 +106,8 @@ export function NotificationProvider({ children }) {
       setNotifications(items);
       setUnread(items.filter((item) => !item.read).length);
       setError("");
+      // A plan change (approved, extended, ended…) updates the seller's badges and limits right away.
+      if (isSeller && fresh.some((item) => item.type === "plan")) refreshPlan();
       if (announce) {
         fresh.slice(0, MAX_POPUPS).reverse().forEach((item) => {
           popUp(item);
@@ -103,7 +119,7 @@ export function NotificationProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [enabled, popUp]);
+  }, [enabled, popUp, isSeller, refreshPlan]);
 
   // Cheap poll; fetch the full list only when something changed.
   const poll = useCallback(async () => {

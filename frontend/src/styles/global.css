@@ -5610,3 +5610,40 @@ a.market-stall-card:hover .market-stall-title-row > svg { transform: translateX(
 @media (prefers-reduced-motion: reduce) {
   .stall-details-skeleton-hero,.stall-details-skeleton-lines span,.stall-details-skeleton-grid span,.stall-details-skeleton-grid i { animation: none; }
 }
+
+/* Checkout: delivery location field and how to pay */
+.checkout-address > div { flex: 1; min-width: 0; gap: .35rem; }
+.checkout-address-input { margin: .1rem 0; font-size: var(--text-sm); }
+.checkout-address a { color: var(--green-700); font-weight: 700; text-decoration: underline; }
+.checkout-payment { display: flex; gap: .6rem; align-items: flex-start; margin: .9rem 0; padding: .75rem .85rem; background: var(--green-100); border: 1px solid rgba(19, 112, 60, .15); border-radius: 12px; color: var(--green-900); font-size: var(--text-xs); line-height: 1.5; }
+.checkout-payment svg { flex-shrink: 0; margin-top: .1rem; color: var(--green-700); }
+.checkout-payment p { margin: 0; }
+
+/* Product page: extra photos, sale price, options, seller replies */
+.detail-thumbs { display: flex; gap: .5rem; margin-top: .75rem; overflow-x: auto; padding-bottom: .2rem; }
+.detail-thumbs button { flex: 0 0 64px; height: 64px; padding: 0; overflow: hidden; border: 2px solid transparent; border-radius: 12px; background: var(--cream-100); opacity: .75; transition: opacity var(--dur-fast), border-color var(--dur-fast); }
+.detail-thumbs button:hover { opacity: 1; }
+.detail-thumbs button.is-active { border-color: var(--green-700); opacity: 1; }
+.detail-thumbs img { width: 100%; height: 100%; object-fit: cover; }
+.detail-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; }
+.detail-price-was { color: var(--ink-600); font-size: 1rem; font-weight: 600; }
+.detail-sale-badge { align-self: center; padding: .15rem .55rem; border-radius: 999px; background: var(--coral-100); color: var(--coral-700); font-size: .8125rem; font-weight: 800; }
+.detail-options { margin: 0 0 .9rem; padding: 0; border: 0; }
+.detail-options legend { margin-bottom: .5rem; padding: 0; color: var(--ink-900); font-size: var(--text-sm); font-weight: 700; }
+.detail-options legend span { color: var(--green-700); }
+.detail-options > div { display: flex; flex-wrap: wrap; gap: .5rem; }
+.detail-options label { position: relative; min-width: 64px; display: grid; justify-items: center; gap: .05rem; padding: .5rem .8rem; background: var(--surface); border: 1.5px solid var(--line-strong); border-radius: 12px; cursor: pointer; transition: border-color var(--dur-fast), background var(--dur-fast); }
+.detail-options label:hover { border-color: var(--green-700); }
+.detail-options label.is-selected { background: var(--green-100); border-color: var(--green-700); box-shadow: 0 0 0 1px var(--green-700); }
+.detail-options label.is-out { cursor: not-allowed; opacity: .5; text-decoration: line-through; }
+.detail-options input { position: absolute; opacity: 0; pointer-events: none; }
+.detail-options label:has(input:focus-visible) { outline: 2px solid var(--green-700); outline-offset: 2px; }
+.detail-options strong { color: var(--ink-900); font-size: var(--text-sm); }
+.detail-options small { color: var(--ink-600); font-size: .6875rem; }
+.review-reply { margin-top: .6rem; padding: .6rem .8rem; border-left: 3px solid var(--green-700); background: var(--green-100); border-radius: 0 10px 10px 0; }
+.review-reply strong { color: var(--green-900); font-size: var(--text-xs); }
+.review-reply p { margin: .2rem 0 0; color: var(--ink-900); font-size: var(--text-sm); line-height: 1.5; }
+/* Product cards: sale price */
+.pc-price-was { margin-left: .35rem; color: var(--ink-600); font-size: .8em; font-weight: 600; }
+.pc-sale-tag { padding: .1rem .45rem; border-radius: 999px; background: var(--coral-700); color: #fff; font-size: .6875rem; font-weight: 800; }
+.cart-item-option { display: inline-block; margin: .15rem 0; padding: .05rem .5rem; border-radius: 999px; background: var(--cream-100); color: var(--ink-900); font-size: .75rem; font-weight: 700; }

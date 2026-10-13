@@ -108,8 +108,10 @@ test("CSUCC registration, store plans, ownership, public visibility, messaging a
   assert.equal((await request(`/admin/stalls/${stall.id}/plan`, admin, { tier: "premium" }, "PUT")).status, 200);
   for (let i = 5; i < 25; i++) assert.equal((await request("/products", st, { ...productPayload, name: `Product ${i}` })).status, 201);
   assert.equal((await request("/products", st, productPayload)).status, 403);
-  assert.equal((await request(`/admin/stalls/${stall.id}/plan`, admin, { tier: "free" }, "PUT")).status, 409);
-  assert.equal((await request("/products?featured=true")).data.total, 25);
+  // Only products the stall picks are featured (moving to Free is covered in premium-downgrade.test.js).
+  assert.equal((await request("/products?featured=true")).data.total, 0);
+  assert.equal((await request(`/products/${product.id}/featured`, st, { featured: true }, "PUT")).status, 200);
+  assert.equal((await request("/products?featured=true")).data.total, 1);
   const other = await register("seller", "other"); await review(other.data.user.id);
   const ot = other.data.accessToken;
   assert.equal((await request(`/products/${product.id}`, ot, { price: 1 }, "PUT")).status, 403);
@@ -130,7 +132,7 @@ test("CSUCC registration, store plans, ownership, public visibility, messaging a
   assert.equal((await request("/pos/sales", ot, { ...saleBody, request_id: randomUUID() })).data.code, "PREMIUM_REQUIRED");
   assert.equal((await request("/pos/customers?q=CSUCC-buyer", ot)).status, 403);
   assert.equal((await request("/analytics/sales", st)).data.total_revenue, 178.5);
-  const onlineOrder = await request("/orders", bt, { items: [{ product_id: product.id, quantity: 1 }], notes: "No onions, please.\nMeet at the library.", fulfillment: "delivery" });
+  const onlineOrder = await request("/orders", bt, { items: [{ product_id: product.id, quantity: 1 }], notes: "No onions, please.\nMeet at the library.", fulfillment: "delivery", delivery_address: "Library lobby" });
   assert.equal(onlineOrder.status, 201);
   assert.equal(onlineOrder.data.order.delivery_notes, "No onions, please.\nMeet at the library.");
   assert.equal(onlineOrder.data.order.fulfillment, "delivery");
@@ -153,7 +155,12 @@ test("CSUCC registration, store plans, ownership, public visibility, messaging a
   for (const status of ["confirmed", "ready", "delivered"]) {
     assert.equal((await request(`/orders/${onlineOrder.data.order.id}/status`, st, { status }, "PUT")).status, 200);
   }
-  assert.equal((await request("/analytics/sales", st)).data.total_revenue, 267.75);
+  const salesSummary = (await request("/analytics/sales", st)).data;
+  assert.equal(salesSummary.total_revenue, 267.75);
+  assert.equal(salesSummary.online_orders, 1);
+  assert.equal(salesSummary.pos_sales, 1);
+  assert.deepEqual(salesSummary.previous, { revenue: 0, orders: 0, avg_order_value: 0 });
+  assert.equal(salesSummary.timeline.reduce((sum, day) => sum + day.orders, 0), 2);
   assert.equal((await request("/pos/customers?q=CSUCC-buyer", st)).data[0].campus_id, undefined);
   assert.equal((await request("/messages", bt, { receiver_id: seller.data.user.id, content: "Is rice available?" })).status, 201);
   const messages = await request("/messages", st);

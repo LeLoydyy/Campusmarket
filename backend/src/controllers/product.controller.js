@@ -67,6 +67,22 @@ export const updateProduct = async (req, res, next) => {
   }
 };
 
+export const setFeatured = async (req, res, next) => {
+  try {
+    res.json(await productStore.setFeatured(req.params.id, req.body.featured, req.user));
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const chooseVisible = async (req, res, next) => {
+  try {
+    res.json(await productStore.chooseVisible(req.user.id, req.body.product_ids));
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const deleteProduct = async (req, res, next) => {
   try {
     await productStore.remove(req.params.id, req.user);

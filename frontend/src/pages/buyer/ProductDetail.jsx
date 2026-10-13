@@ -30,6 +30,7 @@ import Navbar from "../../components/common/Navbar.jsx";
 import ProductCard from "../../components/common/ProductCard.jsx";
 import { SkeletonCard } from "../../components/common/Ui.jsx";
 import toast from "react-hot-toast";
+import { discountLabel, effectivePrice, isOnSale, productOptions } from "../../utils/pricing.js";
 
 const formatPrice = (price) =>
   `₱${Number(price || 0).toLocaleString("en-PH", {
@@ -106,6 +107,8 @@ export default function ProductDetail() {
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const [optionId, setOptionId] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -183,8 +186,20 @@ export default function ProductDetail() {
     return () => window.clearTimeout(timer);
   }, [added]);
 
-  const stock = Number(product?.stock || 0);
-  const isOutOfStock = stock < 1;
+  // A new product starts on its first photo with no option chosen.
+  useEffect(() => {
+    setPhotoIndex(0);
+    setOptionId(null);
+    setImageFailed(false);
+  }, [product?.id]);
+
+  const photos = [product?.image_url, ...(Array.isArray(product?.images) ? product.images : [])].filter(Boolean);
+  const options = productOptions(product);
+  const selectedOption = options.find((option) => option.id === optionId) || null;
+  const needsOption = options.length > 0 && !selectedOption;
+  // With options, stock and quantity follow the chosen option.
+  const stock = Number(selectedOption ? selectedOption.stock : product?.stock || 0);
+  const isOutOfStock = Number(product?.stock || 0) < 1 || (selectedOption && stock < 1);
   const isLowStock = stock > 0 && stock <= 5;
   const rating = Number(product?.avg_rating || 0);
   const reviews = Array.isArray(product?.reviews) ? product.reviews : [];
@@ -209,9 +224,14 @@ export default function ProductDetail() {
       return;
     }
 
+    if (needsOption) {
+      toast.error(`Choose ${options.length > 1 ? "an option" : "the option"} first`);
+      return;
+    }
+
     try {
       setAdding(true);
-      await addItem(product, Math.min(qty, stock));
+      await addItem(product, Math.min(qty, stock), selectedOption?.id);
       behaviorService.log(id, "cart_add").catch(() => {});
       setAdded(true);
       toast.success("Added to cart");
@@ -324,10 +344,10 @@ export default function ProductDetail() {
         >
           <div className="detail-media-column">
             <div className="detail-image-wrap">
-              {product.image_url && !imageFailed ? (
+              {photos.length && !imageFailed ? (
                 <img
-                  src={product.image_url}
-                  alt={product.name}
+                  src={photos[Math.min(photoIndex, photos.length - 1)]}
+                  alt={photos.length > 1 ? `${product.name}, photo ${photoIndex + 1} of ${photos.length}` : product.name}
                   className="detail-img"
                   onError={() => setImageFailed(true)}
                 />
@@ -347,6 +367,23 @@ export default function ProductDetail() {
                 {isOutOfStock ? "Out of stock" : "Available"}
               </span>
             </div>
+
+            {photos.length > 1 && (
+              <div className="detail-thumbs" role="group" aria-label="Product photos">
+                {photos.map((url, index) => (
+                  <button
+                    type="button"
+                    key={url}
+                    className={index === photoIndex ? "is-active" : ""}
+                    onClick={() => { setPhotoIndex(index); setImageFailed(false); }}
+                    aria-label={`Show photo ${index + 1}`}
+                    aria-pressed={index === photoIndex}
+                  >
+                    <img src={url} alt="" loading="lazy" />
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="detail-benefit-grid">
               <div>
@@ -399,8 +436,16 @@ export default function ProductDetail() {
             </div>
 
             <div className="detail-price-block">
-              <span className="detail-price-label">Campus price</span>
-              <div className="detail-price">{formatPrice(product.price)}</div>
+              <span className="detail-price-label">{isOnSale(product) ? "Sale price" : "Campus price"}</span>
+              <div className="detail-price">
+                {formatPrice(effectivePrice(product))}
+                {isOnSale(product) && (
+                  <>
+                    <s className="detail-price-was" aria-label={`Regular price ${formatPrice(product.price)}`}>{formatPrice(product.price)}</s>
+                    <span className="detail-sale-badge">{discountLabel(product)}</span>
+                  </>
+                )}
+              </div>
             </div>
 
             <div className="detail-description">
@@ -412,6 +457,28 @@ export default function ProductDetail() {
             </div>
 
             <div className="detail-purchase-panel">
+              {options.length > 0 && (
+                <fieldset className="detail-options">
+                  <legend id="detail-options-hint">Choose an option {selectedOption && <span>· {selectedOption.label}</span>}</legend>
+                  <div>
+                    {options.map((option) => (
+                      <label key={option.id} className={`${option.id === optionId ? "is-selected" : ""}${option.stock < 1 ? " is-out" : ""}`}>
+                        <input
+                          type="radio"
+                          name="product-option"
+                          value={option.id}
+                          checked={option.id === optionId}
+                          disabled={option.stock < 1}
+                          onChange={() => { setOptionId(option.id); setQty(1); }}
+                        />
+                        <strong>{option.label}</strong>
+                        <small>{option.stock < 1 ? "Sold out" : option.stock <= 5 ? `${option.stock} left` : "In stock"}</small>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+
               <div className="detail-availability-row">
                 <span>Availability</span>
                 <strong
@@ -419,13 +486,15 @@ export default function ProductDetail() {
                 >
                   {isOutOfStock
                     ? "Out of stock"
-                    : isLowStock
-                      ? `Only ${stock} left`
-                      : `${stock} in stock`}
+                    : needsOption
+                      ? `${Number(product.stock)} in stock · choose an option`
+                      : isLowStock
+                        ? `Only ${stock} left`
+                        : `${stock} in stock`}
                 </strong>
               </div>
 
-              {user?.role === "buyer" && !isOutOfStock && (
+              {user?.role === "buyer" && !isOutOfStock && !needsOption && (
                 <div className="detail-quantity-row">
                   <div>
                     <span>Quantity</span>
@@ -468,6 +537,7 @@ export default function ProductDetail() {
                     className={`btn btn-primary btn-lg detail-cart-btn ${added ? "btn-added" : ""}`}
                     onClick={handleAddToCart}
                     disabled={adding || isOutOfStock}
+                    aria-describedby={needsOption ? "detail-options-hint" : undefined}
                   >
                     {adding ? (
                       <>
@@ -479,7 +549,7 @@ export default function ProductDetail() {
                       </>
                     ) : (
                       <>
-                        <FiShoppingCart /> Add to cart
+                        <FiShoppingCart /> {needsOption ? "Choose an option to add" : "Add to cart"}
                       </>
                     )}
                   </button>
@@ -624,6 +694,12 @@ export default function ProductDetail() {
                     {review.comment && (
                       <p className="review-text">{review.comment}</p>
                     )}
+                    {review.seller_reply && (
+                      <div className="review-reply">
+                        <strong>Reply from {product.stalls?.name || "the seller"}</strong>
+                        <p>{review.seller_reply}</p>
+                      </div>
+                    )}
                   </article>
                 ))}
               </div>
@@ -636,7 +712,8 @@ export default function ProductDetail() {
               <div>
                 <strong>No reviews yet</strong>
                 <p>
-                  Be the first buyer to review this product after your order.
+                  Bought this? Once you receive your order, rate it from{" "}
+                  <Link to="/orders">My orders</Link>.
                 </p>
               </div>
             </div>

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { effectivePrice } from "../../utils/pricing.js";
 import {
   FiArrowRight,
   FiCheckCircle,
@@ -23,7 +24,7 @@ const getProduct = (item) => item.products || item.product || item;
 
 const getUnitPrice = (item) => {
   const product = getProduct(item);
-  return Number(product.price ?? item.price ?? 0);
+  return item.products || item.product ? effectivePrice(product) : Number(item.price) || 0;
 };
 
 const getStallName = (item) => {
@@ -63,7 +64,7 @@ export default function CartDrawer({
 
   const updateQuantity = async (item, nextQuantity) => {
     const product = getProduct(item);
-    const stock = Number(product.stock);
+    const stock = Number(item.option_stock ?? product.stock);
     const quantity = Math.max(1, Number(nextQuantity));
 
     if (Number.isFinite(stock) && stock >= 0 && quantity > stock) {
@@ -120,7 +121,7 @@ export default function CartDrawer({
           {items.map((item) => {
             const product = getProduct(item);
             const quantity = Number(item.quantity || 1);
-            const stock = Number(product.stock);
+            const stock = Number(item.option_stock ?? product.stock);
             const isUpdating = pendingAction === `update-${item.id}`;
             const isRemoving = pendingAction === `remove-${item.id}`;
             const isBusy = isUpdating || isRemoving;
@@ -161,6 +162,7 @@ export default function CartDrawer({
                   >
                     {product.name || "Campus Market item"}
                   </Link>
+                  {item.option_label && <span className="cart-item-option">{item.option_label}</span>}
                   <span className="cart-item-unit-price">
                     {formatPrice(getUnitPrice(item))} each
                   </span>

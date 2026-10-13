@@ -14,8 +14,19 @@ const OTHER = "other";
 const MIN_OTHER = 3;
 const MAX_OTHER = 300;
 
-/** Asks the buyer why they're cancelling before the order is cancelled. */
-export default function CancelOrderDialog({ orderReference, remainingLabel, submitting, onConfirm, onClose }) {
+/** Reasons a seller can give; the buyer sees them in their notification and on the order. */
+export const SELLER_CANCEL_REASONS = [
+  "Out of stock",
+  "The stall is closing early today",
+  "We can't deliver to that location",
+  "We couldn't reach the buyer",
+  "The price or item details were wrong",
+];
+
+/** Asks why an order is being cancelled (buyers by default; sellers pass `audience="seller"`). */
+export default function CancelOrderDialog({ orderReference, remainingLabel, submitting, onConfirm, onClose, audience = "buyer" }) {
+  const seller = audience === "seller";
+  const reasons = seller ? SELLER_CANCEL_REASONS : CANCEL_REASONS;
   const [choices, setChoices] = useState(() => new Set());
   const [otherText, setOtherText] = useState("");
   const [touched, setTouched] = useState(false);
@@ -54,7 +65,7 @@ export default function CancelOrderDialog({ orderReference, remainingLabel, subm
   const otherTrimmed = otherText.trim();
   // Keep the listed order so the seller always reads reasons the same way.
   const reason = [
-    ...CANCEL_REASONS.filter((value) => choices.has(value)),
+    ...reasons.filter((value) => choices.has(value)),
     ...(wantsOther && otherTrimmed ? [otherTrimmed] : []),
   ].join("; ");
   const otherOk = !wantsOther || otherTrimmed.length >= MIN_OTHER;
@@ -83,7 +94,9 @@ export default function CancelOrderDialog({ orderReference, remainingLabel, subm
           <div>
             <h2 id="cancel-dialog-title">Cancel order #{orderReference}?</h2>
             <p id="cancel-dialog-desc">
-              All items in this order will be cancelled. Let the seller know why. It helps them improve.
+              {seller
+                ? "The buyer is told right away, with your reason, and the stock goes back on your shelf."
+                : "All items in this order will be cancelled. Let the seller know why. It helps them improve."}
             </p>
           </div>
           <button type="button" className="cancel-dialog-close" onClick={onClose} disabled={submitting} aria-label="Close">
@@ -93,7 +106,7 @@ export default function CancelOrderDialog({ orderReference, remainingLabel, subm
 
         <fieldset className="cancel-dialog-reasons">
           <legend>Why are you cancelling? <small>Choose all that apply</small></legend>
-          {[...CANCEL_REASONS, OTHER].map((value) => (
+          {[...reasons, OTHER].map((value) => (
             <label key={value} className={`cancel-reason${choices.has(value) ? " is-selected" : ""}`}>
               <input
                 type="checkbox"

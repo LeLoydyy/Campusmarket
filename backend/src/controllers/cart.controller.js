@@ -13,8 +13,8 @@ export const getCart = async (req, res, next) => {
 // POST /api/cart
 export const addToCart = async (req, res, next) => {
   try {
-    const { product_id, quantity = 1 } = req.body;
-    const item = await cartStore.add(req.user.id, product_id, quantity);
+    const { product_id, quantity = 1, option_id = null } = req.body;
+    const item = await cartStore.add(req.user.id, product_id, quantity, option_id);
     res.json(item);
   } catch (err) {
     next(err);

@@ -93,7 +93,7 @@ export default function Sidebar({ open, isOpen: legacyOpen, onClose }) {
   const avatar = user?.avatar_url || user?.profile_image;
   const homePath =
     role === "admin" ? "/admin" : role === "seller" ? "/seller" : "/";
-  const profilePath = role === "seller" ? "/seller/settings" : homePath;
+  const profilePath = role === "seller" ? "/seller/settings" : role === "buyer" ? "/profile" : homePath;
 
   const handleLogout = async () => {
     try {

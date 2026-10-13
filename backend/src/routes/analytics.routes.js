@@ -6,6 +6,7 @@ import {
 } from "../controllers/analytics.controller.js";
 import { verifyToken, requireRole } from "../middleware/auth.js";
 import { stallStore } from "../data/marketStore.js";
+import { getPlan } from "../config/plans.js";
 
 const analyticsRouter = AnalyticsRouter();
 
@@ -14,7 +15,7 @@ analyticsRouter.use(verifyToken, requireRole("seller", "admin"), async (req, res
   try {
     if (req.user.role !== "admin") {
       const stall = await stallStore.getMy(req.user.id);
-      if (stall?.tier !== "premium") return res.status(403).json({ error: "Product analytics are included in Premium. Request Premium from the Plans page in your seller dashboard.", code: "PREMIUM_REQUIRED" });
+      if (!getPlan(stall?.tier).analytics) return res.status(403).json({ error: "Product analytics are included in Premium. Request Premium from the Plans page in your seller dashboard.", code: "PREMIUM_REQUIRED" });
     }
     next();
   } catch (error) { next(error); }

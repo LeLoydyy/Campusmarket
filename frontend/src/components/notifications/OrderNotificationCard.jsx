@@ -1,8 +1,16 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Check, ChevronDown, Crown, Package, Sparkles, Store } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, Crown, MessageSquareReply, Package, PackageX, Sparkles, Star, Store } from "lucide-react";
 import { orderSteps, stageFor, stepIndex } from "./orderStages.js";
 import "./notifications.css";
+
+// Notifications that aren't order stages: their own icon, art and colour, and where "open" goes.
+const KINDS = {
+  plan: { icon: Crown, art: Sparkles, action: "See plans",
+    tone: (status) => (["plan_declined", "plan_expired", "plan_downgraded"].includes(status) ? "cancelled" : ["plan_approved", "plan_extended"].includes(status) ? "done" : "active") },
+  review: { icon: Star, art: Star, action: "See review", tone: () => "done", artFor: (status) => (status === "review_reply" ? MessageSquareReply : Star) },
+  stock: { icon: Package, art: AlertTriangle, action: "Restock", tone: (status) => (status === "sold_out" ? "cancelled" : "active"), artFor: (status) => (status === "sold_out" ? PackageX : AlertTriangle) },
+};
 
 export const timeAgo = (value) => {
   const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
@@ -26,10 +34,12 @@ export default function OrderNotificationCard({ notification, variant = "list", 
   const [expanded, setExpanded] = useState(defaultExpanded);
   const order = notification.order;
   const fulfillment = order?.fulfillment;
-  // Plan notifications (Premium nudges and decisions) reuse the card with a crown instead of order art.
-  const isPlan = notification.type === "plan";
-  const stage = isPlan
-    ? { key: "plan", icon: Sparkles, tone: ["plan_declined", "plan_expired"].includes(notification.status) ? "cancelled" : notification.status === "plan_approved" ? "done" : "active" }
+  // Plan, review and stock notifications reuse the card with their own icon instead of order art.
+  const kind = KINDS[notification.type];
+  const isPlan = Boolean(kind);
+  const KindIcon = kind?.icon;
+  const stage = kind
+    ? { key: notification.type, icon: kind.artFor?.(notification.status) || kind.art, tone: kind.tone(notification.status) }
     : stageFor(notification.status, fulfillment);
   const Art = stage.icon;
   const image = order?.first_item?.image_url;
@@ -47,7 +57,7 @@ export default function OrderNotificationCard({ notification, variant = "list", 
   const summary = (
     <>
       <span className={`onc-app${isPlan ? " onc-app--plan" : ""}`} aria-hidden="true">
-        {isPlan ? <Crown /> : order?.stall_logo ? <img src={order.stall_logo} alt="" /> : <Store />}
+        {isPlan ? <KindIcon /> : order?.stall_logo ? <img src={order.stall_logo} alt="" /> : <Store />}
       </span>
       <span className="onc-text">
         <span className="onc-title-row">
@@ -70,7 +80,7 @@ export default function OrderNotificationCard({ notification, variant = "list", 
       </span>
       <span className={`onc-art onc-art--${stage.key}`} aria-hidden="true"><Art /></span>
       <span className={`onc-thumb${isPlan ? " onc-thumb--plan" : ""}`} aria-hidden="true">
-        {isPlan ? <Crown /> : image ? <img src={image} alt="" loading="lazy" /> : <Package />}
+        {isPlan ? <KindIcon /> : image ? <img src={image} alt="" loading="lazy" /> : <Package />}
       </span>
     </>
   );
@@ -122,7 +132,7 @@ export default function OrderNotificationCard({ notification, variant = "list", 
           )}
           {notification.link && (
             <Link className="btn btn-primary btn-sm onc-open" to={notification.link} onClick={open}>
-              {isPlan ? "See plans" : "View order"}
+              {isPlan ? kind.action : "View order"}
             </Link>
           )}
         </div>

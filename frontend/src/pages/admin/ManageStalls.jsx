@@ -2,6 +2,7 @@ import "./AdminWorkspace.css";
 import { useState, useEffect } from "react";
 import Sidebar from "../../components/common/Sidebar.jsx";
 import PremiumRequests from "../../components/admin/PremiumRequests.jsx";
+import StallPlanControl, { isExpiringSoon } from "../../components/admin/StallPlanControl.jsx";
 import { EmptyState } from "../../components/common/Ui.jsx";
 import { adminService, stallService } from "../../services/api.js";
 import toast from "react-hot-toast";
@@ -9,11 +10,13 @@ import { format } from "date-fns";
 import { FiSearch, FiCheck, FiX, FiPause, FiRefreshCw } from "react-icons/fi";
 
 const STATUS_TABS = ["all", "pending", "approved", "rejected", "suspended"];
+const PLAN_FILTERS = [["all", "All plans"], ["premium", "Premium"], ["expiring", "Expiring soon"], ["free", "Free"]];
 
 export default function ManageStalls() {
   const [stalls, setStalls] = useState([]);
   const [activeTab, setActiveTab] = useState("pending");
   const [search, setSearch] = useState("");
+  const [planFilter, setPlanFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState(null);
 
@@ -63,8 +66,13 @@ export default function ManageStalls() {
       !search ||
       s.name.toLowerCase().includes(search.toLowerCase()) ||
       s.users?.name?.toLowerCase().includes(search.toLowerCase());
-    return matchTab && matchSearch;
+    const matchPlan =
+      planFilter === "all" ||
+      (planFilter === "expiring" ? isExpiringSoon(s) : (s.tier || "free") === planFilter);
+    return matchTab && matchSearch && matchPlan;
   });
+
+  const expiringCount = stalls.filter(isExpiringSoon).length;
 
   const tabCount = (tab) =>
     tab === "all"
@@ -120,6 +128,15 @@ export default function ManageStalls() {
               onChange={(e) => setSearch(e.target.value)}
               style={{ paddingLeft: "2.5rem" }}
             />
+          </div>
+
+          <div className="sp-filters" role="group" aria-label="Filter by plan">
+            {PLAN_FILTERS.map(([key, label]) => (
+              <button key={key} type="button" className={planFilter === key ? "is-active" : ""} aria-pressed={planFilter === key} onClick={() => setPlanFilter(key)}>
+                {label}
+                {key === "expiring" && expiringCount > 0 && <span>{expiringCount}</span>}
+              </button>
+            ))}
           </div>
 
           {/* Status tabs */}
@@ -191,18 +208,11 @@ export default function ManageStalls() {
                       {format(new Date(stall.created_at), "MMM d, yyyy")}
                     </p>
 
-                    <label className="form-label" style={{ marginTop: "1rem" }}>Account plan
-                      <select className="form-input" value={stall.tier || "free"} disabled={actingId === stall.id} onChange={async (e) => {
-                        setActingId(stall.id);
-                        try {
-                          const { data } = await adminService.setPlan(stall.id, e.target.value);
-                          setStalls((current) => current.map((item) => item.id === stall.id ? data : item));
-                          toast.success("Plan updated");
-                        } catch (error) { toast.error(error.response?.data?.error || "Plan update failed"); }
-                        finally { setActingId(null); }
-                      }}><option value="free">Free · 5 listings</option><option value="premium">Premium · 25 listings · POS, advertising & analytics</option></select>
-                    </label>
-                    <p className="text-sm text-muted">{stall.product_count || 0} listings · {stall.location}</p>
+                    <StallPlanControl
+                      stall={stall}
+                      onChanged={(updated) => setStalls((current) => current.map((item) => item.id === stall.id ? { ...item, ...updated } : item))}
+                    />
+                    <p className="text-sm text-muted">{stall.location}</p>
                     <div className="stall-card-actions">
                       {stall.status === "pending" && (
                         <>

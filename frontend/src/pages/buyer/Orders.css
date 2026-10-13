@@ -138,3 +138,26 @@
   .buyer-orders-shell .buyer-order-pickup { margin: .8rem 1rem 0; }
   .ostep-label { font-size: .75rem; }
 }
+
+/* Pickup code, payment line and product ratings */
+.buyer-order-pickup > span:nth-child(2) { display: grid; min-width: 0; flex: 1; }
+.buyer-order-pickup strong { overflow-wrap: anywhere; }
+.buyer-order-code { display: grid; justify-items: center; gap: .1rem; margin-left: auto; padding: .45rem .9rem; background: var(--surface); border: 2px dashed var(--green-700); border-radius: 12px; text-align: center; }
+.buyer-order-code strong { font: 900 1.6rem/1 var(--font-display); letter-spacing: .25em; margin-right: -.25em; color: var(--green-900); font-variant-numeric: tabular-nums; }
+.buyer-order-code small { font-size: .6875rem; }
+.buyer-order-payment { display: flex; align-items: center; gap: .4rem; margin: .5rem 0 0; color: var(--ink-600); font-size: var(--text-xs); font-weight: 600; }
+.buyer-order-payment svg { color: var(--green-700); }
+.buyer-order-rate, .buyer-order-rated { display: inline-flex; align-items: center; gap: .35rem; margin-top: .35rem; padding: .25rem .65rem; border-radius: 999px; font-size: var(--text-xs); font-weight: 700; }
+.buyer-order-rate { color: var(--gold-700); background: var(--gold-100); border: 1px solid rgba(245, 184, 46, .5); }
+.buyer-order-rate:hover { background: var(--gold-500); color: var(--green-900); }
+.buyer-order-rated { color: var(--ink-600); background: var(--cream-100); }
+.buyer-order-rated:hover { color: var(--green-700); }
+.buyer-order-rated > span { display: inline-flex; gap: 1px; }
+.buyer-order-rated svg { color: var(--line-strong); }
+.buyer-order-rated svg.is-on { color: var(--gold-500); fill: var(--gold-500); }
+.buyer-order-item > div { min-width: 0; }
+@media (max-width: 560px) {
+  .buyer-order-pickup { flex-wrap: wrap; }
+  .buyer-order-code { margin-left: 0; width: 100%; }
+}
+.buyer-orders-shell .buyer-order-payment { grid-column: 1; margin: .55rem 1.25rem 0; }

@@ -84,16 +84,28 @@ export const productService = {
   create: (data) => api.post("/products", data),
   update: (id, data) => api.put(`/products/${id}`, data),
   remove: (id) => api.delete(`/products/${id}`),
+  setFeatured: (id, featured) => api.put(`/products/${id}/featured`, { featured }),
+  chooseVisible: (productIds) => api.put("/products/visible", { product_ids: productIds }),
 };
 
 export const orderService = {
   getBuyerOrders: () => api.get("/orders/buyer"),
   getSellerOrders: (params = {}) => api.get("/orders/seller", { params }),
-  updateStatus: (orderId, status, cancelReason) =>
+  /** `extra`: { pickup_code } when a seller hands over a pickup order. */
+  updateStatus: (orderId, status, cancelReason, extra = {}) =>
     api.put(`/orders/${orderId}/status`, {
       status,
       ...(cancelReason ? { cancel_reason: cancelReason } : {}),
+      ...extra,
     }),
+};
+
+export const reviewService = {
+  /** { order_id, product_id, rating, comment } — saving again edits the review. */
+  save: (data) => api.post("/reviews", data),
+  getMine: () => api.get("/reviews/mine"),
+  /** Seller's public answer; an empty reply removes it. */
+  reply: (reviewId, reply) => api.put(`/reviews/${reviewId}/reply`, { reply }),
 };
 
 export const messageService = {
@@ -158,10 +170,11 @@ export const settingsService = {
 export const cartService = {
   get: () => api.get("/cart"),
 
-  add: (productId, quantity = 1) =>
+  add: (productId, quantity = 1, optionId = null) =>
     api.post("/cart", {
       product_id: productId,
       quantity,
+      ...(optionId ? { option_id: optionId } : {}),
     }),
 
   update: (itemId, quantity) => api.put(`/cart/${itemId}`, { quantity }),
@@ -178,7 +191,8 @@ export const adminService = {
 
   reviewUser: (id, payload) => api.put(`/admin/users/${id}/review`, payload),
   getStalls: () => api.get("/admin/stalls"),
-  setPlan: (id, tier) => api.put(`/admin/stalls/${id}/plan`, { tier }),
+  /** { tier, premium_until?: 'YYYY-MM-DD' | null, note? } */
+  setPlan: (id, data) => api.put(`/admin/stalls/${id}/plan`, data),
   getPendingStalls: () => api.get("/admin/stalls/pending"),
 
   banUser: (userId, ban) => api.put(`/admin/users/${userId}/ban`, { ban }),

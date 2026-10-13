@@ -73,8 +73,17 @@ export function AuthProvider({ children }) {
     setUser((prev) => ({ ...prev, ...updates }));
   }, []);
 
+  /** Re-reads the signed-in user (e.g. a seller's plan after an admin changed it). Failures are ignored. */
+  const refreshUser = useCallback(async () => {
+    if (!getAccessToken()) return;
+    try {
+      const { data } = await authService.me();
+      setUser((prev) => (prev ? { ...prev, ...data } : prev));
+    } catch { /* keep the current user; the next request handles an expired session */ }
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, verifyLogin, register, logout, updateUser, completeSetup }}>
+    <AuthContext.Provider value={{ user, loading, login, verifyLogin, register, logout, updateUser, refreshUser, completeSetup }}>
       {children}
     </AuthContext.Provider>
   );

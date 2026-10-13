@@ -283,6 +283,8 @@ CREATE TABLE IF NOT EXISTS plan_nudges (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, kind)
 );
+-- Listings a move to Free hid (they come back when the stall is Premium again).
+ALTER TABLE products ADD COLUMN IF NOT EXISTS hidden_by_plan BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- One active application per seller per event.
 CREATE UNIQUE INDEX IF NOT EXISTS seller_applications_active_key
@@ -350,3 +352,70 @@ ALTER TABLE auth_codes          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE login_logs          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plan_requests       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plan_nudges         ENABLE ROW LEVEL SECURITY;
+
+-- Buyer profile: phone and the campus spot deliveries go to (prefilled at checkout).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT NOT NULL DEFAULT '';
+
+-- Orders keep where to deliver and how to reach the buyer at order time, and a pickup code
+-- the buyer shows the seller (NULL on orders placed before codes existed).
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_address TEXT NOT NULL DEFAULT '';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_phone TEXT NOT NULL DEFAULT '';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_code TEXT;
+
+-- Product reviews: one per product per completed order, editable by the buyer.
+CREATE TABLE IF NOT EXISTS reviews (
+  id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  product_id TEXT NOT NULL REFERENCES products (id) ON DELETE CASCADE,
+  order_id   TEXT NOT NULL REFERENCES orders (id) ON DELETE CASCADE,
+  buyer_id   TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  rating     SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  comment    TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (order_id, product_id)
+);
+CREATE INDEX IF NOT EXISTS reviews_product_idx ON reviews (product_id, created_at DESC);
+
+-- Saved products, kept on the server so they follow the buyer across devices.
+CREATE TABLE IF NOT EXISTS favorites (
+  user_id    TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  product_id TEXT NOT NULL REFERENCES products (id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, product_id)
+);
+
+-- Which optional notifications a user wants (missing key = on). Sellers: orderUpdates, reviewAlerts, stockAlerts.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notification_prefs JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+-- When the seller expects an order to be ready (set when confirming).
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS ready_by TIMESTAMPTZ;
+
+-- Sellers answer reviews publicly.
+ALTER TABLE reviews ADD COLUMN IF NOT EXISTS seller_reply TEXT;
+ALTER TABLE reviews ADD COLUMN IF NOT EXISTS seller_replied_at TIMESTAMPTZ;
+
+-- Products: an optional sale price (charged instead of price) and extra photos after the main one.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS sale_price NUMERIC(12, 2);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS images JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+-- Product options (sizes, flavours), each with its own stock. When a product has options,
+-- products.stock is kept equal to their total.
+CREATE TABLE IF NOT EXISTS product_options (
+  id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  product_id TEXT NOT NULL REFERENCES products (id) ON DELETE CASCADE,
+  label      TEXT NOT NULL,
+  stock      INTEGER NOT NULL DEFAULT 0 CHECK (stock >= 0),
+  position   INTEGER NOT NULL DEFAULT 0,
+  UNIQUE (product_id, label)
+);
+CREATE INDEX IF NOT EXISTS product_options_product_idx ON product_options (product_id, position);
+
+-- The cart, orders and counter sales remember which option was chosen.
+ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS option_id TEXT REFERENCES product_options (id) ON DELETE CASCADE;
+ALTER TABLE cart_items DROP CONSTRAINT IF EXISTS cart_items_user_id_product_id_key;
+CREATE UNIQUE INDEX IF NOT EXISTS cart_items_line_key ON cart_items (user_id, product_id, coalesce(option_id, ''));
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS option_id TEXT;
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS option_label TEXT;
+ALTER TABLE pos_sale_items ADD COLUMN IF NOT EXISTS option_id TEXT;
+ALTER TABLE pos_sale_items ADD COLUMN IF NOT EXISTS option_label TEXT;

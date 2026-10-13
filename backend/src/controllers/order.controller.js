@@ -6,8 +6,8 @@ const CANCEL_REASON_MAX = 600;
 // ── POST /api/orders ──────────────────────────────────────────────────────────
 export const createOrder = async (req, res, next) => {
   try {
-    const { items, delivery_notes, notes, fulfillment } = req.body;
-    const order = await orderStore.create(req.user.id, items, delivery_notes ?? notes, fulfillment);
+    const { items, delivery_notes, notes, fulfillment, delivery_address } = req.body;
+    const order = await orderStore.create(req.user.id, items, delivery_notes ?? notes, fulfillment, delivery_address);
     res.status(201).json({ order });
   } catch (err) {
     next(err);
@@ -62,6 +62,13 @@ export const updateOrderStatus = async (req, res, next) => {
     if (status === "cancelled" && req.user.role === "buyer" && reason.length < 3) {
       return res.status(400).json({ error: "Tell the seller why you're cancelling this order." });
     }
+    if (status === "cancelled" && req.user.role === "seller" && reason.length < 3) {
+      return res.status(400).json({ error: "Tell the buyer why you're cancelling this order." });
+    }
+    const readyIn = Number(req.body.ready_in_minutes);
+    if (req.body.ready_in_minutes != null && !(Number.isInteger(readyIn) && readyIn >= 1 && readyIn <= 1440)) {
+      return res.status(400).json({ error: "Pick a ready time between 1 minute and 24 hours." });
+    }
 
     const order = await orderStore.updateStatus(
       req.params.id,
@@ -69,6 +76,8 @@ export const updateOrderStatus = async (req, res, next) => {
       req.user.id,
       req.user.role,
       status === "cancelled" ? reason || null : null,
+      typeof req.body.pickup_code === "string" ? req.body.pickup_code : null,
+      req.body.ready_in_minutes != null ? readyIn : null,
     );
     res.json(order);
   } catch (err) {

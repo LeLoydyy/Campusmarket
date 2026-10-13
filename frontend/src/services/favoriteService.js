@@ -1,126 +1,90 @@
-const STORAGE_PREFIX = "campus-market:favorites";
-const CHANGE_EVENT = "campus-market:favorites-changed";
+import api from "./api.js";
 
-const storageKey = (userId) => `${STORAGE_PREFIX}:${userId || "guest"}`;
+// Saved products live on the server, so they follow the buyer to every device.
+// One shared copy per signed-in user keeps product cards in sync without extra requests.
+const LEGACY_PREFIX = "campus-market:favorites";
 
-const readFavorites = (userId) => {
-  if (typeof window === "undefined") return [];
+let cache = { userId: null, products: null, loading: null };
+const listeners = new Set();
 
+const emit = (userId, products) => {
+  listeners.forEach((entry) => { if (entry.userId === String(userId)) entry.listener(products); });
+};
+
+/** Favorites saved in this browser before they moved to the server: send them up once. */
+const importLegacy = async (userId) => {
+  const key = `${LEGACY_PREFIX}:${userId}`;
   try {
-    const saved = JSON.parse(
-      window.localStorage.getItem(storageKey(userId)) || "[]",
-    );
-
-    return Array.isArray(saved) ? saved : [];
+    const saved = JSON.parse(window.localStorage.getItem(key) || "[]");
+    const ids = Array.isArray(saved) ? saved.map((product) => product?.id).filter(Boolean) : [];
+    if (ids.length) await api.post("/favorites", { product_ids: ids });
+    window.localStorage.removeItem(key);
   } catch {
-    return [];
+    // Storage blocked or the import failed; it is retried on the next visit.
   }
 };
 
-const createProductSnapshot = (product) => ({
-  id: product.id,
-  name: product.name,
-  price: product.price,
-  image_url: product.image_url,
-  category: product.category,
-  stock: product.stock,
-  avg_rating: product.avg_rating,
-  review_count: product.review_count,
-  description: product.description,
-  stalls: product.stalls
-    ? {
-        id: product.stalls.id,
-        name: product.stalls.name,
-        logo_url: product.stalls.logo_url,
-      }
-    : undefined,
-});
+const load = (userId) => {
+  const id = String(userId);
+  if (cache.userId === id && cache.products) return Promise.resolve(cache.products);
+  if (cache.userId === id && cache.loading) return cache.loading;
+  cache = { userId: id, products: null, loading: null };
+  cache.loading = (async () => {
+    await importLegacy(id);
+    const { data } = await api.get("/favorites");
+    if (cache.userId === id) cache.products = Array.isArray(data) ? data : [];
+    return cache.products;
+  })().finally(() => { if (cache.userId === id) cache.loading = null; });
+  return cache.loading;
+};
 
-const saveFavorites = (userId, favorites) => {
-  if (typeof window === "undefined") return;
-
-  window.localStorage.setItem(storageKey(userId), JSON.stringify(favorites));
-
-  window.dispatchEvent(
-    new CustomEvent(CHANGE_EVENT, {
-      detail: {
-        userId: String(userId),
-        favorites,
-      },
-    }),
-  );
+const setProducts = (userId, products) => {
+  if (cache.userId === String(userId)) cache.products = products;
+  emit(userId, products);
 };
 
 const favoriteService = {
-  async getAll(userId) {
-    return readFavorites(userId);
+  getAll(userId) {
+    return load(userId);
   },
 
   async isFavorite(userId, productId) {
-    return readFavorites(userId).some(
-      (product) => String(product.id) === String(productId),
-    );
+    return (await load(userId)).some((product) => String(product.id) === String(productId));
   },
 
+  /** Saves or un-saves a product. The change shows at once and is undone if the server refuses it. */
   async toggle(userId, product) {
-    const currentFavorites = readFavorites(userId);
-
-    const alreadySaved = currentFavorites.some(
-      (savedProduct) => String(savedProduct.id) === String(product.id),
-    );
-
-    const favorites = alreadySaved
-      ? currentFavorites.filter(
-          (savedProduct) => String(savedProduct.id) !== String(product.id),
-        )
-      : [createProductSnapshot(product), ...currentFavorites];
-
-    saveFavorites(userId, favorites);
-
-    return {
-      saved: !alreadySaved,
-      favorites,
-    };
+    const before = await load(userId);
+    const saved = before.some((item) => String(item.id) === String(product.id));
+    const after = saved ? before.filter((item) => String(item.id) !== String(product.id)) : [product, ...before];
+    setProducts(userId, after);
+    try {
+      if (saved) await api.delete(`/favorites/${product.id}`);
+      else await api.post("/favorites", { product_ids: [product.id] });
+    } catch (error) {
+      setProducts(userId, before);
+      throw error;
+    }
+    return { saved: !saved, favorites: after };
   },
 
   async remove(userId, productId) {
-    const favorites = readFavorites(userId).filter(
-      (product) => String(product.id) !== String(productId),
-    );
-
-    saveFavorites(userId, favorites);
-
-    return favorites;
+    const before = await load(userId);
+    const after = before.filter((item) => String(item.id) !== String(productId));
+    setProducts(userId, after);
+    try {
+      await api.delete(`/favorites/${productId}`);
+    } catch (error) {
+      setProducts(userId, before);
+      throw error;
+    }
+    return after;
   },
 
   subscribe(userId, listener) {
-    if (typeof window === "undefined") {
-      return () => {};
-    }
-
-    const key = storageKey(userId);
-
-    const handleCustomChange = (event) => {
-      if (event.detail?.userId === String(userId)) {
-        listener(event.detail.favorites);
-      }
-    };
-
-    const handleStorageChange = (event) => {
-      if (event.key === key) {
-        listener(readFavorites(userId));
-      }
-    };
-
-    window.addEventListener(CHANGE_EVENT, handleCustomChange);
-
-    window.addEventListener("storage", handleStorageChange);
-
-    return () => {
-      window.removeEventListener(CHANGE_EVENT, handleCustomChange);
-
-      window.removeEventListener("storage", handleStorageChange);
-    };
+    const entry = { userId: String(userId), listener };
+    listeners.add(entry);
+    return () => listeners.delete(entry);
   },
 };
 

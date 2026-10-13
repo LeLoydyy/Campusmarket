@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, CalendarDays, Clock3, Gem, Headphones, MapPin, Package, Shirt, Soup, Sparkles, Store } from "lucide-react";
+import { ArrowRight, CalendarDays, Clock3, MapPin, Store } from "lucide-react";
 import Navbar from "../../components/common/Navbar.jsx";
 import Footer from "../../components/common/Footer.jsx";
 import ProductCard from "../../components/ui/ProductCard.jsx";
@@ -13,16 +13,9 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import { productService, stallService, statsService } from "../../services/api.js";
 import eventService from "../../services/eventService.js";
 import { eventStart, eventStatus, formatEventDate, parseEventDate, plural, stallOpenStatus, timeUntil } from "../../utils/marketplace.js";
+import { CATEGORY_TILES } from "../../config/categories.js";
 import "./Home.css";
 
-const CATEGORY_TILES = [
-  { key: "food", label: "Food & drinks", blurb: "Rice meals, snacks, iced coffee", icon: Soup, size: "lg" },
-  { key: "clothing", label: "Clothing", blurb: "Varsity tees, hoodies, org shirts", icon: Shirt },
-  { key: "electronics", label: "Electronics", blurb: "Chargers, earbuds, flash drives", icon: Headphones },
-  { key: "accessories", label: "Accessories", blurb: "Totes, pins, keychains", icon: Gem },
-  { key: "student-made", label: "Student Made", blurb: "Handmade by CSUCC students", icon: Sparkles, size: "wide" },
-  { key: "other", label: "Everything else", blurb: "School supplies & more", icon: Package },
-];
 
 const SUGGEST_EMAIL = import.meta.env.VITE_CONTACT_EMAIL;
 const list = (payload) => (Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : []);

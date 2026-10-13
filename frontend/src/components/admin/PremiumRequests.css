@@ -9,3 +9,38 @@
 .pr-panel li small { color: var(--ink-600); font-size: var(--text-xs); }
 .pr-panel li p { color: var(--ink-900); font-size: var(--text-sm); }
 .pr-until .form-input { width: 100%; }
+.pr-panel.is-quiet { background: var(--surface); border-color: var(--line); }
+.pr-panel header { flex-wrap: wrap; }
+.pr-tabs { display: flex; gap: .3rem; margin-left: auto; padding: .2rem; background: var(--cream-100); border-radius: var(--radius-pill); }
+.pr-tabs button { padding: .3rem .8rem; border-radius: var(--radius-pill); color: var(--ink-600); font-size: var(--text-xs); font-weight: 650; }
+.pr-tabs button:hover { color: var(--green-700); }
+.pr-tabs button.is-active { background: var(--surface); color: var(--green-900); box-shadow: var(--shadow-1); }
+.pr-empty { margin: 0; padding: .6rem .2rem; color: var(--ink-600); font-size: var(--text-sm); }
+.pr-panel li { align-items: flex-start; }
+.pr-decision { color: var(--ink-600); }
+.pr-status { flex-shrink: 0; padding: .2rem .6rem; border-radius: 999px; font-size: var(--text-xs); font-weight: 700; background: var(--cream-100); color: var(--ink-600); }
+.pr-status.is-approved { background: var(--green-100); color: var(--green-700); }
+.pr-status.is-declined { background: var(--coral-100); color: var(--coral-700); }
+
+/* ── Plan section on each stall card ───────────────────────── */
+.sp-plan { display: grid; gap: .5rem; margin-top: .9rem; padding: .75rem .85rem; background: var(--cream-50); border: 1px solid var(--line); border-radius: 12px; }
+.sp-plan.is-premium { background: linear-gradient(120deg, #FFF8E6, var(--surface) 75%); border-color: rgba(245, 184, 46, .5); }
+.sp-plan-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.sp-chip { display: inline-flex; align-items: center; gap: .3rem; padding: .15rem .6rem; border-radius: 999px; background: var(--cream-100); color: var(--ink-600); font-size: var(--text-xs); font-weight: 750; }
+.sp-chip.is-premium { background: var(--gold-500); color: var(--green-900); }
+.sp-chip svg { width: 13px; height: 13px; }
+.sp-listings { color: var(--ink-600); font-size: var(--text-xs); font-weight: 600; }
+.sp-until { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin: 0; color: var(--ink-900); font-size: var(--text-xs); font-weight: 600; }
+.sp-until svg { width: 14px; height: 14px; color: var(--gold-700); }
+.sp-until b { padding: .1rem .5rem; border-radius: 999px; background: var(--coral-100); color: var(--coral-700); font-size: .75rem; }
+.sp-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
+.sp-actions svg { width: 14px; height: 14px; }
+.sp-warning { display: flex; gap: .6rem; margin: 0; padding: .8rem .9rem; border-radius: 12px; background: var(--gold-100); color: var(--gold-700); font-size: var(--text-sm); line-height: 1.5; }
+.sp-warning svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: .1rem; }
+.sp-warning.is-calm { background: var(--cream-100); color: var(--ink-600); }
+.sp-warning strong { color: var(--ink-900); }
+.sp-filters { display: flex; flex-wrap: wrap; gap: .4rem; margin: -.4rem 0 1rem; }
+.sp-filters button { display: inline-flex; align-items: center; gap: .35rem; padding: .35rem .8rem; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); color: var(--ink-900); font-size: var(--text-xs); font-weight: 650; }
+.sp-filters button:hover { border-color: var(--green-700); color: var(--green-700); }
+.sp-filters button.is-active { background: var(--green-700); border-color: var(--green-700); color: #fff; }
+.sp-filters button span { min-width: 18px; padding: 0 .35rem; border-radius: 999px; background: var(--coral-100); color: var(--coral-700); text-align: center; }

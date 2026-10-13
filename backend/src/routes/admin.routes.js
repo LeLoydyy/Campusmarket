@@ -1,6 +1,6 @@
 import { accountStore, authStore, planStore, sessionStore, staffStore, stallStore, eventStore } from "../data/marketStore.js";
 import {
-  validate, reviewRegistrationSchema, planReviewSchema, createAdminSchema, updateAdminSchema, updateAccountSchema, removeAccountSchema,
+  validate, reviewRegistrationSchema, planReviewSchema, stallPlanSchema, createAdminSchema, updateAdminSchema, updateAccountSchema, removeAccountSchema,
 } from "../middleware/validate.js";
 import { Router as AdminRouter } from "express";
 import { getAdminStats, getPendingStalls, banUser } from "../controllers/admin.controller.js";
@@ -22,8 +22,8 @@ adminRouter.put("/events/:id/layout", requirePermission("marketplace"), handle(a
   res.json(await eventStore.saveLayout(req.params.id, req.body, req.user.id));
 }));
 adminRouter.get("/stalls", handle(async (_req, res) => res.json(await stallStore.listStalls())));
-adminRouter.put("/stalls/:id/plan", requirePermission("marketplace"), handle(async (req, res) => {
-  res.json(await stallStore.setPlan(req.params.id, req.body.tier, req.user.id));
+adminRouter.put("/stalls/:id/plan", requirePermission("marketplace"), validate(stallPlanSchema), handle(async (req, res) => {
+  res.json(await stallStore.setPlan(req.params.id, req.body, req.user.id));
 }));
 adminRouter.get("/stalls/pending", getPendingStalls);
 adminRouter.get("/plan-requests", handle(async (req, res) => res.json(await planStore.listRequests({ status: req.query.status || "pending" }))));

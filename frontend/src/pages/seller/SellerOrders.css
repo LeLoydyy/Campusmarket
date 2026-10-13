@@ -220,3 +220,6 @@
   .seller-orders-refresh .is-spinning,.seller-orders-mini-spinner,.seller-orders-skeleton i,.seller-orders-live i,.seller-order-card.is-new,.seller-order-row.is-new { animation: none; }
   .seller-orders-summary > button:hover:not(:disabled) { transform: none; }
 }
+.seller-order-details dd svg { vertical-align: -2px; margin-right: .2rem; } .seller-order-details dd a { color: var(--green-700); font-weight: 700; }
+.seller-order-ready-by { display: inline-flex; align-items: center; gap: .3rem; padding: .22rem .5rem; border-radius: 999px; color: var(--green-700); background: var(--green-100); font-size: .6875rem; font-weight: 700; white-space: nowrap; }
+.seller-order-ready-by.is-late { color: var(--coral-700); background: var(--coral-100); }

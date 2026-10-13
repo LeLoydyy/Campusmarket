@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../../components/common/Sidebar.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
@@ -9,24 +9,35 @@ import toast from "react-hot-toast";
 import {
   FiBell,
   FiCheck,
+  FiCheckCircle,
   FiImage,
   FiLock,
   FiLogOut,
   FiMail,
+  FiPackage,
   FiSave,
   FiShield,
+  FiShoppingBag,
+  FiStar,
   FiUser,
 } from "react-icons/fi";
 
 import "./Settings.css";
 
+// Saved on the server and checked before each of these notifications is sent.
 const DEFAULT_PREFERENCES = {
   orderUpdates: true,
-  newMessages: true,
-  eventUpdates: true,
   reviewAlerts: true,
-  weeklySummary: false,
+  stockAlerts: true,
 };
+
+const PREFERENCE_OPTIONS = [
+  ["orderUpdates", "Order updates", "New orders and orders a buyer cancels", FiShoppingBag],
+  ["reviewAlerts", "Review alerts", "New ratings on your products", FiStar],
+  ["stockAlerts", "Low-stock alerts", "When a product or option drops to 3 left or sells out", FiPackage],
+];
+
+const fromUserPrefs = (user) => ({ ...DEFAULT_PREFERENCES, ...(user?.notification_prefs || {}) });
 
 const extractUser = (payload) =>
   payload?.data?.user || payload?.user || payload?.data || payload || {};
@@ -40,6 +51,9 @@ const isValidImageUrl = (value) => {
   }
 };
 
+const samePreferences = (a, b) =>
+  Object.keys(DEFAULT_PREFERENCES).every((key) => a[key] === b[key]);
+
 export default function Settings() {
   const navigate = useNavigate();
   const { user, logout, updateUser } = useAuth();
@@ -47,16 +61,12 @@ export default function Settings() {
     name: user?.name || "",
     avatar_url: user?.avatar_url || "",
   });
-  const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
+  const [preferences, setPreferences] = useState(() => fromUserPrefs(user));
+  const [savedPreferences, setSavedPreferences] = useState(() => fromUserPrefs(user));
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPreferences, setSavingPreferences] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const [profileError, setProfileError] = useState("");
-
-  const preferenceKey = useMemo(
-    () => `campus-market:seller-preferences:${user?.id || "current"}`,
-    [user?.id],
-  );
 
   useEffect(() => {
     setProfile({
@@ -65,14 +75,12 @@ export default function Settings() {
     });
   }, [user?.avatar_url, user?.name]);
 
+  const prefsKey = JSON.stringify(user?.notification_prefs || {});
   useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem(preferenceKey) || "null");
-      if (stored) setPreferences({ ...DEFAULT_PREFERENCES, ...stored });
-    } catch {
-      setPreferences(DEFAULT_PREFERENCES);
-    }
-  }, [preferenceKey]);
+    const loaded = fromUserPrefs(user);
+    setPreferences(loaded);
+    setSavedPreferences(loaded);
+  }, [prefsKey]);
 
   const initials = String(profile.name || user?.email || "S")
     .split(" ")
@@ -81,6 +89,14 @@ export default function Settings() {
     .map((part) => part[0])
     .join("")
     .toUpperCase();
+
+  const profileChanged =
+    profile.name.trim() !== (user?.name || "") ||
+    profile.avatar_url.trim() !== (user?.avatar_url || "");
+  const preferencesChanged = !samePreferences(preferences, savedPreferences);
+  const enabledCount = Object.values(preferences).filter(Boolean).length;
+  const status = String(user?.status || "active").toLowerCase();
+  const showAvatar = profile.avatar_url && !avatarFailed;
 
   const handleProfileChange = ({ target: { name, value } }) => {
     setProfile((previous) => ({ ...previous, [name]: value }));
@@ -125,11 +141,21 @@ export default function Settings() {
     }
   };
 
-  const savePreferences = () => {
+  const resetProfile = () => {
+    setProfile({ name: user?.name || "", avatar_url: user?.avatar_url || "" });
+    setProfileError("");
+    setAvatarFailed(false);
+  };
+
+  const savePreferences = async () => {
     setSavingPreferences(true);
     try {
-      localStorage.setItem(preferenceKey, JSON.stringify(preferences));
-      toast.success("Notification preferences saved");
+      const { data } = await settingsService.updateNotificationPrefs(preferences);
+      updateUser({ notification_prefs: data.notification_prefs });
+      setSavedPreferences(fromUserPrefs(data));
+      toast.success("Notification settings saved");
+    } catch (requestError) {
+      toast.error(requestError.response?.data?.error || "Notification settings could not be saved.");
     } finally {
       setSavingPreferences(false);
     }
@@ -162,7 +188,7 @@ export default function Settings() {
         <div className="dashboard-content seller-settings-content">
           <section className="seller-settings-hero">
             <div className="seller-settings-avatar">
-              {profile.avatar_url && !avatarFailed ? (
+              {showAvatar ? (
                 <img
                   src={profile.avatar_url}
                   alt="Seller profile"
@@ -172,15 +198,15 @@ export default function Settings() {
                 initials
               )}
             </div>
-            <div>
-              <span>Seller account</span>
+            <div className="seller-settings-identity">
+              <span className="seller-settings-eyebrow">Seller account</span>
               <h2>{profile.name || "Campus seller"}</h2>
               <p>
-                <FiMail /> {user?.email || "Email unavailable"}
+                <FiMail aria-hidden="true" /> {user?.email || "Email unavailable"}
               </p>
             </div>
             <div className="seller-settings-account-status">
-              <FiShield />
+              <FiShield aria-hidden="true" />
               <span>
                 <strong>Account protected</strong>
                 <small>Authenticated seller access</small>
@@ -193,7 +219,7 @@ export default function Settings() {
               <form className="seller-settings-card" onSubmit={saveProfile}>
                 <div className="seller-settings-card-heading">
                   <span>
-                    <FiUser />
+                    <FiUser aria-hidden="true" />
                   </span>
                   <div>
                     <h2>Public profile</h2>
@@ -204,46 +230,74 @@ export default function Settings() {
                 <div className="seller-settings-fields">
                   <label>
                     <span>Full name on campus records</span>
-                    <small>Changing your name requires a new administrator review.</small>
                     <input
                       name="name"
                       value={profile.name}
                       onChange={handleProfileChange}
                       placeholder="Your name"
+                      autoComplete="name"
                     />
+                    <small>Changing your name requires a new administrator review.</small>
                   </label>
                   <label>
                     <span>Email address</span>
-                    <input value={user?.email || ""} disabled />
+                    <div className="seller-settings-input-icon is-locked">
+                      <FiMail aria-hidden="true" />
+                      <input value={user?.email || ""} disabled />
+                      <em><FiLock aria-hidden="true" /> Locked</em>
+                    </div>
                     <small>Email changes require account verification.</small>
                   </label>
-                  <label className="wide">
-                    <span>Profile image URL</span>
-                    <div className="seller-settings-image-field">
-                      <FiImage />
-                      <input
-                        name="avatar_url"
-                        value={profile.avatar_url}
-                        onChange={handleProfileChange}
-                        placeholder="https://example.com/profile.jpg"
-                      />
+                  <div className="seller-settings-photo wide">
+                    <div className="seller-settings-photo-preview" aria-hidden="true">
+                      {showAvatar ? (
+                        <img src={profile.avatar_url} alt="" onError={() => setAvatarFailed(true)} />
+                      ) : (
+                        initials
+                      )}
                     </div>
-                  </label>
+                    <label>
+                      <span>Profile image URL</span>
+                      <div className="seller-settings-input-icon">
+                        <FiImage aria-hidden="true" />
+                        <input
+                          name="avatar_url"
+                          value={profile.avatar_url}
+                          onChange={handleProfileChange}
+                          placeholder="https://example.com/profile.jpg"
+                          inputMode="url"
+                        />
+                      </div>
+                      <small>
+                        {avatarFailed
+                          ? "This image could not be loaded. Check the link."
+                          : "Paste a link to a square photo. Your initials are used when it's empty."}
+                      </small>
+                    </label>
+                  </div>
                 </div>
 
                 {profileError && (
-                  <p className="seller-settings-form-error">{profileError}</p>
+                  <p className="seller-settings-form-error" role="alert">{profileError}</p>
                 )}
                 <div className="seller-settings-card-actions">
+                  <span className={`seller-settings-dirty${profileChanged ? " is-visible" : ""}`}>
+                    {profileChanged ? "You have unsaved changes" : ""}
+                  </span>
+                  {profileChanged && (
+                    <button className="btn btn-ghost" type="button" onClick={resetProfile} disabled={savingProfile}>
+                      Discard
+                    </button>
+                  )}
                   <button
                     className="btn btn-primary"
                     type="submit"
-                    disabled={savingProfile}
+                    disabled={savingProfile || !profileChanged}
                   >
                     {savingProfile ? (
                       <span className="seller-settings-spinner" />
                     ) : (
-                      <FiSave />
+                      <FiSave aria-hidden="true" />
                     )}
                     {savingProfile ? "Saving…" : "Save profile"}
                   </button>
@@ -253,48 +307,25 @@ export default function Settings() {
               <section className="seller-settings-card">
                 <div className="seller-settings-card-heading">
                   <span className="gold">
-                    <FiBell />
+                    <FiBell aria-hidden="true" />
                   </span>
                   <div>
                     <h2>Notifications</h2>
-                    <p>Choose which seller activities you want to follow.</p>
+                    <p>Choose which notifications you get. Order status messages to buyers are always sent.</p>
                   </div>
+                  <span className="seller-settings-count">{enabledCount} of {PREFERENCE_OPTIONS.length} on</span>
                 </div>
                 <div className="seller-settings-toggles">
-                  {[
-                    [
-                      "orderUpdates",
-                      "Order updates",
-                      "Status changes and new buyer orders",
-                    ],
-                    [
-                      "newMessages",
-                      "New messages",
-                      "Buyer questions and conversation activity",
-                    ],
-                    [
-                      "eventUpdates",
-                      "Event updates",
-                      "Application and reservation announcements",
-                    ],
-                    [
-                      "reviewAlerts",
-                      "Review alerts",
-                      "New ratings on your products",
-                    ],
-                    [
-                      "weeklySummary",
-                      "Weekly summary",
-                      "A weekly overview of seller performance",
-                    ],
-                  ].map(([key, title, description]) => (
-                    <label className="seller-settings-toggle" key={key}>
-                      <span>
+                  {PREFERENCE_OPTIONS.map(([key, title, description, Icon]) => (
+                    <label className={`seller-settings-toggle${preferences[key] ? " is-on" : ""}`} key={key}>
+                      <span className="seller-settings-toggle-icon" aria-hidden="true"><Icon /></span>
+                      <span className="seller-settings-toggle-text">
                         <strong>{title}</strong>
                         <small>{description}</small>
                       </span>
                       <input
                         type="checkbox"
+                        role="switch"
                         checked={preferences[key]}
                         onChange={() =>
                           setPreferences((previous) => ({
@@ -303,20 +334,23 @@ export default function Settings() {
                           }))
                         }
                       />
-                      <i>
+                      <i aria-hidden="true">
                         <b />
                       </i>
                     </label>
                   ))}
                 </div>
                 <div className="seller-settings-card-actions">
+                  <span className={`seller-settings-dirty${preferencesChanged ? " is-visible" : ""}`}>
+                    {preferencesChanged ? "You have unsaved changes" : <><FiCheckCircle aria-hidden="true" /> Preferences saved</>}
+                  </span>
                   <button
-                    className="btn btn-outline"
+                    className="btn btn-primary"
                     type="button"
                     onClick={savePreferences}
-                    disabled={savingPreferences}
+                    disabled={savingPreferences || !preferencesChanged}
                   >
-                    <FiCheck /> Save preferences
+                    <FiCheck aria-hidden="true" /> Save preferences
                   </button>
                 </div>
               </section>
@@ -324,10 +358,12 @@ export default function Settings() {
 
             <aside className="seller-settings-aside">
               <section>
-                <span>
-                  <FiLock />
-                </span>
-                <h3>Account security</h3>
+                <div className="seller-settings-aside-head">
+                  <span>
+                    <FiLock aria-hidden="true" />
+                  </span>
+                  <h3>Account security</h3>
+                </div>
                 <p>
                   Your login is protected by the access token issued by Campus
                   Market.
@@ -335,22 +371,28 @@ export default function Settings() {
                 <dl>
                   <div>
                     <dt>Role</dt>
-                    <dd>{user?.role || "seller"}</dd>
+                    <dd><span className="seller-settings-pill">{user?.role || "seller"}</span></dd>
                   </div>
                   <div>
                     <dt>Status</dt>
-                    <dd>{user?.status || "Active"}</dd>
+                    <dd>
+                      <span className={`seller-settings-pill ${["approved", "active"].includes(status) ? "is-good" : "is-warn"}`}>
+                        <i aria-hidden="true" />{user?.status || "Active"}
+                      </span>
+                    </dd>
                   </div>
                 </dl>
               </section>
               <section className="danger">
-                <span>
-                  <FiLogOut />
-                </span>
-                <h3>Sign out</h3>
+                <div className="seller-settings-aside-head">
+                  <span>
+                    <FiLogOut aria-hidden="true" />
+                  </span>
+                  <h3>Sign out</h3>
+                </div>
                 <p>End your current session on this device.</p>
                 <button type="button" onClick={handleLogout}>
-                  <FiLogOut /> Sign out
+                  <FiLogOut aria-hidden="true" /> Sign out of this device
                 </button>
               </section>
             </aside>

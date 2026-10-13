@@ -1,0 +1,22 @@
+.review-dialog-thumb { width: 44px; height: 44px; display: grid; place-items: center; flex: 0 0 auto; overflow: hidden; color: var(--gold-700); background: var(--gold-100); border-radius: 12px; }
+.review-dialog-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.review-dialog .cancel-dialog-head p { color: var(--ink-900); font-weight: 650; overflow-wrap: anywhere; }
+
+.review-stars { margin: 1.1rem 0 0; padding: 0; border: 0; }
+.review-stars legend { margin-bottom: .45rem; padding: 0; color: var(--ink-900); font-size: .8125rem; font-weight: 750; }
+.review-stars > div { display: flex; align-items: center; gap: .15rem; }
+.review-stars label { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 10px; color: var(--line-strong); cursor: pointer; transition: transform .12s, color .12s; }
+.review-stars label:hover { transform: scale(1.1); }
+.review-stars label.is-on { color: var(--gold-500); }
+.review-stars label.is-on svg { fill: var(--gold-500); }
+.review-stars label svg { width: 32px; height: 32px; }
+.review-stars input { position: absolute; opacity: 0; pointer-events: none; }
+.review-stars label:has(input:focus-visible) { outline: 2px solid var(--green-700); outline-offset: 1px; }
+.review-stars-label { margin-left: .5rem; color: var(--ink-600); font-size: .8125rem; font-weight: 650; }
+
+.review-comment { margin-top: 1rem; }
+.review-comment > span { display: block; margin-bottom: .4rem; color: var(--ink-900); font-size: .8125rem; font-weight: 750; }
+.review-comment > span small { color: var(--ink-600); font-weight: 500; }
+.review-dialog-note { margin: .6rem 0 0; color: var(--ink-600); font-size: .75rem; }
+
+@media (prefers-reduced-motion: reduce) { .review-stars label { transition: none; } .review-stars label:hover { transform: none; } }

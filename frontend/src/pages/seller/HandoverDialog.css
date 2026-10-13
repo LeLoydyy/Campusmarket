@@ -1,0 +1,16 @@
+.handover-dialog { width: min(420px, 100%); }
+.handover-icon { width: 40px; height: 40px; display: grid; place-items: center; flex: 0 0 auto; color: var(--green-700); background: var(--green-100); border-radius: 12px; font-size: 1.1rem; }
+.handover-code { display: block; margin-top: 1.2rem; }
+.handover-code input { width: 100%; padding: .7rem; color: var(--ink-900); background: var(--cream-50); border: 2px dashed var(--line-strong); border-radius: 14px; font: 900 2.2rem/1 var(--font-display); letter-spacing: .5em; text-align: center; text-indent: .5em; font-variant-numeric: tabular-nums; }
+.handover-code input:focus { outline: 0; border-color: var(--green-700); border-style: solid; background: var(--surface); box-shadow: 0 0 0 3px var(--green-100); }
+.handover-code input[aria-invalid="true"] { border-color: var(--coral-500); }
+
+/* Ready-time choices (ReadyTimeDialog) */
+.ready-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; margin: 1.1rem 0 0; padding: 0; border: 0; }
+.ready-choices label { position: relative; display: grid; justify-items: center; gap: .1rem; padding: .7rem .4rem; background: var(--cream-50); border: 1.5px solid var(--line); border-radius: 12px; cursor: pointer; }
+.ready-choices label:hover { border-color: var(--line-strong); }
+.ready-choices label.is-selected { background: var(--green-100); border-color: var(--green-700); }
+.ready-choices input { position: absolute; opacity: 0; pointer-events: none; }
+.ready-choices label:has(input:focus-visible) { outline: 2px solid var(--green-700); outline-offset: 2px; }
+.ready-choices strong { color: var(--ink-900); font-size: var(--text-sm); }
+.ready-choices small { color: var(--ink-600); font-size: .75rem; }

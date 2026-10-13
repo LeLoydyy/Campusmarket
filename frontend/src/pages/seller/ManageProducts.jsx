@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Sidebar from "../../components/common/Sidebar.jsx";
 import { Modal } from "../../components/common/Ui.jsx";
@@ -9,16 +9,21 @@ import {
   FiEdit2,
   FiEye,
   FiEyeOff,
+  FiExternalLink,
   FiImage,
+  FiMoreHorizontal,
   FiPackage,
+  FiMinus,
   FiPlus,
   FiSearch,
+  FiStar,
   FiTrash2,
   FiTrendingDown,
   FiX,
 } from "react-icons/fi";
 import "./ManageProducts.css";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import { discountLabel, effectivePrice, isOnSale, productOptions } from "../../utils/pricing.js";
 
 const CATEGORIES = [
   "food",
@@ -37,7 +42,13 @@ const EMPTY_FORM = {
   category: "food",
   image_url: "",
   stall_id: "",
+  sale_price: "",
+  images: [],
+  options: [],
 };
+const MAX_EXTRA_PHOTOS = 4;
+const MAX_OPTIONS = 12;
+const OPTION_PRESETS = [["Sizes", ["S", "M", "L", "XL"]], ["Cup sizes", ["Small", "Medium", "Large"]]];
 
 const extractStall = (payload) => {
   const value =
@@ -77,6 +88,198 @@ const formatCategory = (value) =>
   String(value || "Other")
     .replace(/[-_]+/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+const MENU_HEIGHT = 200;
+
+// The table scrolls sideways, so the menu is fixed to the viewport instead of
+// the cell; otherwise the table's overflow would clip it.
+function ProductActionsMenu({ product, busy, onToggle, onEdit, onDelete, featuring }) {
+  const [position, setPosition] = useState(null);
+  const trigger = useRef(null);
+  const menu = useRef(null);
+  const open = Boolean(position);
+
+  const close = useCallback((returnFocus = true) => {
+    setPosition(null);
+    if (returnFocus) trigger.current?.focus();
+  }, []);
+
+  const toggleMenu = () => {
+    if (open) return close();
+    const rect = trigger.current.getBoundingClientRect();
+    const opensUp = rect.bottom + MENU_HEIGHT > window.innerHeight;
+    setPosition({
+      right: Math.max(8, window.innerWidth - rect.right),
+      ...(opensUp
+        ? { bottom: window.innerHeight - rect.top + 6 }
+        : { top: rect.bottom + 6 }),
+    });
+  };
+
+  useEffect(() => {
+    if (!open) return undefined;
+    menu.current?.querySelector("[role=menuitem]")?.focus();
+    const onPointerDown = (event) => {
+      if (!menu.current?.contains(event.target) && !trigger.current?.contains(event.target)) close(false);
+    };
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") close();
+      else if (event.key === "Tab") close(false);
+      else if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+        event.preventDefault();
+        const items = [...menu.current.querySelectorAll("[role=menuitem]:not(:disabled)")];
+        const index = items.indexOf(document.activeElement);
+        const next = event.key === "Home" ? 0
+          : event.key === "End" ? items.length - 1
+          : event.key === "ArrowDown" ? (index + 1) % items.length
+          : (index - 1 + items.length) % items.length;
+        items[next]?.focus();
+      }
+    };
+    const onViewportChange = () => close(false);
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", onViewportChange);
+    window.addEventListener("scroll", onViewportChange, true);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", onViewportChange);
+      window.removeEventListener("scroll", onViewportChange, true);
+    };
+  }, [open, close]);
+
+  const run = (action) => () => {
+    close(false);
+    action(product);
+  };
+
+  return (
+    <div className="manage-product-menu">
+      <button
+        ref={trigger}
+        type="button"
+        className={`manage-product-menu-trigger${open ? " is-open" : ""}`}
+        onClick={toggleMenu}
+        disabled={busy}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Options for ${product.name}`}
+        title="Options"
+      >
+        {busy ? <span className="manage-products-mini-spinner" /> : <FiMoreHorizontal />}
+      </button>
+      {open && (
+        <div
+          ref={menu}
+          className="manage-product-menu-list"
+          role="menu"
+          aria-label={`Options for ${product.name}`}
+          style={position}
+        >
+          <p className="manage-product-menu-title">{product.name}</p>
+          <button type="button" role="menuitem" onClick={run(onEdit)}>
+            <FiEdit2 aria-hidden="true" />
+            <span>Edit product<small>Name, price, stock and photo</small></span>
+          </button>
+          <button type="button" role="menuitem" onClick={run(onToggle)}>
+            {product.is_active ? <FiEyeOff aria-hidden="true" /> : <FiEye aria-hidden="true" />}
+            <span>
+              {product.is_active ? "Hide from buyers" : "Show to buyers"}
+              <small>{product.is_active ? "Keep it, but remove it from the store" : "List it in your store again"}</small>
+            </span>
+          </button>
+          {featuring && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={run(featuring.onToggle)}
+              disabled={!product.is_featured && (!product.is_active || featuring.full)}
+            >
+              <FiStar aria-hidden="true" className={product.is_featured ? "is-filled" : ""} />
+              <span>
+                {product.is_featured ? "Stop featuring" : "Feature on home page"}
+                <small>
+                  {product.is_featured
+                    ? "Remove it from the buyer home page"
+                    : !product.is_active
+                      ? "Show it to buyers first"
+                      : featuring.full
+                        ? `All ${featuring.limit} featured spots are used`
+                        : `${featuring.count} of ${featuring.limit} featured spots used`}
+                </small>
+              </span>
+            </button>
+          )}
+          {product.is_active && (
+            <Link role="menuitem" to={`/products/${product.id}`} target="_blank" rel="noopener" onClick={() => close(false)}>
+              <FiExternalLink aria-hidden="true" />
+              <span>View as buyer<small>Opens in a new tab</small></span>
+            </Link>
+          )}
+          <hr />
+          <button type="button" role="menuitem" className="danger" onClick={run(onDelete)}>
+            <FiTrash2 aria-hidden="true" />
+            <span>Delete product<small>This cannot be undone</small></span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** After a move to Free: pick which products (up to the plan limit) buyers can see. */
+function VisibleChooser({ products, limit, onClose, onSaved }) {
+  const candidates = products.filter((product) => product.is_active || product.hidden_by_plan);
+  const [picked, setPicked] = useState(() => new Set(candidates.filter((product) => product.is_active).map((product) => product.id)));
+  const [saving, setSaving] = useState(false);
+  const full = picked.size >= limit;
+  const toggle = (id) => setPicked((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id);
+    else if (next.size < limit) next.add(id);
+    return next;
+  });
+  const save = async () => {
+    setSaving(true);
+    try {
+      const { data } = await productService.chooseVisible([...picked]);
+      onSaved(extractProducts(data).map(normalizeProduct));
+      toast.success("Visible products updated");
+      onClose();
+    } catch (requestError) {
+      toast.error(requestError.response?.data?.error || "Couldn't update visible products");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Modal open onClose={onClose} title={`Choose up to ${limit} visible products`} maxWidth={560}>
+      <p className="manage-chooser-help">
+        Your Free plan shows {limit} products to buyers. The rest stay saved and come back automatically if you move to Premium.
+      </p>
+      <p className={`manage-chooser-count${full ? " is-full" : ""}`} aria-live="polite">{picked.size} of {limit} selected</p>
+      <ul className="manage-chooser-list">
+        {candidates.map((product) => {
+          const checked = picked.has(product.id);
+          return (
+            <li key={product.id}>
+              <label className={`manage-chooser-item${checked ? " is-checked" : ""}${!checked && full ? " is-disabled" : ""}`}>
+                <input type="checkbox" checked={checked} disabled={!checked && full} onChange={() => toggle(product.id)} />
+                <span className="manage-product-thumb">{product.image_url ? <img src={product.image_url} alt="" /> : <FiImage />}</span>
+                <span className="manage-chooser-name"><strong>{product.name}</strong><small>{formatCurrency(product.price)} · {product.stock} in stock</small></span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="manage-product-form-actions">
+        <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
+        <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save visible products"}</button>
+      </div>
+    </Modal>
+  );
+}
 
 export default function ManageProducts() {
   const [products, setProducts] = useState([]);
@@ -121,6 +324,8 @@ export default function ManageProducts() {
   };
   const [deletingId, setDeletingId] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
+  const [featuringId, setFeaturingId] = useState(null);
+  const [chooserOpen, setChooserOpen] = useState(false);
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
@@ -166,6 +371,10 @@ export default function ManageProducts() {
 
   const stallStatus = String(stall?.status || "").toLowerCase();
   const canManageProducts = ["approved", "active"].includes(stallStatus);
+  const featuredLimit = stall?.plan?.featured_limit ?? 0;
+  const featuredCount = products.filter((product) => product.is_featured).length;
+  const planHidden = products.filter((product) => product.hidden_by_plan).length;
+  const visibleCount = products.filter((product) => product.is_active).length;
 
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -247,6 +456,9 @@ export default function ManageProducts() {
       category: product.category,
       image_url: product.image_url || "",
       stall_id: product.stall_id || stall?.id || "",
+      sale_price: product.sale_price != null && product.sale_price !== "" ? String(Number(product.sale_price)) : "",
+      images: Array.isArray(product.images) ? product.images : [],
+      options: productOptions(product).map((option) => ({ label: option.label, stock: String(option.stock) })),
     });
     setEditTarget(product);
     setErrors({});
@@ -270,6 +482,18 @@ export default function ManageProducts() {
       nextErrors.category = "Choose a valid category.";
     }
     if (errors.image_url) nextErrors.image_url = errors.image_url;
+    if (form.sale_price !== "") {
+      const sale = Number(form.sale_price);
+      if (!Number.isFinite(sale) || sale <= 0) nextErrors.sale_price = "Enter a sale price greater than zero, or leave it empty.";
+      else if (Number.isFinite(price) && sale >= price) nextErrors.sale_price = "The sale price must be lower than the regular price.";
+    }
+    if (form.options.length) {
+      delete nextErrors.stock;
+      const labels = form.options.map((option) => option.label.trim().toLowerCase());
+      if (labels.some((label) => !label)) nextErrors.options = "Give every option a name, or remove the empty one.";
+      else if (new Set(labels).size !== labels.length) nextErrors.options = "Each option needs a different name.";
+      else if (form.options.some((option) => !Number.isInteger(Number(option.stock)) || Number(option.stock) < 0)) nextErrors.options = "Option stock must be a whole number of 0 or more.";
+    }
 
     return nextErrors;
   };
@@ -288,8 +512,11 @@ export default function ManageProducts() {
       description: form.description.trim(),
       image_url: form.image_url.trim(),
       price: Number(form.price),
-      stock: Number(form.stock),
+      stock: form.options.length ? optionStockTotal : Number(form.stock),
       stall_id: stall?.id || form.stall_id,
+      sale_price: form.sale_price === "" ? null : Number(form.sale_price),
+      images: form.images,
+      options: form.options.map((option) => ({ label: option.label.trim(), stock: Number(option.stock) || 0 })),
     };
 
     try {
@@ -367,7 +594,9 @@ export default function ManageProducts() {
       const savedActive = result.is_active ?? nextActive;
       setProducts((current) =>
         current.map((item) =>
-          item.id === product.id ? { ...item, is_active: savedActive } : item,
+          item.id === product.id
+            ? { ...item, is_active: savedActive, hidden_by_plan: false, is_featured: savedActive && item.is_featured }
+            : item,
         ),
       );
       toast.success(savedActive ? "Product is now visible" : "Product hidden");
@@ -377,6 +606,72 @@ export default function ManageProducts() {
       );
     } finally {
       setTogglingId(null);
+    }
+  };
+
+  const handleFeature = async (product) => {
+    try {
+      setFeaturingId(product.id);
+      const { data } = await productService.setFeatured(product.id, !product.is_featured);
+      const saved = extractProduct(data);
+      setProducts((current) => current.map((item) => item.id === product.id ? { ...item, is_featured: Boolean(saved.is_featured) } : item));
+      toast.success(saved.is_featured ? "Featured on the buyer home page" : "No longer featured");
+    } catch (requestError) {
+      toast.error(requestError.response?.data?.error || "Couldn't change the featured products");
+    } finally {
+      setFeaturingId(null);
+    }
+  };
+
+  const optionStockTotal = form.options.reduce((sum, option) => sum + (Number(option.stock) || 0), 0);
+  const clearOptionsError = () => setErrors((current) => (current.options ? { ...current, options: "" } : current));
+  const changeOption = (index, key, value) => {
+    setForm((current) => ({ ...current, options: current.options.map((option, at) => (at === index ? { ...option, [key]: value } : option)) }));
+    clearOptionsError();
+  };
+  const addOption = (label = "") => setForm((current) => (current.options.length >= MAX_OPTIONS ? current
+    : { ...current, options: [...current.options, { label, stock: current.options.length ? "0" : current.stock || "0" }] }));
+  const removeOption = (index) => {
+    setForm((current) => ({ ...current, options: current.options.filter((_, at) => at !== index) }));
+    clearOptionsError();
+  };
+  const usePreset = (labels) => setForm((current) => ({ ...current, options: labels.map((label) => ({ label, stock: "0" })) }));
+
+  // Extra photos upload right away, so the form only keeps their links.
+  const [uploadingExtra, setUploadingExtra] = useState(false);
+  const addExtraPhoto = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      toast.error("Choose a JPG, PNG, or WebP photo up to 5 MB.");
+      return;
+    }
+    try {
+      setUploadingExtra(true);
+      const { data } = await productService.uploadPhoto(file);
+      setForm((current) => ({ ...current, images: [...current.images, data.image_url].slice(0, MAX_EXTRA_PHOTOS) }));
+    } catch (requestError) {
+      toast.error(requestError.response?.data?.error || "The photo could not be uploaded.");
+    } finally {
+      setUploadingExtra(false);
+    }
+  };
+  const removeExtraPhoto = (url) => setForm((current) => ({ ...current, images: current.images.filter((image) => image !== url) }));
+
+  // Quick stock edit from the table (products without options).
+  const [stockSavingId, setStockSavingId] = useState(null);
+  const adjustStock = async (product, delta) => {
+    const next = Math.max(0, Number(product.stock) + delta);
+    if (next === Number(product.stock)) return;
+    try {
+      setStockSavingId(product.id);
+      await productService.update(product.id, { stock: next });
+      setProducts((current) => current.map((item) => (item.id === product.id ? { ...item, stock: next } : item)));
+    } catch (requestError) {
+      toast.error(requestError.response?.data?.error || "Stock could not be updated.");
+    } finally {
+      setStockSavingId(null);
     }
   };
 
@@ -417,7 +712,26 @@ export default function ManageProducts() {
         </header>
 
         <div className="dashboard-content manage-products-content">
-          {stall?.plan && <p className="card" style={{ padding: "1rem" }}>{stall.plan.name} plan · {products.length} / {stall.plan.listing_limit} listings{stall.plan.analytics ? " · Point of sale, product analytics and landing-page advertising included" : <> · Premium gives 25 listings, point of sale, analytics and advertising. <Link to="/seller/plans" className="cm-link">See Premium</Link></>}</p>}
+          {stall?.plan && (
+            <div className={`manage-plan-bar${planHidden ? " is-warning" : ""}`}>
+              <p>
+                <strong>{stall.plan.name} plan</strong> · {products.length} / {stall.plan.listing_limit} listings
+                {featuredLimit > 0 && <> · <FiStar aria-hidden="true" className="is-filled" /> {featuredCount} / {featuredLimit} featured</>}
+                {stall.plan.analytics
+                  ? " · Point of sale and product analytics included"
+                  : <> · Premium gives 25 listings, 3 featured products, point of sale and analytics. <Link to="/seller/plans" className="cm-link">See Premium</Link></>}
+              </p>
+              {planHidden > 0 && (
+                <div className="manage-plan-hidden">
+                  <span>
+                    <FiEyeOff aria-hidden="true" /> {planHidden} product{planHidden === 1 ? " was" : "s were"} hidden when your stall moved to Free.
+                    Buyers see {visibleCount} of {stall.plan.listing_limit}.
+                  </span>
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => setChooserOpen(true)}>Choose visible products</button>
+                </div>
+              )}
+            </div>
+          )}
           {!loading && stall && !canManageProducts && (
             <div className="manage-products-notice" role="status">
               <FiAlertCircle />
@@ -611,6 +925,9 @@ export default function ManageProducts() {
                             </div>
                             <div>
                               <strong title={product.name}>
+                                {product.is_featured && (
+                                  <FiStar className="manage-product-featured" aria-label="Featured" />
+                                )}
                                 {product.name}
                               </strong>
                               <small title={product.description}>
@@ -628,72 +945,49 @@ export default function ManageProducts() {
                         </td>
                         <td data-label="Price">
                           <strong className="manage-product-price">
-                            {formatCurrency(product.price)}
+                            {formatCurrency(effectivePrice(product))}
                           </strong>
+                          {isOnSale(product) && (
+                            <small className="manage-product-sale">
+                              <s>{formatCurrency(product.price)}</s> {discountLabel(product)}
+                            </small>
+                          )}
                         </td>
                         <td data-label="Stock">
-                          <span
-                            className={`manage-product-stock ${product.stock === 0 ? "out" : product.stock <= 5 ? "low" : ""}`}
-                          >
-                            {product.stock === 0
-                              ? "Out of stock"
-                              : `${product.stock} in stock`}
-                          </span>
+                          {productOptions(product).length ? (
+                            <span className="manage-product-stock-options">
+                              <span className={`manage-product-stock ${product.stock === 0 ? "out" : product.stock <= 5 ? "low" : ""}`}>
+                                {product.stock === 0 ? "Out of stock" : `${product.stock} in stock`}
+                              </span>
+                              <small title={productOptions(product).map((option) => `${option.label}: ${option.stock}`).join(", ")}>
+                                {productOptions(product).map((option) => `${option.label} ${option.stock}`).join(" · ")}
+                              </small>
+                            </span>
+                          ) : (
+                            <span className={`manage-stock-stepper ${product.stock === 0 ? "out" : product.stock <= 5 ? "low" : ""}`}>
+                              <button type="button" onClick={() => adjustStock(product, -1)} disabled={stockSavingId === product.id || product.stock <= 0} aria-label={`One less ${product.name} in stock`}><FiMinus /></button>
+                              <span aria-live="polite">{product.stock === 0 ? "Out" : product.stock}</span>
+                              <button type="button" onClick={() => adjustStock(product, 1)} disabled={stockSavingId === product.id} aria-label={`One more ${product.name} in stock`}><FiPlus /></button>
+                            </span>
+                          )}
                         </td>
                         <td data-label="Visibility">
                           <span
                             className={`manage-product-visibility ${product.is_active ? "active" : "hidden"}`}
                           >
-                            <i /> {product.is_active ? "Visible" : "Hidden"}
+                            <i /> {product.is_active ? "Visible" : product.hidden_by_plan ? "Hidden by plan" : "Hidden"}
                           </span>
                         </td>
                         <td data-label="Actions">
                           <div className="manage-product-actions">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleActive(product)}
-                              disabled={togglingId === product.id}
-                              title={
-                                product.is_active
-                                  ? "Hide product"
-                                  : "Show product"
-                              }
-                              aria-label={
-                                product.is_active
-                                  ? `Hide ${product.name}`
-                                  : `Show ${product.name}`
-                              }
-                            >
-                              {togglingId === product.id ? (
-                                <span className="manage-products-mini-spinner" />
-                              ) : product.is_active ? (
-                                <FiEyeOff />
-                              ) : (
-                                <FiEye />
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openEdit(product)}
-                              title="Edit product"
-                              aria-label={`Edit ${product.name}`}
-                            >
-                              <FiEdit2 />
-                            </button>
-                            <button
-                              type="button"
-                              className="danger"
-                              onClick={() => handleDelete(product)}
-                              disabled={deletingId === product.id}
-                              title="Delete product"
-                              aria-label={`Delete ${product.name}`}
-                            >
-                              {deletingId === product.id ? (
-                                <span className="manage-products-mini-spinner" />
-                              ) : (
-                                <FiTrash2 />
-                              )}
-                            </button>
+                            <ProductActionsMenu
+                              product={product}
+                              busy={togglingId === product.id || deletingId === product.id || featuringId === product.id}
+                              onToggle={handleToggleActive}
+                              onEdit={openEdit}
+                              onDelete={handleDelete}
+                              featuring={featuredLimit > 0 ? { limit: featuredLimit, count: featuredCount, full: featuredCount >= featuredLimit, onToggle: handleFeature } : null}
+                            />
                           </div>
                         </td>
                       </tr>
@@ -705,6 +999,15 @@ export default function ManageProducts() {
           )}
         </div>
       </main>
+
+      {chooserOpen && stall?.plan && (
+        <VisibleChooser
+          products={products}
+          limit={stall.plan.listing_limit}
+          onClose={() => setChooserOpen(false)}
+          onSaved={setProducts}
+        />
+      )}
 
       <Modal
         open={modalOpen}
@@ -768,6 +1071,21 @@ export default function ManageProducts() {
               {errors.price && <small>{errors.price}</small>}
             </div>
             <div className="manage-product-field">
+              <label htmlFor="product-sale-price">Sale price (₱) <em>optional</em></label>
+              <input
+                id="product-sale-price"
+                className={errors.sale_price ? "is-invalid" : ""}
+                name="sale_price"
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={form.sale_price}
+                onChange={handleChange}
+                placeholder="No sale"
+              />
+              {errors.sale_price ? <small>{errors.sale_price}</small> : <span className="manage-product-photo-help">Buyers pay this instead, and see the regular price crossed out.</span>}
+            </div>
+            <div className="manage-product-field">
               <label htmlFor="product-stock">
                 Available stock <span>*</span>
               </label>
@@ -778,13 +1096,42 @@ export default function ManageProducts() {
                 type="number"
                 min="0"
                 step="1"
-                value={form.stock}
+                value={form.options.length ? String(optionStockTotal) : form.stock}
                 onChange={handleChange}
                 placeholder="0"
+                disabled={form.options.length > 0}
               />
-              {errors.stock && <small>{errors.stock}</small>}
+              {errors.stock ? <small>{errors.stock}</small> : form.options.length > 0 && <span className="manage-product-photo-help">Total of the options below.</span>}
             </div>
           </div>
+
+          <fieldset className="manage-product-options">
+            <legend>Options <em>optional</em></legend>
+            <p className="manage-product-photo-help">Sizes, flavours or colours, each with its own stock. Buyers must pick one.</p>
+            {form.options.length > 0 ? (
+              <ul>
+                {form.options.map((option, index) => (
+                  <li key={index}>
+                    <input aria-label={`Option ${index + 1} name`} value={option.label} maxLength={30} placeholder="e.g. Medium"
+                      onChange={(event) => changeOption(index, "label", event.target.value)} />
+                    <input aria-label={`Stock for ${option.label || `option ${index + 1}`}`} type="number" min="0" step="1" value={option.stock}
+                      onChange={(event) => changeOption(index, "stock", event.target.value)} />
+                    <button type="button" onClick={() => removeOption(index)} aria-label={`Remove option ${option.label || index + 1}`}><FiX /></button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="manage-product-option-presets">
+                {OPTION_PRESETS.map(([label, labels]) => (
+                  <button type="button" key={label} onClick={() => usePreset(labels)}>{label}: {labels.join(", ")}</button>
+                ))}
+              </div>
+            )}
+            {errors.options && <small className="manage-product-options-error" role="alert">{errors.options}</small>}
+            {form.options.length < MAX_OPTIONS && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => addOption()}><FiPlus /> Add option</button>
+            )}
+          </fieldset>
 
           <div className="manage-product-field">
             <label htmlFor="product-category">
@@ -831,6 +1178,25 @@ export default function ManageProducts() {
               </div>
             )}
             {errors.image_url && <button type="button" onClick={removePhoto} disabled={saving}>Clear photo selection</button>}
+          </div>
+
+          <div className="manage-product-field">
+            <span className="manage-product-extra-label">More photos <em>optional, up to {MAX_EXTRA_PHOTOS}</em></span>
+            <div className="manage-product-extra-photos">
+              {form.images.map((url, index) => (
+                <span key={url} className="manage-product-extra-photo">
+                  <img src={url} alt={`Extra photo ${index + 1}`} />
+                  <button type="button" onClick={() => removeExtraPhoto(url)} disabled={saving} aria-label={`Remove extra photo ${index + 1}`}><FiX /></button>
+                </span>
+              ))}
+              {form.images.length < MAX_EXTRA_PHOTOS && (
+                <label className={`manage-product-extra-add${uploadingExtra ? " is-busy" : ""}`}>
+                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={addExtraPhoto} disabled={saving || uploadingExtra} />
+                  {uploadingExtra ? <span className="manage-products-mini-spinner" /> : <FiPlus />}
+                  <span>{uploadingExtra ? "Uploading…" : "Add photo"}</span>
+                </label>
+              )}
+            </div>
           </div>
 
           <div className="manage-product-form-actions">

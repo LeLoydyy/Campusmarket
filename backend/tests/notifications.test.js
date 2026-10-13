@@ -49,7 +49,7 @@ test("order changes notify the buyer and seller, each only about their side", as
   assert.equal((await notificationStore.list("buyer")).length, 4);
 
   // A buyer cancelling tells the seller, not the buyer.
-  const second = await orderStore.create("buyer", [{ product_id: "rice", quantity: 1 }], "", "delivery");
+  const second = await orderStore.create("buyer", [{ product_id: "rice", quantity: 1 }], "", "delivery", "Library lobby");
   await orderStore.updateStatus(second.id, "cancelled", "buyer", "buyer");
   const [cancelNote] = await notificationStore.list("seller");
   assert.equal(cancelNote.title, "Order cancelled by buyer");

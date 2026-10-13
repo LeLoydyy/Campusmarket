@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
+  Banknote,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
@@ -12,6 +13,7 @@ import {
   RefreshCw,
   Search,
   ShoppingBag,
+  Star,
   Store,
   Truck,
   XCircle,
@@ -20,9 +22,10 @@ import Navbar from "../../components/common/Navbar.jsx";
 import Footer from "../../components/common/Footer.jsx";
 import OrderStepper from "../../components/ui/OrderStepper.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
-import { orderService } from "../../services/api.js";
+import { orderService, reviewService } from "../../services/api.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import CancelOrderDialog from "./CancelOrderDialog.jsx";
+import ReviewDialog from "./ReviewDialog.jsx";
 import "./Orders.css";
 
 const FILTERS = [
@@ -146,6 +149,26 @@ export default function Orders() {
   const [expandedOrders, setExpandedOrders] = useState({});
   const [cancellingId, setCancellingId] = useState(null);
   const [cancelTarget, setCancelTarget] = useState(null);
+  const [reviewTarget, setReviewTarget] = useState(null); // { order, item }
+  const [savingReview, setSavingReview] = useState(false);
+
+  const saveReview = async ({ rating, comment }) => {
+    const { order, item } = reviewTarget;
+    setSavingReview(true);
+    try {
+      const { data } = await reviewService.save({ order_id: order.id, product_id: item.product_id, rating, comment });
+      setOrders((current) => current.map((entry) => entry.id !== order.id ? entry : {
+        ...entry,
+        items: entry.items.map((line) => line.product_id === item.product_id ? { ...line, review: { rating: data.rating, comment: data.comment } } : line),
+      }));
+      toast.success(item.review ? "Review updated" : "Thanks for your review!");
+      setReviewTarget(null);
+    } catch (requestError) {
+      toast.error(requestError.response?.data?.error || "Your review could not be saved.");
+    } finally {
+      setSavingReview(false);
+    }
+  };
   const [now, setNow] = useState(Date.now);
 
   useEffect(() => {
@@ -368,11 +391,22 @@ export default function Orders() {
                 cancelling={cancellingId === order.id}
                 cancelDisabled={Boolean(cancellingId)}
                 onCancel={() => setCancelTarget(order)}
+                onReview={(item) => setReviewTarget({ order, item })}
               />
             ))}
           </section>
         )}
       </main>
+      {reviewTarget && (
+        <ReviewDialog
+          productName={getProduct(reviewTarget.item).name || reviewTarget.item.name}
+          imageUrl={getProduct(reviewTarget.item).image_url}
+          initial={reviewTarget.item.review}
+          submitting={savingReview}
+          onSubmit={saveReview}
+          onClose={() => !savingReview && setReviewTarget(null)}
+        />
+      )}
       {cancelTarget && (
         <CancelOrderDialog
           orderReference={getOrderReference(cancelTarget)}
@@ -387,7 +421,7 @@ export default function Orders() {
   );
 }
 
-function BuyerOrderCard({ order, expanded, onToggle, now, cancelling, cancelDisabled, onCancel }) {
+function BuyerOrderCard({ order, expanded, onToggle, now, cancelling, cancelDisabled, onCancel, onReview }) {
   const detailsRef = useRef(null);
   const openDetails = () => {
     detailsRef.current.open = true;
@@ -405,9 +439,15 @@ function BuyerOrderCard({ order, expanded, onToggle, now, cancelling, cancelDisa
     order.fulfillment || order.fulfillment_method || "pickup",
   );
   const stallName = getStallName(order, items);
+  const received = ["completed", "delivered"].includes(status);
+  const cancelled = ["cancelled", "canceled"].includes(status);
+  const showPickupCode = fulfillment !== "delivery" && order.pickup_code && !received && !cancelled;
   const itemCount = items.reduce((sum, item) => sum + Number(item.quantity || 1), 0);
   const statusMessage = status === "pending" ? "Waiting for seller confirmation"
-    : ["confirmed", "processing", "preparing"].includes(status) ? "The seller is preparing your order"
+    : ["confirmed", "processing", "preparing"].includes(status)
+      ? order.ready_by
+        ? `The seller is preparing your order. Ready around ${new Date(order.ready_by).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}`
+        : "The seller is preparing your order"
     : ["ready", "ready-for-pickup"].includes(status) ? (fulfillment === "delivery" ? "Your order is ready for delivery" : "Your order is ready to collect")
     : status === "out-for-delivery" ? "Your order is on its way"
     : ["completed", "delivered"].includes(status) ? "Order completed. Thanks for shopping on campus!"
@@ -449,11 +489,24 @@ function BuyerOrderCard({ order, expanded, onToggle, now, cancelling, cancelDisa
         <div className={`buyer-order-pickup ${fulfillment === "delivery" ? "is-delivery" : ""}`}>
           <span className="buyer-order-pickup-icon" aria-hidden="true">{fulfillment === "delivery" ? <Truck size={20} /> : <MapPin size={20} />}</span>
           <span>
-            <small>{fulfillment === "delivery" ? "Campus delivery" : "Pick up at"}</small>
-            <strong>{fulfillment === "delivery" ? "The seller will bring it to you" : order.stall?.location || stallName}</strong>
+            <small>{fulfillment === "delivery" ? "Campus delivery to" : "Pick up at"}</small>
+            <strong>{fulfillment === "delivery" ? order.delivery_address || "The seller will bring it to you" : order.stall?.location || stallName}</strong>
             {fulfillment !== "delivery" && order.stall?.location && <small>{stallName}</small>}
           </span>
+          {showPickupCode && (
+            <span className="buyer-order-code" aria-label={`Pickup code ${order.pickup_code.split("").join(" ")}`}>
+              <small>Pickup code</small>
+              <strong>{order.pickup_code}</strong>
+              <small>Show this to the seller</small>
+            </span>
+          )}
         </div>
+      )}
+      {!received && !cancelled && (
+        <p className="buyer-order-payment">
+          <Banknote size={15} aria-hidden="true" />
+          Pay in cash {fulfillment === "delivery" ? "when your order arrives" : "when you collect it"}.
+        </p>
       )}
 
       <div className="buyer-order-items">
@@ -480,6 +533,18 @@ function BuyerOrderCard({ order, expanded, onToggle, now, cancelling, cancelDisa
                   <small>
                     {formatPrice(getItemPrice(item))} × {quantity}
                   </small>
+                  {received && item.product_id && (
+                    item.review ? (
+                      <button type="button" className="buyer-order-rated" onClick={() => onReview(item)} aria-label={`Your rating: ${item.review.rating} of 5. Edit your review of ${product.name || "this item"}`}>
+                        <span aria-hidden="true">{[1, 2, 3, 4, 5].map((value) => <Star key={value} size={13} className={value <= item.review.rating ? "is-on" : ""} />)}</span>
+                        Edit review
+                      </button>
+                    ) : (
+                      <button type="button" className="buyer-order-rate" onClick={() => onReview(item)}>
+                        <Star size={14} aria-hidden="true" /> Rate this product
+                      </button>
+                    )
+                  )}
                 </div>
                 <strong>{formatPrice(getItemPrice(item) * quantity)}</strong>
               </div>
@@ -518,6 +583,7 @@ function BuyerOrderCard({ order, expanded, onToggle, now, cancelling, cancelDisa
             <dt>Order reference</dt><dd>{order.order_number || order.reference || order.id}</dd>
             <dt>Placed on</dt><dd>{formatDate(order.created_at || order.order_date)}</dd>
             <dt>Your note</dt><dd>{order.delivery_notes || order.notes || "No note added."}</dd>
+            <dt>Payment</dt><dd>Cash {fulfillment === "delivery" ? "on delivery" : "at pickup"}</dd>
           </dl>
         </details>
         {ACTIVE_STATUSES.has(status) && (

@@ -7,7 +7,7 @@ import {
 } from "../controllers/auth.controller.js";
 import { verifyToken, verifySession } from "../middleware/auth.js";
 import {
-  validate, registerSchema, loginSchema, credentialsSchema, changePasswordSchema, profileSchema, sendCodeSchema, verifyEmailSchema,
+  validate, registerSchema, loginSchema, credentialsSchema, changePasswordSchema, profileSchema, notificationPrefsSchema, sendCodeSchema, verifyEmailSchema,
   loginVerifySchema, loginResendSchema, setupSchema, recoveryQuestionsSchema, forgotStartSchema, forgotVerifySchema, forgotCompleteSchema,
 } from "../middleware/validate.js";
 
@@ -30,6 +30,9 @@ router.put("/setup", verifySession, validate(setupSchema), completeSetup);
 router.put("/recovery-questions", verifySession, validate(recoveryQuestionsSchema), setRecoveryQuestions);
 router.put("/credentials", verifySession, validate(credentialsSchema), submitCredentials);
 router.put("/profile", verifyToken, validate(profileSchema), updateProfile);
+router.put("/notification-preferences", verifyToken, validate(notificationPrefsSchema), async (req, res, next) => {
+  try { res.json(await authStore.setNotificationPrefs(req.user.id, req.body)); } catch (error) { next(error); }
+});
 router.put("/password", verifySession, validate(changePasswordSchema), changePassword);
 router.post("/start-selling", verifyToken, validate(stallSchema), async (req, res, next) => {
   try { res.status(201).json(await authStore.startSelling(req.user.id, req.body)); } catch (error) { next(error); }

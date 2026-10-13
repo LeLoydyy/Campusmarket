@@ -281,10 +281,11 @@ export const myLogins = async (req, res, next) => {
 // ── UPDATE PROFILE ───────────────────────────────────────────
 export const updateProfile = async (req, res, next) => {
   try {
-    const { name, avatar_url } = req.body;
+    const { name, avatar_url, phone, address } = req.body;
     const updates = {};
     if (name) updates.name = name;
-    if (avatar_url) updates.avatar_url = avatar_url;
+    // Empty strings clear the photo, phone or delivery location.
+    for (const [key, value] of Object.entries({ avatar_url, phone, address })) if (value !== undefined) updates[key] = value;
 
     const data = await authStore.updateUserProfile(req.user.id, updates);
     res.json(data);

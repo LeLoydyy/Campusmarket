@@ -7,6 +7,7 @@
  */
 
 const peso = (amount) => `₱${Number(amount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const clock = (value) => new Date(value).toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit" });
 const items = (count) => `${count} ${count === 1 ? "item" : "items"}`;
 
 /**
@@ -21,7 +22,9 @@ export const buyerOrderMessage = (order, { stallName, stallLocation, itemCount }
     case "pending":
       return { title: "Order placed", body: `${stall} received your order of ${items(itemCount)}. We'll let you know when it's confirmed.` };
     case "confirmed":
-      return { title: "Confirmed by seller", body: `${stall} accepted your order and will start preparing it soon.` };
+      return { title: "Confirmed by seller", body: order.ready_by
+        ? `${stall} accepted your order. It should be ready around ${clock(order.ready_by)}.`
+        : `${stall} accepted your order and will start preparing it soon.` };
     case "preparing":
       return { title: "Being prepared", body: `${stall} is preparing your order now.` };
     case "ready":
@@ -33,7 +36,7 @@ export const buyerOrderMessage = (order, { stallName, stallLocation, itemCount }
     case "completed":
       return { title: "Order completed", body: `Thanks for shopping at ${stall}!` };
     case "cancelled":
-      return { title: "Order cancelled", body: `${stall} cancelled your order.` };
+      return { title: "Order cancelled", body: `${stall} cancelled your order${order.cancel_reason ? ` — reason: “${order.cancel_reason}”` : "."}` };
     default:
       return { title: "Order updated", body: `Your order from ${stall} was updated.` };
   }

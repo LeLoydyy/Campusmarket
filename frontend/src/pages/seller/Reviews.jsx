@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Sidebar from "../../components/common/Sidebar.jsx";
-import { productService, stallService } from "../../services/api.js";
+import { reviewService } from "../../services/api.js";
 import {
   FiAlertCircle,
+  FiAward,
   FiMessageSquare,
   FiPackage,
   FiRefreshCw,
@@ -12,21 +13,7 @@ import {
 } from "react-icons/fi";
 import "./Reviews.css";
 import EmptyState from "../../components/ui/EmptyState.jsx";
-
-const extractStall = (payload) => {
-  const value =
-    payload?.data?.stall ?? payload?.stall ?? payload?.data ?? payload;
-  return Array.isArray(value) ? value[0] || null : value || null;
-};
-
-const extractProducts = (payload) => {
-  const value =
-    payload?.data?.products ?? payload?.products ?? payload?.data ?? payload;
-  return Array.isArray(value) ? value : [];
-};
-
-const extractProduct = (payload) =>
-  payload?.data?.product || payload?.product || payload?.data || payload || {};
+import toast from "react-hot-toast";
 
 const formatDate = (value) => {
   if (!value) return "Recently";
@@ -67,6 +54,56 @@ function Stars({ value }) {
   );
 }
 
+/** The seller's public answer under a review: write, edit or remove it. */
+function ReviewReply({ review, onSaved }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(review.seller_reply || "");
+  const [saving, setSaving] = useState(false);
+  const save = async (value) => {
+    setSaving(true);
+    try {
+      const { data } = await reviewService.reply(review.id, value);
+      onSaved(data);
+      setEditing(false);
+      toast.success(value ? "Reply posted" : "Reply removed");
+    } catch (requestError) {
+      toast.error(requestError.response?.data?.error || "Your reply could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  };
+  if (editing) {
+    return (
+      <form className="seller-review-reply-form" onSubmit={(event) => { event.preventDefault(); if (text.trim()) save(text.trim()); }}>
+        <label className="sr-only" htmlFor={`reply-${review.id}`}>Your reply</label>
+        <textarea id={`reply-${review.id}`} rows={3} maxLength={1000} value={text} onChange={(event) => setText(event.target.value)}
+          placeholder="Thank the buyer, or explain what you'll do about it. Everyone can see this reply." autoFocus disabled={saving} />
+        <div>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setEditing(false); setText(review.seller_reply || ""); }} disabled={saving}>Cancel</button>
+          <button type="submit" className="btn btn-primary btn-sm" disabled={saving || !text.trim()}>{saving ? "Saving…" : "Post reply"}</button>
+        </div>
+      </form>
+    );
+  }
+  if (review.seller_reply) {
+    return (
+      <div className="seller-review-reply">
+        <strong>Your reply</strong>
+        <p>{review.seller_reply}</p>
+        <div>
+          <button type="button" onClick={() => { setText(review.seller_reply); setEditing(true); }}>Edit</button>
+          <button type="button" onClick={() => window.confirm("Remove your reply?") && save("")} disabled={saving}>Remove</button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <button type="button" className="seller-review-reply-btn" onClick={() => setEditing(true)}>
+      <FiMessageSquare aria-hidden="true" /> Reply publicly
+    </button>
+  );
+}
+
 export default function Reviews() {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -80,57 +117,14 @@ export default function Reviews() {
     setError("");
 
     try {
-      const stallResponse = await stallService.getMy();
-      const stall = extractStall(stallResponse.data);
-
-      if (!stall?.id) {
-        setReviews([]);
-        return;
-      }
-
-      const productResponse = await productService.getAll({
-        stall_id: stall.id,
-        limit: 100,
-      });
-      const products = extractProducts(productResponse.data).filter(
-        (product) =>
-          !product.stall_id || String(product.stall_id) === String(stall.id),
-      );
-
-      const details = await Promise.allSettled(
-        products
-          .slice(0, 50)
-          .map((product) => productService.getOne(product.id)),
-      );
-
-      const records = details.flatMap((result, index) => {
-        const fallback = products[index];
-        const product =
-          result.status === "fulfilled"
-            ? extractProduct(result.value.data)
-            : fallback;
-        const productReviews = Array.isArray(product?.reviews)
-          ? product.reviews
-          : [];
-
-        return productReviews.map((review) => ({
-          ...review,
-          id:
-            review.id || `${product.id}-${review.created_at || Math.random()}`,
-          rating: Math.max(1, Math.min(5, Number(review.rating) || 0)),
-          comment: review.comment || review.content || review.text || "",
-          product: {
-            id: product.id || fallback?.id,
-            name: product.name || fallback?.name || "Product",
-            image_url: product.image_url || fallback?.image_url || "",
-          },
-        }));
-      });
-
+      const { data } = await reviewService.getMine();
       setReviews(
-        records.sort(
-          (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0),
-        ),
+        (Array.isArray(data) ? data : []).map((review) => ({
+          ...review,
+          rating: Math.max(1, Math.min(5, Number(review.rating) || 0)),
+          comment: review.comment || "",
+          product: review.product || { name: "Product" },
+        })),
       );
     } catch (requestError) {
       setReviews([]);
@@ -226,6 +220,7 @@ export default function Reviews() {
               <div>
                 <small>Total reviews</small>
                 <strong>{loading ? "—" : summary.total}</strong>
+                <em>{summary.total ? "From your buyers" : "None yet"}</em>
               </div>
             </article>
             <article>
@@ -234,25 +229,28 @@ export default function Reviews() {
               </span>
               <div>
                 <small>Average rating</small>
-                <strong>{loading ? "—" : summary.total ? summary.average.toFixed(1) : "No ratings"}</strong>
+                <strong>{loading ? "—" : summary.total ? <>{summary.average.toFixed(1)}<span className="seller-reviews-out-of"> / 5</span></> : "—"}</strong>
+                <em>{summary.total ? <Stars value={Math.round(summary.average)} /> : "No ratings yet"}</em>
               </div>
             </article>
             <article>
               <span className="tone-green">
-                <FiStar />
+                <FiAward />
               </span>
               <div>
                 <small>Five-star share</small>
-                <strong>{loading ? "—" : `${summary.fiveStarRate}%`}</strong>
+                <strong>{loading ? "—" : summary.total ? `${summary.fiveStarRate}%` : "—"}</strong>
+                <em>{summary.total ? "of all reviews" : "No ratings yet"}</em>
               </div>
             </article>
             <article>
-              <span className="tone-blue">
+              <span className="tone-coral">
                 <FiPackage />
               </span>
               <div>
                 <small>Products reviewed</small>
                 <strong>{loading ? "—" : summary.products}</strong>
+                <em>{summary.products === 1 ? "product" : "products"} with feedback</em>
               </div>
             </article>
           </section>
@@ -264,9 +262,24 @@ export default function Reviews() {
                   <small>Recent feedback</small>
                   <h2>Customer reviews</h2>
                 </div>
+                <label className="seller-reviews-search">
+                  <FiSearch aria-hidden="true" />
+                  <span className="sr-only">Search reviews</span>
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search buyer, product, or comment"
+                  />
+                  {search && (
+                    <button type="button" onClick={() => setSearch("")} aria-label="Clear search">
+                      <FiX />
+                    </button>
+                  )}
+                </label>
               </div>
 
-              <div className="seller-reviews-filters">
+              <div className="seller-reviews-filters" role="group" aria-label="Filter by rating">
                 {["all", "5", "4", "3", "2", "1"].map((rating) => (
                   <button
                     key={rating}
@@ -291,23 +304,6 @@ export default function Reviews() {
                 ))}
               </div>
 
-              <div className="seller-reviews-filter-row">
-                <label className="seller-reviews-search">
-                  <FiSearch />
-                  <input
-                    type="search"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search buyer, product, or comment"
-                  />
-                  {search && (
-                    <button type="button" onClick={() => setSearch("")} aria-label="Clear search">
-                      <FiX />
-                    </button>
-                  )}
-                </label>
-              </div>
-
               {loading ? (
                 <div className="seller-reviews-skeleton">
                   <i />
@@ -327,15 +323,28 @@ export default function Reviews() {
                           <header>
                             <div>
                               <strong>{buyer}</strong>
-                              <span>reviewed {review.product?.name}</span>
+                              <span className="seller-review-meta">
+                                <Stars value={review.rating} />
+                                <time>{formatDate(review.created_at)}</time>
+                              </span>
                             </div>
-                            <time>{formatDate(review.created_at)}</time>
+                            <span className={`seller-review-score tone-${review.rating >= 4 ? "good" : review.rating === 3 ? "mid" : "low"}`}>
+                              {review.rating}.0
+                            </span>
                           </header>
-                          <Stars value={review.rating} />
-                          <p>
+                          <p className={review.comment ? "" : "is-empty"}>
                             {review.comment ||
                               "The buyer left a rating without a written comment."}
                           </p>
+                          <span className="seller-review-product">
+                            {review.product?.image_url ? (
+                              <img src={review.product.image_url} alt="" />
+                            ) : (
+                              <FiPackage aria-hidden="true" />
+                            )}
+                            {review.product?.name}
+                          </span>
+                          <ReviewReply review={review} onSaved={(saved) => setReviews((current) => current.map((item) => item.id === saved.id ? { ...item, seller_reply: saved.seller_reply, seller_replied_at: saved.seller_replied_at } : item))} />
                         </div>
                       </article>
                     );
@@ -356,7 +365,7 @@ export default function Reviews() {
               <small>Rating breakdown</small>
               <h2>Customer sentiment</h2>
               <div className="seller-reviews-score">
-                <strong>{summary.total ? summary.average.toFixed(1) : "—"}</strong>
+                <strong className={summary.total ? "" : "is-empty"}>{summary.total ? summary.average.toFixed(1) : "0.0"}</strong>
                 <div>
                   <Stars value={Math.round(summary.average)} />
                   <span>
@@ -386,7 +395,7 @@ export default function Reviews() {
                         }}
                       />
                     </i>
-                    <em>{count}</em>
+                    <em>{count}<span>{summary.total ? ` · ${Math.round((count / summary.total) * 100)}%` : ""}</span></em>
                   </button>
                 ))}
               </div>

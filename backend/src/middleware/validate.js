@@ -63,6 +63,8 @@ export const changePasswordSchema = z.object({
 export const profileSchema = z.object({
   name: z.string().trim().min(2).max(80).optional(),
   avatar_url: z.string().trim().max(2000).refine((value) => !value || /^https?:\/\//i.test(value), "Avatar must be an http(s) image URL.").optional(),
+  phone: z.string().trim().max(20).regex(/^[0-9+\-\s()]*$/, "Use digits, spaces, + or - only.").optional(),
+  address: z.string().trim().max(200).optional(),
 });
 
 export const credentialsSchema = z.object({
@@ -172,6 +174,13 @@ export const productSchema = z.object({
   image_url: imageUrl.optional(),
   stall_id: z.string().uuid(),
   is_active: z.boolean().optional(),
+  // Empty or null = no sale; the store checks it is below the regular price.
+  sale_price: z.union([z.coerce.number().positive(), z.literal(""), z.null()]).optional(),
+  images: z.array(imageUrl).max(4, "Add up to 4 extra photos.").optional(),
+  options: z.array(z.object({
+    label: z.string().trim().min(1, "Name each option.").max(30),
+    stock: z.coerce.number().int().nonnegative().max(100000),
+  })).max(12, "Use up to 12 options.").optional(),
 });
 
 export const productUpdateSchema = productSchema.omit({ stall_id: true }).partial();
@@ -202,7 +211,7 @@ export const reviewApplicationSchema = z.object({
 export const posSchema = z.object({
   request_id: z.string().uuid(),
   buyer_id: z.string().uuid(),
-  items: z.array(z.object({ product_id: z.string().uuid(), quantity: z.number().int().positive().max(10000) })).min(1).max(50),
+  items: z.array(z.object({ product_id: z.string().uuid(), option_id: z.string().min(1).nullable().optional(), quantity: z.number().int().positive().max(10000) })).min(1).max(50),
   cash_received: z.number().nonnegative().max(1000000),
 });
 
@@ -211,6 +220,7 @@ export const orderSchema = z.object({
     .array(
       z.object({
         product_id: z.string().uuid(),
+        option_id: z.string().min(1).nullable().optional(),
         quantity: z.coerce.number().int().positive(),
       })
     )
@@ -218,6 +228,7 @@ export const orderSchema = z.object({
   delivery_notes: z.string().max(500).optional(),
   notes: z.string().trim().max(500).optional(),
   fulfillment: z.enum(["pickup", "delivery"]).default("pickup"),
+  delivery_address: z.string().trim().max(200).optional(),
 });
 
 export const messageSchema = z.object({
@@ -227,10 +238,27 @@ export const messageSchema = z.object({
 });
 
 export const reviewSchema = z.object({
-  product_id: z.string().uuid(),
+  order_id: z.string().min(1),
+  product_id: z.string().min(1),
   rating: z.coerce.number().int().min(1).max(5),
-  comment: z.string().max(1000).optional(),
+  comment: z.string().trim().max(1000).optional(),
 });
+export const reviewReplySchema = z.object({ reply: z.string().trim().max(1000) });
+export const notificationPrefsSchema = z.object({
+  orderUpdates: z.boolean().optional(),
+  reviewAlerts: z.boolean().optional(),
+  stockAlerts: z.boolean().optional(),
+});
+export const favoritesSchema = z.object({ product_ids: z.array(z.string().min(1)).min(1).max(200) });
+
+// ── Plans: admin switch, featured picks, visible picks on Free ────────────────
+export const stallPlanSchema = z.object({
+  tier: z.enum(["free", "premium"]),
+  premium_until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-12-31.").nullable().optional(),
+  note: z.string().trim().max(500).default(""),
+});
+export const featuredSchema = z.object({ featured: z.boolean() });
+export const visibleProductsSchema = z.object({ product_ids: z.array(z.string().min(1)).max(25) });
 
 // ── Premium plan requests ─────────────────────────────────────────────────────
 export const planRequestSchema = z.object({

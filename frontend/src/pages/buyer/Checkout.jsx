@@ -12,6 +12,7 @@ import {
   ShoppingBag,
   Store,
   Truck,
+  Banknote,
 } from "lucide-react";
 import Navbar from "../../components/common/Navbar.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
@@ -20,6 +21,7 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import orderService from "../../services/orderService.js";
 import { useNotifications } from "../../context/NotificationContext.jsx";
 import toast from "react-hot-toast";
+import { effectivePrice } from "../../utils/pricing.js";
 
 const NOTES_LIMIT = 300;
 
@@ -39,6 +41,8 @@ export default function Checkout() {
 
   const [fulfillment, setFulfillment] = useState("pickup");
   const [notes, setNotes] = useState("");
+  // Delivery goes here; starts from the location saved in the buyer's profile.
+  const [address, setAddress] = useState(user?.address || "");
   const [placing, setPlacing] = useState(false);
   const [failedImages, setFailedImages] = useState({});
 
@@ -46,7 +50,8 @@ export default function Checkout() {
     (sum, item) => sum + Number(item.quantity || 0),
     0,
   );
-  const hasDeliveryAddress = Boolean(user?.address?.trim());
+  const hasDeliveryAddress = Boolean(address.trim());
+  const needsAddress = fulfillment === "delivery" && !hasDeliveryAddress;
 
   const selectFulfillment = (method) => {
     if (placing) return;
@@ -56,6 +61,10 @@ export default function Checkout() {
   const handlePlaceOrder = async (event) => {
     event.preventDefault();
     if (!items.length || placing) return;
+    if (needsAddress) {
+      toast.error("Add where on campus to deliver, or choose pickup.");
+      return;
+    }
 
     try {
       setPlacing(true);
@@ -63,10 +72,12 @@ export default function Checkout() {
         items: items.map((item) => ({
           product_id:
             item.products?.id ?? item.product?.id ?? item.product_id ?? item.id,
+          ...(item.option_id ? { option_id: item.option_id } : {}),
           quantity: item.quantity,
         })),
         fulfillment,
         delivery_notes: notes.trim(),
+        ...(fulfillment === "delivery" ? { delivery_address: address.trim() } : {}),
       });
       // The server records "Order placed"; load it quietly (no pop-up for your own action).
       refreshNotifications({ announce: false });
@@ -220,27 +231,29 @@ export default function Checkout() {
               </div>
 
               {fulfillment === "delivery" && (
-                <div
-                  className={`checkout-address ${hasDeliveryAddress ? "has-address" : "needs-address"}`}
-                >
+                <label className={`checkout-address ${hasDeliveryAddress ? "has-address" : "needs-address"}`}>
                   <span className="checkout-address-icon">
                     <MapPin size={17} />
                   </span>
                   <div>
-                    <strong>
-                      {hasDeliveryAddress
-                        ? "Delivery address"
-                        : "Address needed"}
-                    </strong>
+                    <strong>{hasDeliveryAddress ? "Deliver to" : "Where should we deliver?"}</strong>
+                    <input
+                      className="form-input checkout-address-input"
+                      value={address}
+                      onChange={(event) => setAddress(event.target.value)}
+                      maxLength={200}
+                      placeholder="e.g. Library 2nd floor, near the reading area"
+                      disabled={placing}
+                      required
+                    />
                     <span>
-                      {user?.address ||
-                        "No delivery address is saved. Add your exact campus location in your profile."}
+                      {user?.address && address.trim() === user.address
+                        ? "From your profile."
+                        : <>Tip: save your usual spot in <Link to="/profile">your profile</Link> so it's filled in next time.</>}
                     </span>
                   </div>
-                  {hasDeliveryAddress && (
-                    <CheckCircle2 size={17} aria-label="Address available" />
-                  )}
-                </div>
+                  {hasDeliveryAddress && <CheckCircle2 size={17} aria-label="Location added" />}
+                </label>
               )}
             </section>
 
@@ -289,7 +302,7 @@ export default function Checkout() {
               <div className="checkout-items">
                 {items.map((item) => {
                   const product = getProduct(item);
-                  const price = Number(product.price ?? item.price ?? 0);
+                  const price = item.products ? effectivePrice(product) : Number(item.price) || 0;
                   const hasImage = product.image_url && !failedImages[item.id];
 
                   return (
@@ -316,6 +329,7 @@ export default function Checkout() {
                           className="checkout-item-name"
                         >
                           {product.name || "Campus Market item"}
+                          {item.option_label && <span className="cart-item-option">{item.option_label}</span>}
                         </Link>
                         <small>Quantity: {item.quantity}</small>
                       </div>
@@ -375,10 +389,20 @@ export default function Checkout() {
               <strong>{formatPrice(total)}</strong>
             </div>
 
+            <div className="checkout-payment">
+              <Banknote size={18} aria-hidden="true" />
+              <p>
+                <strong>Pay in cash {fulfillment === "delivery" ? "when your order arrives" : "when you collect it"}.</strong>
+                {fulfillment === "delivery"
+                  ? " Have the exact amount ready if you can."
+                  : " Show the pickup code from My orders to the seller."}
+              </p>
+            </div>
+
             <button
               type="submit"
               className="btn btn-primary btn-lg checkout-submit"
-              disabled={placing}
+              disabled={placing || needsAddress}
             >
               {placing ? (
                 <>

@@ -147,3 +147,9 @@
   .home-ticker-track ul { animation: none; }
   .home-ticker-track ul[aria-hidden] { display: none; }
 }
+
+/* ── Categories page ───────────────────────────────────────────────────────── */
+.categories-page { padding: .5rem 0 4rem; }
+.categories-page .home-section { margin-top: 2rem; }
+.categories-page h1 { font: 900 clamp(1.6rem, 3vw, 2.2rem)/1.15 var(--font-display); letter-spacing: -.02em; color: var(--ink-900); }
+.categories-page .cm-link { display: inline-flex; align-items: center; gap: .3rem; }

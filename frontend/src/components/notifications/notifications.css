@@ -176,3 +176,4 @@
 .onc-thumb--plan { color: var(--gold-700); background: radial-gradient(circle at 30% 25%, #fff, var(--gold-100) 70%); border-color: var(--gold-500); }
 .onc-thumb--plan svg { width: 24px; height: 24px; }
 .onc-art--plan { visibility: hidden; }
+.onc-art--review, .onc-art--stock { visibility: hidden; }

@@ -15,6 +15,8 @@ const Register = lazy(() => import("./pages/auth/Register.jsx"));
 
 // Buyer pages
 const BuyerHome = lazy(() => import("./pages/buyer/Home.jsx"));
+const Categories = lazy(() => import("./pages/buyer/Categories.jsx"));
+const Profile = lazy(() => import("./pages/buyer/Profile.jsx"));
 const Browse = lazy(() => import("./pages/buyer/Browse.jsx"));
 const ProductDetail = lazy(() => import("./pages/buyer/ProductDetail.jsx"));
 const Cart = lazy(() => import("./pages/buyer/Cart.jsx"));
@@ -152,7 +154,9 @@ export default function App() {
 
         {/* Buyer pages */}
         <Route path="/" element={<BuyerHome />} />
+        <Route path="/categories" element={<Categories />} />
         <Route path="/browse" element={<Browse />} />
+        <Route path="/profile" element={<ProtectedRoute role="buyer"><Profile /></ProtectedRoute>} />
         <Route path="/products/:id" element={<ProductDetail />} />
         <Route path="/stalls" element={<Stalls />} />
         <Route path="/stalls/:stallId" element={<StallDetails />} />

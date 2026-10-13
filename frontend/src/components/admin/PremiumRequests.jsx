@@ -46,17 +46,36 @@ function ReviewDrawer({ request, busy, onClose, onSubmit }) {
   );
 }
 
-/** Pending Premium requests, shown at the top of Stores & Plans. */
+const TABS = [["pending", "Pending"], ["all", "All"], ["approved", "Approved"], ["declined", "Declined"]];
+const STATUS_LABEL = { pending: "Pending", approved: "Approved", declined: "Declined", cancelled: "Cancelled by seller" };
+const formatDay = (value) => new Date(value).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric" });
+
+/** Premium requests at the top of Stores & Plans: the pending queue plus past decisions. */
 export default function PremiumRequests({ onChanged }) {
   const { user } = useAuth();
+  const [tab, setTab] = useState("pending");
   const [requests, setRequests] = useState([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [reviewing, setReviewing] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(() => {
-    adminService.getPlanRequests("pending").then(({ data }) => setRequests(data)).catch(() => {});
-  }, []);
-  useEffect(load, [load]);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [{ data }, pending] = await Promise.all([
+        adminService.getPlanRequests(tab),
+        tab === "pending" ? null : adminService.getPlanRequests("pending"),
+      ]);
+      setRequests(data);
+      setPendingCount((pending?.data ?? data).length);
+    } catch {
+      setRequests([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [tab]);
+  useEffect(() => { load(); }, [load]);
 
   const submit = async (decision, note, premium_until) => {
     setBusy(true);
@@ -73,25 +92,45 @@ export default function PremiumRequests({ onChanged }) {
     }
   };
 
-  if (!requests.length) return null;
   return (
-    <section id="premium-requests" className="pr-panel" aria-labelledby="pr-heading">
+    <section id="premium-requests" className={`pr-panel${pendingCount ? "" : " is-quiet"}`} aria-labelledby="pr-heading">
       <header>
         <Crown aria-hidden="true" />
-        <h2 id="pr-heading">Premium requests <span>{requests.length}</span></h2>
+        <h2 id="pr-heading">Premium requests {pendingCount > 0 && <span>{pendingCount}</span>}</h2>
+        <div className="pr-tabs" role="tablist" aria-label="Request status">
+          {TABS.map(([key, label]) => (
+            <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? "is-active" : ""} onClick={() => setTab(key)}>{label}</button>
+          ))}
+        </div>
       </header>
-      <ul>
-        {requests.map((request) => (
-          <li key={request.id}>
-            <div>
-              <strong>{request.stall_name}</strong>
-              <small>{request.seller_name} · {formatDateTime(request.created_at)}{request.payment_reference ? ` · Ref: ${request.payment_reference}` : ""}</small>
-              {request.note && <p>“{request.note}”</p>}
-            </div>
-            {can(user, "marketplace") && <button type="button" className="btn btn-primary btn-sm" onClick={() => setReviewing(request)}>Review</button>}
-          </li>
-        ))}
-      </ul>
+      {loading ? (
+        <p className="pr-empty" role="status">Loading requests…</p>
+      ) : !requests.length ? (
+        <p className="pr-empty">{tab === "pending" ? "No sellers are waiting for Premium right now." : `No ${tab === "all" ? "" : `${tab} `}requests yet.`}</p>
+      ) : (
+        <ul>
+          {requests.map((request) => (
+            <li key={request.id}>
+              <div>
+                <strong>{request.stall_name}</strong>
+                <small>{request.seller_name} · requested {formatDateTime(request.created_at)}{request.payment_reference ? ` · Ref: ${request.payment_reference}` : ""}</small>
+                {request.note && <p>“{request.note}”</p>}
+                {request.status !== "pending" && (
+                  <small className="pr-decision">
+                    {request.reviewed_at ? `${STATUS_LABEL[request.status]} ${formatDateTime(request.reviewed_at)}` : STATUS_LABEL[request.status]}
+                    {request.reviewer_name ? ` by ${request.reviewer_name}` : ""}
+                    {request.status === "approved" ? (request.premium_until ? ` · until ${formatDay(request.premium_until)}` : " · no end date") : ""}
+                    {request.review_note ? ` — “${request.review_note}”` : ""}
+                  </small>
+                )}
+              </div>
+              {request.status === "pending"
+                ? can(user, "marketplace") && <button type="button" className="btn btn-primary btn-sm" onClick={() => setReviewing(request)}>Review</button>
+                : <span className={`pr-status is-${request.status}`}>{STATUS_LABEL[request.status]}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
       {reviewing && <ReviewDrawer request={reviewing} busy={busy} onClose={() => setReviewing(null)} onSubmit={submit} />}
     </section>
   );

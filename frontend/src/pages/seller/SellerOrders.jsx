@@ -10,10 +10,12 @@ import {
   FiCheckCircle,
   FiClock,
   FiCopy,
+  FiDownload,
   FiGrid,
   FiList,
   FiMapPin,
   FiPackage,
+  FiPhone,
   FiRefreshCw,
   FiSearch,
   FiTruck,
@@ -21,6 +23,10 @@ import {
 } from "react-icons/fi";
 import "./SellerOrders.css";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import HandoverDialog from "./HandoverDialog.jsx";
+import ReadyTimeDialog from "./ReadyTimeDialog.jsx";
+import CancelOrderDialog from "../buyer/CancelOrderDialog.jsx";
+import { csvDate, downloadCsv } from "../../utils/csv.js";
 
 const STATUS_FLOW = {
   pending: { next: "confirmed", label: "Confirm order" },
@@ -179,8 +185,22 @@ function WaitingChip({ order, now }) {
 function FulfillmentChip({ order }) {
   const delivery = order.fulfillment === "delivery";
   return (
-    <span className="seller-order-fulfillment">
-      {delivery ? <FiTruck /> : <FiMapPin />} {delivery ? "Campus delivery" : "Pickup"}
+    <>
+      <span className="seller-order-fulfillment">
+        {delivery ? <FiTruck /> : <FiMapPin />} {delivery ? "Campus delivery" : "Pickup"}
+      </span>
+      <ReadyChip order={order} />
+    </>
+  );
+}
+
+/** The time promised when confirming; flagged once it has passed and the order isn't ready yet. */
+function ReadyChip({ order }) {
+  if (!order.ready_by || !["confirmed", "preparing", "ready"].includes(order.status)) return null;
+  const late = order.status !== "ready" && Date.parse(order.ready_by) < Date.now();
+  return (
+    <span className={`seller-order-ready-by${late ? " is-late" : ""}`} title="The ready time you gave the buyer">
+      <FiClock aria-hidden="true" /> {late ? "Was due" : "Ready by"} {format(new Date(order.ready_by), "h:mm a")}
     </span>
   );
 }
@@ -219,6 +239,9 @@ function OrderProgress({ status, reason }) {
   );
 }
 
+/** Pickup orders placed with a code need the buyer's code to be handed over. */
+const needsPickupCode = (order) => order.fulfillment !== "delivery" && order.has_pickup_code;
+
 function OrderActions({ order, updating, onAdvance, onCancel, compact = false }) {
   const flow = STATUS_FLOW[order.status] || STATUS_FLOW.delivered;
   if (!flow.next) return null;
@@ -242,7 +265,8 @@ function OrderActions({ order, updating, onAdvance, onCancel, compact = false })
         onClick={() => onAdvance(flow.next)}
         disabled={updating}
       >
-        {updating ? <span className="seller-orders-mini-spinner" /> : flow.label}
+        {updating ? <span className="seller-orders-mini-spinner" />
+          : order.status === "ready" && needsPickupCode(order) ? "Hand over (code)" : flow.label}
       </button>
     </>
   );
@@ -380,6 +404,9 @@ function OrderCard({ order, now, isNew, updating, onAdvance, onCancel }) {
             </button>
           </dd>
           <dt>Fulfillment</dt><dd>{order.fulfillment === "delivery" ? "Campus delivery" : "Campus pickup"}</dd>
+          {order.fulfillment === "delivery" && order.delivery_address && <><dt>Deliver to</dt><dd><FiMapPin aria-hidden="true" /> {order.delivery_address}</dd></>}
+          {order.buyer_phone && <><dt>Buyer phone</dt><dd><a href={`tel:${order.buyer_phone.replace(/[^\d+]/g, "")}`}><FiPhone aria-hidden="true" /> {order.buyer_phone}</a></dd></>}
+          <dt>Payment</dt><dd>Cash {order.fulfillment === "delivery" ? "on delivery" : "at pickup"}</dd>
         </dl>
       </details>
 
@@ -406,6 +433,9 @@ export default function SellerOrders() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [updatingId, setUpdatingId] = useState(null);
+  const [handover, setHandover] = useState(null); // { order, status, error }
+  const [confirming, setConfirming] = useState(null); // order waiting for a ready time
+  const [cancelling, setCancelling] = useState(null); // order waiting for a reason
 
   const fetchOrders = useCallback(async ({ quiet = false } = {}) => {
     quiet ? setRefreshing(true) : setLoading(true);
@@ -516,37 +546,76 @@ export default function SellerOrders() {
     [now, orders],
   );
 
-  const handleStatusUpdate = async (order, newStatus) => {
-    if (newStatus === "cancelled") {
-      const confirmed = window.confirm(
-        `Cancel order #${getOrderCode(order.id)}? The buyer will no longer be able to receive it.`,
-      );
-      if (!confirmed) return;
+  // Some steps ask the seller something first: a pickup code, a ready time, or a reason to cancel.
+  const handleStatusUpdate = async (order, newStatus, pickupCode, extra = {}) => {
+    if (["completed", "delivered"].includes(newStatus) && needsPickupCode(order) && !pickupCode) {
+      setHandover({ order, status: newStatus, error: "" });
+      return;
+    }
+    if (newStatus === "cancelled" && !extra.cancel_reason) {
+      setCancelling(order);
+      return;
+    }
+    if (newStatus === "confirmed" && !("ready_in_minutes" in extra)) {
+      setConfirming(order);
+      return;
     }
 
     try {
       setUpdatingId(order.id);
-      const { data } = await orderService.updateStatus(order.id, newStatus);
+      const { data } = await orderService.updateStatus(order.id, newStatus, extra.cancel_reason, {
+        ...(pickupCode ? { pickup_code: pickupCode } : {}),
+        ...(extra.ready_in_minutes ? { ready_in_minutes: extra.ready_in_minutes } : {}),
+      });
       const savedStatus = extractStatus(data, newStatus);
       setOrders((current) =>
         current.map((item) =>
-          item.id === order.id ? { ...item, status: savedStatus } : item,
+          item.id === order.id
+            ? { ...item, status: savedStatus, ready_by: data?.ready_by ?? item.ready_by, cancel_reason: data?.cancel_reason ?? item.cancel_reason }
+            : item,
         ),
       );
+      setConfirming(null);
+      setCancelling(null);
       setNewIds((current) => {
         if (!current.has(order.id)) return current;
         const next = new Set(current);
         next.delete(order.id);
         return next;
       });
-      toast.success(`Order marked as ${savedStatus.replace(/-/g, " ")}`);
+      toast.success(pickupCode ? "Code matched. Order handed over." : `Order marked as ${savedStatus.replace(/-/g, " ")}`);
+      if (pickupCode) setHandover(null);
     } catch (requestError) {
+      if (pickupCode) {
+        setHandover((current) => current && { ...current, error: requestError.response?.data?.error || "Couldn't check the code." });
+        return;
+      }
       toast.error(
         requestError.response?.data?.error || "Failed to update order",
       );
     } finally {
       setUpdatingId(null);
     }
+  };
+
+  const exportCsv = () => {
+    downloadCsv(`campus-market-orders-${csvDate()}.csv`,
+      ["Order", "Placed", "Buyer", "Buyer phone", "Items", "Units", "Total (PHP)", "Status", "Fulfillment", "Deliver to", "Payment", "Cancel reason"],
+      orders.map((order) => [
+        getOrderCode(order.id),
+        order.createdAt ? format(new Date(order.createdAt), "yyyy-MM-dd HH:mm") : "",
+        order.buyer.name,
+        order.buyer_phone || "",
+        order.items.map((item) => `${item.quantity} × ${item.name}`).join("; "),
+        order.items.reduce((sum, item) => sum + item.quantity, 0),
+        Number(order.total).toFixed(2),
+        order.status,
+        order.fulfillment === "delivery" ? "Delivery" : "Pickup",
+        order.delivery_address || "",
+        order.fulfillment === "delivery" ? "Cash on delivery" : "Cash at pickup",
+        order.cancel_reason || "",
+      ]));
+    toast.success(`Exported ${orders.length} order${orders.length === 1 ? "" : "s"}`);
   };
 
   const showTab = (tab) => {
@@ -573,6 +642,15 @@ export default function SellerOrders() {
                 <i aria-hidden="true" /> Live · updated {format(lastUpdated, "h:mm a")}
               </span>
             )}
+            <button
+              type="button"
+              className="seller-orders-refresh"
+              onClick={exportCsv}
+              disabled={loading || !orders.length}
+              title="Download all orders as a spreadsheet (CSV)"
+            >
+              <FiDownload /> Export CSV
+            </button>
             <button
               type="button"
               className="seller-orders-refresh"
@@ -798,6 +876,33 @@ export default function SellerOrders() {
           )}
         </div>
       </main>
+      {confirming && (
+        <ReadyTimeDialog
+          orderCode={getOrderCode(confirming.id)}
+          submitting={updatingId === confirming.id}
+          onConfirm={(minutes) => handleStatusUpdate(confirming, "confirmed", null, { ready_in_minutes: minutes })}
+          onClose={() => setConfirming(null)}
+        />
+      )}
+      {cancelling && (
+        <CancelOrderDialog
+          audience="seller"
+          orderReference={getOrderCode(cancelling.id)}
+          submitting={updatingId === cancelling.id}
+          onConfirm={(reason) => handleStatusUpdate(cancelling, "cancelled", null, { cancel_reason: reason })}
+          onClose={() => setCancelling(null)}
+        />
+      )}
+      {handover && (
+        <HandoverDialog
+          orderCode={getOrderCode(handover.order.id)}
+          buyerName={handover.order.buyer.name}
+          submitting={updatingId === handover.order.id}
+          error={handover.error}
+          onConfirm={(code) => handleStatusUpdate(handover.order, handover.status, code)}
+          onClose={() => setHandover(null)}
+        />
+      )}
     </div>
   );
 }

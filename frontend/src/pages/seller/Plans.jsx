@@ -126,7 +126,7 @@ export default function Plans() {
                 [true, "Messages and your stall page"],
                 [false, "Product analytics"],
                 [false, "Point of sale with receipts"],
-                [false, "Landing-page advertising"],
+                [false, "Featured products on the buyer home page"],
               ]}
             />
             <PlanCard
@@ -137,7 +137,7 @@ export default function Plans() {
                 [true, "Messages and your stall page"],
                 [true, "Product analytics", BarChart3],
                 [true, "Point of sale with receipts", ShoppingCart],
-                [true, "Landing-page advertising", Megaphone],
+                [true, `Feature ${data?.plans?.premium.featured_limit || 3} products on the buyer home page`, Megaphone],
               ]}
             />
           </div>
