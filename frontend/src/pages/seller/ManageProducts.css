@@ -240,3 +240,5 @@ svg.is-filled { color: var(--gold-500); fill: var(--gold-500); }
 .manage-product-extra-add.is-busy { cursor: progress; }
 .manage-product-extra-add input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .manage-product-extra-add:has(input:focus-visible) { outline: 2px solid var(--green-700); outline-offset: 2px; }
+
+@media (max-width: 600px) { .manage-products-empty { min-height: 220px; padding: 1.25rem; } .manage-products-empty.compact { min-height: 170px; } }

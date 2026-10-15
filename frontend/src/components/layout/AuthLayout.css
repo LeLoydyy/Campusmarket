@@ -144,21 +144,24 @@
 
 /* Password: label row with a link, live strength meter and rule checklist */
 .pw-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
-.pw-strength { display: grid; gap: .45rem; margin-top: -.35rem; }
-.pw-meter { display: grid; grid-template-columns: repeat(4, 1fr); gap: .3rem; }
-.pw-meter span { height: 6px; background: var(--cream-100); border-radius: var(--radius-pill); transition: background var(--dur-fast); }
+.pw-strength { display: grid; gap: .5rem; margin-top: -.3rem; }
+.pw-meter-row { display: flex; align-items: center; gap: .75rem; }
+.pw-meter { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: .3rem; }
+.pw-meter span { height: 5px; background: var(--cream-100); border-radius: var(--radius-pill); transition: background var(--dur-fast); }
 .pw-strength[data-level="0"] .pw-meter .is-on, .pw-strength[data-level="1"] .pw-meter .is-on { background: var(--coral-500); }
 .pw-strength[data-level="2"] .pw-meter .is-on { background: var(--gold-500); }
 .pw-strength[data-level="3"] .pw-meter .is-on { background: var(--green-500); }
 .pw-strength[data-level="4"] .pw-meter .is-on { background: var(--green-700); }
-.pw-level { color: var(--ink-600); font-size: var(--text-xs); }
+.pw-level { flex: 0 0 auto; min-width: 7.5rem; color: var(--ink-600); font-size: var(--text-xs); text-align: right; }
 .pw-level strong { color: var(--ink-900); }
-.pw-rules { display: flex; flex-wrap: wrap; gap: .3rem .9rem; list-style: none; }
-.pw-rules li { display: inline-flex; align-items: center; gap: .25rem; color: var(--ink-600); font-size: var(--text-xs); }
-.pw-rules li svg { width: 14px; height: 14px; color: var(--ink-400); }
-.pw-rules li.is-ok { color: var(--green-700); font-weight: 600; }
-.pw-rules li.is-ok svg { color: var(--green-700); }
-.pw-optional { font-weight: 400; }
+/* Rules as small pills that turn green as they're met; "+" extras are dashed. */
+.pw-rules { display: flex; flex-wrap: wrap; gap: .3rem; margin: 0; padding: 0; list-style: none; }
+.pw-rules li { display: inline-flex; align-items: center; gap: .3rem; padding: .18rem .5rem .18rem .38rem; color: var(--ink-600); background: var(--cream-100); border: 1px solid transparent; border-radius: var(--radius-pill); font: 600 .72rem/1.3 var(--font-body); transition: background var(--dur-fast), color var(--dur-fast); }
+.pw-rules li i { width: 12px; display: grid; place-items: center; font-style: normal; font-weight: 800; }
+.pw-rules li i:empty::before { content: ""; width: 5px; height: 5px; background: var(--ink-400); border-radius: 50%; }
+.pw-rules li svg { width: 12px; height: 12px; }
+.pw-rules li.is-extra { background: transparent; border: 1px dashed var(--line-strong); }
+.pw-rules li.is-ok { color: var(--green-700); background: var(--green-100); border-color: transparent; }
 
 /* Recovery question */
 .reg-security { display: grid; gap: .7rem; margin: 0; padding: .9rem 1rem; background: var(--surface); border: 1.5px solid var(--line); border-radius: 18px; }
@@ -208,8 +211,25 @@
 }
 
 /* Three recovery questions (registration, admin setup, password page) */
-.rq-item { display: grid; grid-template-columns: 1fr; gap: .5rem; padding-top: .7rem; border-top: 1px dashed var(--line); }
-.rq-item:first-of-type { padding-top: 0; border-top: 0; }
+/* Security questions: a header, then three numbered cards (question above, answer below). */
+.rq { display: grid; gap: .7rem; min-width: 0; margin: 0; padding: .9rem; background: var(--cream-50); border: 1px solid var(--line); border-radius: 18px; }
+.rq-head { display: flex; align-items: center; gap: .65rem; }
+.rq-head-icon { flex: 0 0 auto; width: 34px; height: 34px; display: grid; place-items: center; color: var(--green-700); background: var(--green-100); border-radius: 50%; }
+.rq-head-icon svg { width: 17px; height: 17px; }
+.rq-head-title { color: var(--ink-900); font: 800 var(--text-sm)/1.3 var(--font-body); }
+.rq-head-note { margin-top: .1rem; color: var(--ink-600); font-size: .75rem; line-height: 1.4; }
+.rq-list { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.rq-item { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: .6rem; padding: .55rem .6rem; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; transition: border-color var(--dur-fast); }
+.rq-item:focus-within { border-color: var(--green-700); }
+.rq-num { width: 24px; height: 24px; margin-top: .35rem; display: grid; place-items: center; color: var(--gold-700); background: var(--gold-100); border-radius: 50%; font: 900 .75rem var(--font-body); transition: background var(--dur-fast), color var(--dur-fast); }
+.rq-item.is-done .rq-num { color: #fff; background: var(--green-700); }
+.rq-fields { display: grid; gap: .35rem; min-width: 0; }
+/* The question reads like a heading you can tap to change. */
+.rq .rq-fields .form-input.rq-question { min-height: 0; padding: .4rem 2rem .4rem .5rem; overflow: hidden; color: var(--ink-900); background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2313703C' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right .6rem center; border-color: transparent; border-radius: 10px; font-size: var(--text-sm); font-weight: 700; text-overflow: ellipsis; cursor: pointer; }
+.rq .rq-fields .form-input.rq-question:hover { background-color: var(--cream-100); }
+.rq .rq-fields .form-input.rq-question:focus { background-color: var(--cream-100); border-color: transparent; box-shadow: none; }
+.rq .rq-fields .form-input.rq-question:focus-visible { box-shadow: var(--focus-ring); }
+.rq .rq-fields .form-input.rq-answer { min-height: 42px; background: var(--cream-50); }
 .form-input-wrap .form-input.rq-answer { padding-left: 1rem; padding-right: 2.75rem; }
 /* Edge draws its own reveal eye on password inputs; ours already toggles. */
 .form-input::-ms-reveal, .form-input::-ms-clear { display: none; }
@@ -289,4 +309,60 @@
 
   .reg-security { padding: .75rem; }
   .cp-tabs button { min-height: 40px; font-size: .8rem; }
+}
+
+/* ── Phones: the auth page fills exactly one screen and doesn't move ─────────
+   100dvh is the visible height (address bar excluded), so the page itself never
+   scrolls or bounces. A form taller than the screen (register) scrolls inside
+   its own area while the green header stays put. */
+@media (max-width: 920px) {
+  html:has(.auth2), body:has(.auth2) { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  .auth2 { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+  /* Column layout: a small green header on top, the form below, centred in the space left. */
+  .auth2-card { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+  .auth2-brand { flex: 0 0 auto; }
+  /* The form only scrolls if it can't fit at all (e.g. a code panel open on a small phone). */
+  .auth2-form { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+  .auth2-form::-webkit-scrollbar { display: none; }
+  /* Spare height splits 1:2 above/below the form, so it sits nearer the header.
+     The spacers shrink to nothing when the form needs the room. */
+  .auth2-form { flex-direction: column; align-items: stretch; justify-content: flex-start; }
+  .auth2-form::before, .auth2-form::after { content: ""; flex: 1 1 0; }
+  .auth2-form::after { flex-grow: 2; }
+  .auth2-form-inner { flex: 0 0 auto; width: min(480px, 100%); margin-inline: auto; }
+}
+
+/* Register on phones: tighter so each step fits on one screen. */
+@media (max-width: 520px) {
+  .auth2-form:has(.reg-progress) { padding-top: 0; padding-bottom: .75rem; }
+  .auth2-form-inner:has(.reg-progress) .auth-form-header { margin-bottom: .5rem; }
+  .auth2-form-inner:has(.reg-progress) .auth-form-header h1 { font-size: 1.35rem; }
+  .auth2-form-inner:has(.reg-progress) .auth-form-header p { display: none; }
+  .auth2-form-inner:has(.reg-progress) .auth-form { gap: .55rem; }
+  .auth2-form-inner:has(.reg-progress) .form-group { gap: .2rem; }
+  .auth2-form-inner:has(.reg-progress) .form-input { min-height: 40px; padding-block: .45rem; }
+  .auth2-form-inner:has(.reg-progress) .btn-lg { min-height: 42px; }
+  .auth2-form-inner:has(.reg-progress) .auth-footer { margin-top: .6rem; }
+  .reg-progress { margin-bottom: .55rem; }
+  .reg-roles legend { margin-bottom: .3rem; }
+  .reg-role { padding: .45rem .6rem; }
+  /* Two short fields side by side (passwords, ID details, stall name and pickup spot). */
+  .reg-two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .5rem; }
+  .reg-two .form-input-wrap .form-input { padding-right: 2.3rem; text-overflow: ellipsis; }
+  .reg-intro { gap: .45rem; padding: .5rem .65rem; font-size: .75rem; line-height: 1.4; }
+  .reg-intro svg { width: 18px; height: 18px; }
+  .reg-store { gap: .45rem; padding: .55rem .65rem; }
+  .pw-strength { gap: .35rem; margin-top: -.15rem; }
+  .pw-rules { gap: .25rem; }
+  .pw-rules li { padding: .12rem .5rem .12rem .35rem; font-size: .7rem; }
+  .rq { gap: .45rem; padding: .55rem; border-radius: 14px; }
+  .rq-head-icon { width: 28px; height: 28px; }
+  .rq-head-note { display: none; }
+  .rq-list { gap: .35rem; }
+  .rq-item { gap: .45rem; padding: .35rem .45rem; border-radius: 12px; }
+  .rq-num { width: 20px; height: 20px; margin-top: .3rem; font-size: .68rem; }
+  .rq-fields { gap: .2rem; }
+  .rq .rq-fields .form-input.rq-question { padding-block: .25rem; font-size: .8rem; }
+  .rq .rq-fields .form-input.rq-answer { min-height: 36px; }
+  /* The select shows the question and the field its placeholder, so the labels stay for screen readers only. */
 }

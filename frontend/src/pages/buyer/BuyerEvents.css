@@ -32,3 +32,10 @@
   .bev-grid { grid-template-columns: 1fr; }
   .bev-tabs { flex-wrap: nowrap; overflow-x: auto; padding-bottom: .25rem; margin: 0 -1rem; padding-left: 1rem; padding-right: 1rem; }
 }
+
+@media (max-width: 600px) {
+  .bev-head { padding: 1rem; border-radius: 16px; }
+  .bev-head h1 { font-size: 1.6rem; }
+  .bev-head p:last-child { margin-top: .35rem; font-size: .875rem; line-height: 1.5; }
+  .bev-search { height: 40px; }
+}

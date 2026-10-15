@@ -92,12 +92,25 @@
   .browse-filter-btn { display: inline-flex; }
 }
 @media (max-width: 600px) {
-  .browse-banner-inner { min-height: 104px; padding: 1.1rem 1.2rem; border-radius: 20px; }
+  .browse-wrap { width: calc(100% - 1rem); }
+  .browse-banner { margin-top: .5rem; }
+  .browse-banner-inner { min-height: 72px; padding: .75rem 1rem; border-radius: 14px; }
+  .browse-banner h1 { font-size: 1.45rem; }
+  .browse-banner p:last-child { margin-top: .15rem; font-size: .85rem; }
   .browse-banner img { width: 55%; opacity: .5; }
   .browse-banner-inner > div { max-width: 80%; }
-  .browse-toolbar { flex-wrap: wrap; }
-  .browse-sort { flex: 1 1 100%; order: 3; }
-  .browse-sort select { flex: 1; }
+  .browse-layout { margin-top: .75rem; }
+  /* Count, sort and filters share one slim row */
+  .browse-toolbar { gap: .4rem; margin-bottom: .6rem; }
+  .browse-count { font-size: .85rem; white-space: nowrap; }
+  .browse-count strong { font-size: 1.05rem; }
+  .browse-sort { position: relative; min-width: 0; }
+  .browse-sort > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .browse-sort select { min-width: 0; height: 36px; padding: 0 .5rem; font-size: .85rem; border-radius: 10px; }
+  .browse-toolbar .browse-filter-btn { min-height: 36px; padding: 0 .75rem; font-size: .85rem; }
+  .browse-toolbar .browse-filter-btn svg { width: 15px; height: 15px; }
+  .browse-chips { margin-bottom: .6rem; }
+  .browse-chip { min-height: 30px; font-size: .8rem; }
   .browse-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .browse-sheet .bf-head { padding-right: 3.25rem; }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, Check, Eye, EyeOff, Lock, X } from "lucide-react";
+import { AlertTriangle, Check, Eye, EyeOff, Lock } from "lucide-react";
 
 /** Password input with show/hide and a Caps Lock warning (the most common cause of "wrong password"). */
 export default function PasswordField({ id, label, labelAction, value, onChange, show, onToggleShow, describedBy, invalid, ...inputProps }) {
@@ -42,10 +42,10 @@ export default function PasswordField({ id, label, labelAction, value, onChange,
 // Required rules match the server (8+ characters, a letter, a number); the rest only raise the strength.
 export const PASSWORD_RULES = [
   { label: "8+ characters", test: (value) => value.length >= 8, required: true },
-  { label: "A letter", test: (value) => /[a-z]/i.test(value), required: true },
-  { label: "A number", test: (value) => /\d/.test(value), required: true },
-  { label: "Upper & lower case", test: (value) => /[a-z]/.test(value) && /[A-Z]/.test(value) },
-  { label: "A symbol", test: (value) => /[^a-z0-9]/i.test(value) },
+  { label: "Letter", test: (value) => /[a-z]/i.test(value), required: true },
+  { label: "Number", test: (value) => /\d/.test(value), required: true },
+  { label: "Upper & lower", test: (value) => /[a-z]/.test(value) && /[A-Z]/.test(value) },
+  { label: "Symbol", test: (value) => /[^a-z0-9]/i.test(value) },
 ];
 export const passwordMeetsRules = (value) => PASSWORD_RULES.every((rule) => !rule.required || rule.test(value));
 
@@ -59,16 +59,19 @@ export function PasswordStrength({ id, value }) {
 
   return (
     <div id={id} className="pw-strength" data-level={value ? level : undefined}>
-      <div className="pw-meter" aria-hidden="true">{[0, 1, 2, 3].map((bar) => <span key={bar} className={value && bar < Math.max(1, level) ? "is-on" : ""} />)}</div>
-      <p className="pw-level" aria-live="polite">{value ? <>Password strength: <strong>{LEVELS[Math.max(0, level)]}</strong></> : "Use a password you don't use anywhere else."}</p>
+      <div className="pw-meter-row">
+        <div className="pw-meter" aria-hidden="true">{[0, 1, 2, 3].map((bar) => <span key={bar} className={value && bar < Math.max(1, level) ? "is-on" : ""} />)}</div>
+        <p className="pw-level" aria-live="polite">{value ? <>Strength: <strong>{LEVELS[Math.max(0, level)]}</strong></> : "Strength"}</p>
+      </div>
+      {/* Required rules first; the "+" extras only make the password stronger. */}
       <ul className="pw-rules">
         {PASSWORD_RULES.map((rule) => {
           const ok = rule.test(value);
           return (
-            <li key={rule.label} className={ok ? "is-ok" : ""}>
-              {ok ? <Check aria-hidden="true" /> : <X aria-hidden="true" />}
-              {rule.label}{!rule.required && <span className="pw-optional"> (stronger)</span>}
-              <span className="sr-only">{ok ? " — done" : " — not yet"}</span>
+            <li key={rule.label} className={`${ok ? "is-ok" : ""} ${rule.required ? "" : "is-extra"}`}>
+              {ok ? <Check aria-hidden="true" /> : <i aria-hidden="true">{rule.required ? "" : "+"}</i>}
+              {rule.label}
+              <span className="sr-only">{rule.required ? "" : " (optional, makes it stronger)"}{ok ? " — done" : " — not yet"}</span>
             </li>
           );
         })}

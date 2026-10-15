@@ -153,3 +153,17 @@
 .categories-page .home-section { margin-top: 2rem; }
 .categories-page h1 { font: 900 clamp(1.6rem, 3vw, 2.2rem)/1.15 var(--font-display); letter-spacing: -.02em; color: var(--ink-900); }
 .categories-page .cm-link { display: inline-flex; align-items: center; gap: .3rem; }
+
+/* Phones: a shorter hero so products show up sooner. */
+@media (max-width: 600px) {
+  .home-hero { gap: 1rem; padding: 1rem; border-radius: 16px; }
+  .home-hero-art { aspect-ratio: 2 / 1; border-radius: 14px; }
+  .home-hero h1 { font-size: 1.9rem; }
+  .home-hero h1 span::after { height: 7px; }
+  .home-hero-lede { margin-top: .6rem; font-size: .9375rem; line-height: 1.5; }
+  .home-hero-ctas { gap: .5rem; margin-top: 1rem; }
+  .home-stats { gap: .5rem; margin-top: 1rem; }
+  .home-stats > div { border-radius: 12px; }
+  .home-stats dd { font-size: 1.25rem; }
+  .home-ticker { padding: .4rem .5rem .4rem .6rem; }
+}

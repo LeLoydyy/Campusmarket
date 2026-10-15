@@ -17,6 +17,8 @@ const ROLE_CARDS = [
 const STEPS = ["Account", "Security", "CSUCC ID"];
 // Email confirmation: idle → sent (code boxes open) → verified (token in hand).
 const NO_OTP = { status: "idle", code: "", error: "", busy: false, resendAt: 0, devCode: "", token: "" };
+// VITE_SKIP_EMAIL_OTP=true hides the email code while testing on the dev server (the API needs SKIP_EMAIL_OTP=true too).
+const SKIP_OTP = import.meta.env.DEV && import.meta.env.VITE_SKIP_EMAIL_OTP === "true";
 const apiError = (err, fallback) => err.response?.data?.details?.map((detail) => detail.message).join(" ") || err.response?.data?.error || fallback;
 
 export default function Register() {
@@ -79,7 +81,7 @@ export default function Register() {
   const finishAccount = (e) => {
     e.preventDefault();
     const errors = {};
-    if (!emailVerified) errors.email = otp.status === "sent" ? "Enter the 6-digit code we emailed you." : "Confirm your CSUCC email first — tap “Send code”.";
+    if (!SKIP_OTP && !emailVerified) errors.email = otp.status === "sent" ? "Enter the 6-digit code we emailed you." : "Confirm your CSUCC email first — tap “Send code”.";
     setFieldErrors(errors);
     if (!e.currentTarget.reportValidity() || errors.email) return;
     goTo(1);
@@ -102,7 +104,7 @@ export default function Register() {
     setError("");
     try {
       await register({
-        name: form.name, email, email_token: otp.token, password: form.password,
+        name: form.name, email, email_token: SKIP_OTP ? undefined : otp.token, password: form.password,
         security_questions: form.security_questions.map((item) => ({ question: item.question, answer: item.answer.trim() })),
         role: form.role, campus_id: form.campus_id, affiliation: form.affiliation, department: form.department,
         store_name: form.store_name, campus_location: form.campus_location,
@@ -168,19 +170,19 @@ export default function Register() {
                   placeholder="juan.delacruz" value={form.emailUser} required maxLength={64}
                   aria-invalid={Boolean(fieldErrors.email) || undefined} aria-describedby="reg-email-note"
                   onChange={handleEmailChange}
-                  onKeyDown={(e) => { if (e.key === "Enter" && otp.status === "idle") { e.preventDefault(); sendCode(); } }}
+                  onKeyDown={(e) => { if (!SKIP_OTP && e.key === "Enter" && otp.status === "idle") { e.preventDefault(); sendCode(); } }}
                 />
                 <span className="email-suffix" aria-hidden="true">@{CAMPUS_DOMAIN}</span>
               </div>
               {emailVerified && <span className="email-verified"><BadgeCheck aria-hidden="true" /> Verified</span>}
-              {otp.status === "idle" && (
+              {!SKIP_OTP && otp.status === "idle" && (
                 <button type="button" className="btn btn-outline email-send" onClick={sendCode} disabled={otp.busy || !form.emailUser.trim()}>
                   {otp.busy ? "Sending…" : "Send code"}
                 </button>
               )}
             </div>
             {/* While the code panel is open it says where the code went, so the note steps aside. */}
-            {(fieldErrors.email || otp.status !== "sent") && (
+            {(fieldErrors.email || (!SKIP_OTP && otp.status !== "sent")) && (
               <p id="reg-email-note" className={`field-note ${fieldErrors.email ? "is-error" : ""}`} role={fieldErrors.email ? "alert" : undefined}>
                 {fieldErrors.email || (emailVerified ? `${email} is confirmed.` : `We'll email a 6-digit code to confirm this is your CSUCC address.`)}
               </p>

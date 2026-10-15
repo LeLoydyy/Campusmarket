@@ -42,7 +42,8 @@ export const verifyEmailSchema = z.object({ email: campusEmail, code: otpCode })
 export const registerSchema = z.object({
   name: z.string().min(2).max(80),
   email: campusEmail,
-  email_token: z.string().min(1, "Confirm your email with the code we sent you."),
+  // Checked in the register controller (it can be skipped locally with SKIP_EMAIL_OTP).
+  email_token: z.string().optional(),
   password: strongPassword,
   security_questions: recoveryQuestions,
   role: z.enum(["buyer", "seller"]).default("buyer"),

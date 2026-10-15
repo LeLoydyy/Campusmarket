@@ -94,10 +94,12 @@ export const verifyEmailCode = async (req, res, next) => {
 export const register = async (req, res, next) => {
   try {
     const { email_token, ...payload } = req.body;
-    if (readToken(email_token, "email_verified")?.email !== payload.email) {
+    // SKIP_EMAIL_OTP=true turns off the sign-up email code for local testing; production always requires it.
+    const skipOtp = process.env.SKIP_EMAIL_OTP === "true" && process.env.NODE_ENV !== "production";
+    if (!skipOtp && readToken(email_token, "email_verified")?.email !== payload.email) {
       return res.status(400).json({ error: "Confirm your email with the code we sent you.", code: "EMAIL_UNVERIFIED" });
     }
-    const user = await authStore.registerUser({ ...payload, email_verified: true });
+    const user = await authStore.registerUser({ ...payload, email_verified: !skipOtp });
     res.status(201).json(await openSession(req, user.id));
   } catch (err) {
     next(err);

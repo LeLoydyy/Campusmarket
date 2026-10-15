@@ -137,3 +137,5 @@
 .my-stall-logo-input > span { padding: .6rem .65rem; color: var(--cm-text-secondary, var(--ink-600)); font-size: var(--text-xs); }
 .my-stall-logo-input > span a { color: var(--cm-primary, var(--green-700)); font-weight: 700; }
 .my-stall-topbar .btn-outline { display: inline-flex; align-items: center; gap: .35rem; }
+
+@media (max-width: 600px) { .my-stall-loading { min-height: 240px; } .my-stall-state { min-height: 300px; padding: 1.25rem; } }

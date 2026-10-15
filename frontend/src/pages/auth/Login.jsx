@@ -216,7 +216,8 @@ export default function Login() {
               <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
               <span>Remember me</span>
             </label>
-            <Link to="/forgot-password" className="login-forgot">Forgot password?</Link>
+            {/* Offered only after two wrong tries, so it doesn't distract on a normal sign-in. */}
+            {guard.failures >= FREE_FAILURES && <Link to="/forgot-password" className="login-forgot">Forgot password?</Link>}
           </div>
           <button type="submit" className="btn btn-primary btn-lg w-full" disabled={loading || coolingDown} style={{ width: "100%" }} aria-describedby={coolingDown ? "login-wait" : undefined}>
             {loading ? <span className="spinner" /> : coolingDown ? <span id="login-wait">Try again in {formatWait(waitSeconds)}</span> : "Log In"}

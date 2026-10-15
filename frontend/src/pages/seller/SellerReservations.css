@@ -109,3 +109,5 @@
 @media (prefers-reduced-motion: reduce) {
   .seller-reservations-refresh .spinning,.seller-reservations-skeleton i,.seller-events-skeleton i { animation: none; }
 }
+
+@media (max-width: 600px) { .seller-reservations-empty { min-height: 190px; } }

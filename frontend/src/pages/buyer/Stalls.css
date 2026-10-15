@@ -131,3 +131,17 @@
   .market-stalls-grid--single .market-stall-storefront > svg { width: 60px; height: 60px; }
   .market-stalls-guide ol { grid-template-columns: minmax(0, 1fr); }
 }
+
+@media (max-width: 600px) {
+  .market-stalls-shell .market-stalls-page { width: calc(100% - 1.5rem); padding: .75rem 0 2.5rem; }
+  .market-stalls-shell .market-stalls-hero { min-height: 0; padding: 1rem; gap: .9rem; border-radius: 16px; }
+  .market-stalls-shell .market-stalls-eyebrow { margin-bottom: .4rem; }
+  .market-stalls-shell .market-stalls-hero h1 { font-size: 1.6rem; }
+  .market-stalls-shell .market-stalls-hero-copy p { margin-top: .4rem; font-size: .875rem; line-height: 1.5; }
+  .market-stalls-shell .market-stalls-summary > div { padding: .6rem .75rem; }
+  .market-stalls-shell .market-stalls-summary svg { width: 16px; height: 16px; }
+  .market-stalls-shell .market-stalls-summary strong { font-size: 1.2rem; }
+  .market-stalls-shell .market-stalls-search { min-height: 40px; }
+  .market-stalls-shell .market-stall-cover,
+  .market-stalls-grid--single .market-stall-cover { height: 120px; }
+}

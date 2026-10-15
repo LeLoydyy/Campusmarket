@@ -53,3 +53,8 @@
 }
 /* Grid children must be allowed to shrink so the map scrolls inside its card, not the page. */
 .evs-layout > *, .evs-side > * { min-width: 0; }
+
+@media (max-width: 600px) {
+  .evs-head { gap: .75rem; padding: 1rem; border-radius: 16px; }
+  .evs-head h1 { font-size: 1.6rem; }
+}

@@ -88,3 +88,5 @@
 @media (prefers-reduced-motion: reduce) {
   .seller-application-spinner { animation: none; }
 }
+
+@media (max-width: 600px) { .seller-application-intro { min-height: 110px; padding: 1rem; } }

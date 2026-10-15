@@ -104,9 +104,11 @@
   .nb-links { display: none; }
 }
 @media (max-width: 768px) {
-  .nb-inner { flex-wrap: wrap; row-gap: .5rem; min-height: 60px; padding: .55rem 0; }
-  .nb-brand img { height: 30px; }
-  .nb-search { order: 3; flex: 1 1 100%; max-width: none; height: 46px; }
+  .nb-inner { width: calc(100% - 1rem); flex-wrap: wrap; row-gap: .4rem; min-height: 52px; padding: .45rem 0; }
+  .nb-brand img { height: 26px; }
+  .nb-inner .btn { min-height: 34px; padding: .4rem 1rem; }
+  .nb-search { order: 3; flex: 1 1 100%; max-width: none; height: 40px; }
+  .nb-search-go { height: 32px; padding: 0 .8rem; }
   .nb-hide-mobile, .nb-user { display: none; }
   .tabbar {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 250;
@@ -117,14 +119,14 @@
     border-top: 1px solid var(--line);
     box-shadow: 0 -6px 20px rgba(11, 61, 36, .08);
   }
-  .tabbar-item { position: relative; min-height: 54px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .15rem; color: var(--ink-600); border-radius: 14px; font: 700 .75rem/1.1 var(--font-body); text-decoration: none; }
+  .tabbar-item { position: relative; min-height: 46px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .15rem; color: var(--ink-600); border-radius: 14px; font: 700 .6875rem/1.1 var(--font-body); text-decoration: none; }
   .tabbar-item.is-active { color: var(--green-900); }
   .tabbar-item.is-active::before { content: ""; position: absolute; top: 2px; width: 26px; height: 4px; background: var(--gold-500); border-radius: 4px; }
   .tabbar-icon { position: relative; display: grid; place-items: center; }
-  .tabbar-icon svg { width: 22px; height: 22px; }
+  .tabbar-icon svg { width: 20px; height: 20px; }
   .tabbar-item.is-active .tabbar-icon svg { color: var(--green-700); }
   .cm-tabbar-badge { position: absolute; top: -6px; right: -12px; min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 4px; color: var(--green-900); background: var(--gold-500); border: 2px solid var(--cream-50); border-radius: 999px; font: 800 .6875rem/1 var(--font-body); }
-  body.has-tabbar { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
+  body.has-tabbar { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
 }
 
 /* ── Footer ────────────────────────────────────────────────────────────────── */
