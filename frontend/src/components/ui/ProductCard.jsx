@@ -14,7 +14,7 @@ import { CategoryChip } from "./Chip.jsx";
 /**
  * The one product card used across the buyer side.
  * Shows only real facts: seller, pickup spot, rating, price; a stock warning
- * only at 5 or fewer, and "New" only for items listed within 7 days.
+ * only at 5 or fewer, and "New" for items listed within 7 days or not yet reviewed.
  */
 export default function ProductCard({ product, showStall = true }) {
   const { addItem } = useCart();
@@ -103,7 +103,7 @@ export default function ProductCard({ product, showStall = true }) {
           <span className="pc-tags">
             <CategoryChip category={product.category} size="sm" />
             {isOnSale(product) && <span className="pc-sale-tag">Sale {discountLabel(product)}</span>}
-            {isNewProduct(product) && <span className="cm-chip cm-chip--new cm-chip--sm">New</span>}
+            {(isNewProduct(product) || reviews === 0) && <span className="cm-chip cm-chip--new cm-chip--sm">New</span>}
           </span>
           {lowStock && <span className="pc-stock">Only {stock} left</span>}
           {outOfStock && <span className="pc-soldout">Sold out</span>}
@@ -123,18 +123,14 @@ export default function ProductCard({ product, showStall = true }) {
           {stall?.location && (
             <p className="pc-meta"><MapPin aria-hidden="true" /> <span>Pickup at {stall.location}</span></p>
           )}
-          <p className="pc-meta pc-rating">
-            {rating > 0 ? (
-              <>
-                <span className="pc-stars" aria-label={`Rated ${rating.toFixed(1)} out of 5`}>
-                  {[1, 2, 3, 4, 5].map((n) => <Star key={n} aria-hidden="true" className={n <= Math.round(rating) ? "is-on" : ""} />)}
-                </span>
-                <span>{rating.toFixed(1)} ({reviews})</span>
-              </>
-            ) : (
-              <><Star aria-hidden="true" /> <span>No reviews yet</span></>
-            )}
-          </p>
+          {reviews > 0 && rating > 0 && (
+            <p className="pc-meta pc-rating">
+              <span className="pc-stars" aria-label={`Rated ${rating.toFixed(1)} out of 5`}>
+                {[1, 2, 3, 4, 5].map((n) => <Star key={n} aria-hidden="true" className={n <= Math.round(rating) ? "is-on" : ""} />)}
+              </span>
+              <span>{rating.toFixed(1)} ({reviews})</span>
+            </p>
+          )}
           <p className="pc-price">
             {formatCurrency(effectivePrice(product))}
             {isOnSale(product) && <s className="pc-price-was" aria-label={`Regular price ${formatCurrency(product.price)}`}>{formatCurrency(product.price)}</s>}

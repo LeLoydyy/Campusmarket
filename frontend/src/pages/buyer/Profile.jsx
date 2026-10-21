@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { FiAlertTriangle, FiImage, FiKey, FiMail, FiMapPin, FiPhone, FiSave, FiUser } from "react-icons/fi";
+import { FiAlertTriangle, FiBell, FiChevronRight, FiHeart, FiImage, FiKey, FiMail, FiMapPin, FiMessageSquare, FiPackage, FiPhone, FiSave, FiTruck, FiUser } from "react-icons/fi";
 import Navbar from "../../components/common/Navbar.jsx";
+import Footer from "../../components/common/Footer.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { settingsService } from "../../services/api.js";
-import "../seller/Settings.css";
 import "./Profile.css";
 
 const isValidImageUrl = (value) => {
@@ -20,7 +20,17 @@ const fromUser = (user) => ({
   address: user?.address || "",
 });
 
-/** Buyer profile: name, photo, phone and the campus spot deliveries go to. */
+// Common meeting spots on campus, as one-tap starting points for the delivery location.
+const CAMPUS_SPOTS = ["Library", "Main Canteen", "CSUCC Covered Court", "Activity Center"];
+
+const SHORTCUTS = [
+  { to: "/orders", label: "My orders", icon: FiPackage },
+  { to: "/favorites", label: "Favorites", icon: FiHeart },
+  { to: "/messages", label: "Messages", icon: FiMessageSquare },
+  { to: "/notifications", label: "Notifications", icon: FiBell },
+];
+
+/** Buyer profile: name, photo, phone, and the optional campus spot used for delivery orders. */
 export default function Profile() {
   const { user, updateUser } = useAuth();
   const [form, setForm] = useState(() => fromUser(user));
@@ -61,96 +71,124 @@ export default function Profile() {
     }
   };
 
+  const avatar = showAvatar ? <img src={form.avatar_url} alt="" onError={() => setAvatarFailed(true)} /> : initials;
+
   return (
-    <div className="profile-shell">
+    <div className="pf-shell">
       <Navbar />
-      <main className="profile-page seller-settings-content">
-        <section className="seller-settings-hero">
-          <div className="seller-settings-avatar">
-            {showAvatar ? <img src={form.avatar_url} alt="Your profile" onError={() => setAvatarFailed(true)} /> : initials}
-          </div>
-          <div className="seller-settings-identity">
-            <span className="seller-settings-eyebrow">Buyer account</span>
-            <h2>{form.name || "Campus buyer"}</h2>
+      <main className="pf-page">
+        <section className="pf-hero" aria-label="Your account">
+          <span className="pf-avatar" aria-hidden="true">{avatar}</span>
+          <div className="pf-identity">
+            <p className="cm-eyebrow">Buyer account</p>
+            <h1>{form.name || "Campus buyer"}</h1>
             <p><FiMail aria-hidden="true" /> {user?.email}</p>
           </div>
         </section>
 
-        <div className="seller-settings-layout">
-          <form className="seller-settings-card" onSubmit={save}>
-            <div className="seller-settings-card-heading">
-              <span><FiUser aria-hidden="true" /></span>
-              <div>
-                <h2>Your profile</h2>
-                <p>Sellers see your name, and your phone and location on delivery orders.</p>
-              </div>
-            </div>
-
-            <div className="seller-settings-fields">
-              <label>
-                <span>Full name on campus records</span>
-                <input name="name" value={form.name} onChange={change} autoComplete="name" />
-                {nameChanged
-                  ? <small className="profile-warning"><FiAlertTriangle aria-hidden="true" /> An administrator will recheck your account after this change.</small>
-                  : <small>Changing your name requires a new administrator review.</small>}
-              </label>
-              <label>
-                <span>Phone number</span>
-                <div className="seller-settings-input-icon">
-                  <FiPhone aria-hidden="true" />
-                  <input name="phone" value={form.phone} onChange={change} inputMode="tel" autoComplete="tel" placeholder="0917 123 4567" maxLength={20} />
+        <div className="pf-layout">
+          <form className="pf-form" onSubmit={save} noValidate>
+            <section className="pf-card" aria-labelledby="pf-about">
+              <header className="pf-card-head">
+                <span><FiUser aria-hidden="true" /></span>
+                <div>
+                  <h2 id="pf-about">Your details</h2>
+                  <p>Sellers see your name on every order.</p>
                 </div>
-                <small>So a seller can reach you about an order.</small>
-              </label>
-              <label className="wide">
-                <span>Campus delivery location</span>
-                <div className="seller-settings-input-icon">
+              </header>
+
+              <div className="pf-grid">
+                <label className="pf-field">
+                  <span>Full name on campus records</span>
+                  <input name="name" value={form.name} onChange={change} autoComplete="name" />
+                  {nameChanged
+                    ? <small className="pf-warn"><FiAlertTriangle aria-hidden="true" /> An administrator will recheck your account after this change.</small>
+                    : <small>Changing your name needs a new administrator review.</small>}
+                </label>
+                <label className="pf-field">
+                  <span>Phone number <em>optional</em></span>
+                  <span className="pf-input-icon">
+                    <FiPhone aria-hidden="true" />
+                    <input name="phone" value={form.phone} onChange={change} inputMode="tel" autoComplete="tel" placeholder="0917 123 4567" maxLength={20} />
+                  </span>
+                  <small>So a seller can reach you if something comes up with your order.</small>
+                </label>
+                <div className="pf-photo">
+                  <span className="pf-photo-preview" aria-hidden="true">{avatar}</span>
+                  <label className="pf-field">
+                    <span>Profile photo link <em>optional</em></span>
+                    <span className="pf-input-icon">
+                      <FiImage aria-hidden="true" />
+                      <input name="avatar_url" value={form.avatar_url} onChange={change} inputMode="url" placeholder="https://example.com/photo.jpg" />
+                    </span>
+                    <small className={avatarFailed ? "pf-warn" : ""}>{avatarFailed ? "This image couldn't be loaded. Check the link." : "Leave empty to show your initials."}</small>
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <section className="pf-card pf-card--delivery" aria-labelledby="pf-delivery">
+              <header className="pf-card-head">
+                <span><FiTruck aria-hidden="true" /></span>
+                <div>
+                  <h2 id="pf-delivery">Campus delivery <em>optional</em></h2>
+                  <p>Some sellers can bring your order to you on campus. Pickup orders never use this.</p>
+                </div>
+              </header>
+              <label className="pf-field">
+                <span>Where should sellers bring your order?</span>
+                <span className="pf-input-icon">
                   <FiMapPin aria-hidden="true" />
                   <input name="address" value={form.address} onChange={change} placeholder="e.g. Library 2nd floor, near the reading area" maxLength={200} />
-                </div>
-                <small>Filled in for you at checkout when you choose delivery. You can change it per order.</small>
+                </span>
               </label>
-              <div className="seller-settings-photo wide">
-                <div className="seller-settings-photo-preview" aria-hidden="true">
-                  {showAvatar ? <img src={form.avatar_url} alt="" onError={() => setAvatarFailed(true)} /> : initials}
-                </div>
-                <label>
-                  <span>Profile photo link</span>
-                  <div className="seller-settings-input-icon">
-                    <FiImage aria-hidden="true" />
-                    <input name="avatar_url" value={form.avatar_url} onChange={change} inputMode="url" placeholder="https://example.com/photo.jpg" />
-                  </div>
-                  <small>{avatarFailed ? "This image could not be loaded. Check the link." : "Leave empty to use your initials."}</small>
-                </label>
+              <div className="pf-spots" role="group" aria-label="Common campus spots">
+                {CAMPUS_SPOTS.map((spot) => (
+                  <button key={spot} type="button" className={form.address.trim() === spot ? "is-selected" : ""} onClick={() => change({ target: { name: "address", value: spot } })}>
+                    {spot}
+                  </button>
+                ))}
               </div>
-            </div>
+              <ul className="pf-how">
+                <li>Filled in for you when you choose <strong>Campus delivery</strong> at checkout.</li>
+                <li>You can change it for any single order.</li>
+                <li>Only the seller of a delivery order sees it, along with your phone number.</li>
+              </ul>
+            </section>
 
-            {error && <p className="seller-settings-form-error" role="alert">{error}</p>}
-            <div className="seller-settings-card-actions">
-              <span className={`seller-settings-dirty${changed ? " is-visible" : ""}`}>{changed ? "You have unsaved changes" : ""}</span>
-              {changed && <button type="button" className="btn btn-ghost" onClick={() => { setForm(saved); setError(""); }} disabled={saving}>Discard</button>}
+            {error && <p className="pf-error" role="alert">{error}</p>}
+
+            <div className={`pf-savebar${changed ? " is-visible" : ""}`}>
+              <span>{changed ? "You have unsaved changes" : "All changes saved"}</span>
+              {changed && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setForm(saved); setError(""); }} disabled={saving}>Discard</button>}
               <button className="btn btn-primary" type="submit" disabled={saving || !changed}>
-                {saving ? <span className="seller-settings-spinner" /> : <FiSave aria-hidden="true" />}
+                {saving ? <span className="pf-spinner" /> : <FiSave aria-hidden="true" />}
                 {saving ? "Saving…" : "Save profile"}
               </button>
             </div>
           </form>
 
-          <aside className="seller-settings-aside">
-            <section>
-              <div className="seller-settings-aside-head">
+          <aside className="pf-aside">
+            <nav className="pf-card pf-shortcuts" aria-label="Account shortcuts">
+              {SHORTCUTS.map(({ to, label, icon: Icon }) => (
+                <Link key={to} to={to}><Icon aria-hidden="true" /> <span>{label}</span> <FiChevronRight aria-hidden="true" /></Link>
+              ))}
+            </nav>
+            <section className="pf-card" aria-labelledby="pf-security">
+              <header className="pf-card-head">
                 <span><FiKey aria-hidden="true" /></span>
-                <h3>Password & security</h3>
-              </div>
-              <p>Change your password and recovery questions, or see where you're signed in.</p>
-              <div className="profile-links">
+                <div><h2 id="pf-security">Password & security</h2></div>
+              </header>
+              <p className="pf-muted">Change your password and recovery questions, or see where you're signed in.</p>
+              <div className="pf-security-links">
                 <Link to="/account/password" className="btn btn-outline btn-sm">Change password</Link>
-                <Link to="/account/logins" className="btn btn-ghost btn-sm">Login history</Link>
+                <Link to="/account/logins" className="cm-link">Login history</Link>
               </div>
             </section>
           </aside>
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

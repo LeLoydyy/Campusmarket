@@ -1,20 +1,15 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useParams } from "react-router-dom";
 import {
   FiAlertCircle,
-  FiArrowLeft,
   FiArrowRight,
   FiCheck,
-  FiCheckCircle,
   FiChevronRight,
-  FiMapPin,
   FiMessageSquare,
   FiMinus,
-  FiPackage,
   FiPlus,
   FiRefreshCw,
   FiSend,
-  FiShield,
   FiShoppingBag,
   FiShoppingCart,
   FiStar,
@@ -26,9 +21,14 @@ import {
 } from "../../services/api.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useCart } from "../../context/CartContext.jsx";
+import { BadgeCheck, Banknote, Clock3, MapPin } from "lucide-react";
 import Navbar from "../../components/common/Navbar.jsx";
-import ProductCard from "../../components/common/ProductCard.jsx";
-import { SkeletonCard } from "../../components/common/Ui.jsx";
+import Footer from "../../components/common/Footer.jsx";
+import ProductCard from "../../components/ui/ProductCard.jsx";
+import { CategoryChip, categoryKey, categoryLabel } from "../../components/ui/Chip.jsx";
+import { SkeletonGrid } from "../../components/ui/Skeleton.jsx";
+import { stallOpenStatus } from "../../utils/marketplace.js";
+import "./ProductDetail.css";
 import toast from "react-hot-toast";
 import { discountLabel, effectivePrice, isOnSale, productOptions } from "../../utils/pricing.js";
 
@@ -94,7 +94,6 @@ function ProductDetailSkeleton() {
 
 export default function ProductDetail() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { addItem } = useCart();
 
@@ -110,6 +109,9 @@ export default function ProductDetail() {
   const [photoIndex, setPhotoIndex] = useState(0);
   const [optionId, setOptionId] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const [descOpen, setDescOpen] = useState(false);
+  const optionsRef = useRef(null);
+  const chatRef = useRef(null);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -207,6 +209,12 @@ export default function ProductDetail() {
   const isOwner = Boolean(user?.id && ownerId && user.id === ownerId);
   const showCartAction = !user || user.role === "buyer";
   const showMessageAction = Boolean(ownerId && !isOwner);
+  const stall = product?.stalls || null;
+  const stallStatus = stallOpenStatus(stall);
+  const hours = String(stall?.operating_hours || "").trim();
+  const reviewCount = Number(product?.review_count || reviews.length);
+  const longDescription = String(product?.description || "").length > 140;
+  const stockLabel = isOutOfStock ? "Out of stock" : isLowStock ? `Only ${stock} left` : `${stock} in stock`;
 
   const handleAddToCart = async () => {
     if (!user) {
@@ -251,6 +259,20 @@ export default function ProductDetail() {
     }
 
     setChatOpen((open) => !open);
+  };
+
+  useEffect(() => {
+    if (chatOpen) chatRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [chatOpen]);
+
+  // Phone buy bar: with options, take the buyer to the option picker first.
+  const handleBuyBar = () => {
+    if (needsOption) {
+      optionsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      toast(`Choose ${options.length > 1 ? "an option" : "the option"} first`, { icon: "👆" });
+      return;
+    }
+    handleAddToCart();
   };
 
   const handleSendMessage = async () => {
@@ -325,18 +347,10 @@ export default function ProductDetail() {
         <nav className="detail-breadcrumb" aria-label="Breadcrumb">
           <Link to="/browse">Products</Link>
           <FiChevronRight aria-hidden="true" />
-          <span>{product.category || "Product"}</span>
+          <Link to={`/browse?category=${categoryKey(product.category)}`}>{categoryLabel(product.category)}</Link>
           <FiChevronRight aria-hidden="true" />
           <strong>{product.name}</strong>
         </nav>
-
-        <button
-          type="button"
-          className="detail-back-btn"
-          onClick={() => navigate(-1)}
-        >
-          <FiArrowLeft /> Back
-        </button>
 
         <section
           className="detail-layout fade-in"
@@ -358,14 +372,11 @@ export default function ProductDetail() {
                   </span>
                 </div>
               )}
-              <span className="detail-cat-chip">
-                {product.category || "Other"}
+              <span className="pd-media-tags">
+                <CategoryChip category={product.category} />
+                {isOnSale(product) && <span className="pd-sale-tag">Sale {discountLabel(product)}</span>}
               </span>
-              <span
-                className={`detail-stock-overlay ${isOutOfStock ? "out" : "available"}`}
-              >
-                {isOutOfStock ? "Out of stock" : "Available"}
-              </span>
+              {isOutOfStock && <span className="detail-stock-overlay out">Out of stock</span>}
             </div>
 
             {photos.length > 1 && (
@@ -385,52 +396,35 @@ export default function ProductDetail() {
               </div>
             )}
 
-            <div className="detail-benefit-grid">
-              <div>
-                <FiShield />
-                <span>
-                  <strong>Verified seller</strong>
-                  <small>Campus community</small>
-                </span>
-              </div>
-              <div>
-                <FiMapPin />
-                <span>
-                  <strong>Campus meetup</strong>
-                  <small>Arrange directly</small>
-                </span>
-              </div>
-              <div>
-                <FiPackage />
-                <span>
-                  <strong>Direct purchase</strong>
-                  <small>Simple and local</small>
-                </span>
-              </div>
-            </div>
           </div>
 
           <article className="detail-info-card">
             <div className="detail-heading">
-              <div className="detail-stall-name">
-                <span>{product.stalls?.name || "Campus seller"}</span>
-                <FiCheckCircle aria-label="Verified campus seller" />
-              </div>
+              {stall && (
+                <Link to={stall.id ? `/stalls/${stall.id}` : "/stalls"} className="pd-stall">
+                  <span className="pd-stall-logo" aria-hidden="true">
+                    {stall.logo_url ? <img src={stall.logo_url} alt="" /> : (stall.name || "S").charAt(0).toUpperCase()}
+                  </span>
+                  <span className="pd-stall-name">{stall.name}</span>
+                  <BadgeCheck className="pd-verified" aria-label="Verified CSUCC seller" />
+                  <span className={`sc-status ${stallStatus.open ? "is-open" : "is-closed"}`}>
+                    <i aria-hidden="true" />{stallStatus.open ? "Open now" : "Closed"}
+                  </span>
+                </Link>
+              )}
               <h1 id="product-title" className="detail-title">
                 {product.name}
               </h1>
 
               <div className="detail-rating">
-                <StarRating value={rating} />
-                {rating > 0 ? (
-                  <>
+                {reviewCount > 0 && rating > 0 ? (
+                  <a href="#reviews-title" className="pd-rating-link">
+                    <StarRating value={rating} />
                     <strong>{rating.toFixed(1)}</strong>
-                    <span>
-                      {product.review_count || reviews.length} reviews
-                    </span>
-                  </>
+                    <span>({reviewCount} {reviewCount === 1 ? "review" : "reviews"})</span>
+                  </a>
                 ) : (
-                  <span>No ratings yet</span>
+                  <><span className="cm-chip cm-chip--new cm-chip--sm">New</span><span>Just listed on Campus Market</span></>
                 )}
               </div>
             </div>
@@ -439,6 +433,7 @@ export default function ProductDetail() {
               <span className="detail-price-label">{isOnSale(product) ? "Sale price" : "Campus price"}</span>
               <div className="detail-price">
                 {formatPrice(effectivePrice(product))}
+                <span className={`pd-stock ${isOutOfStock ? "is-out" : isLowStock ? "is-low" : "is-in"}`}>{stockLabel}</span>
                 {isOnSale(product) && (
                   <>
                     <s className="detail-price-was" aria-label={`Regular price ${formatPrice(product.price)}`}>{formatPrice(product.price)}</s>
@@ -448,17 +443,37 @@ export default function ProductDetail() {
               </div>
             </div>
 
+            <ul className="pd-facts">
+              <li>
+                <MapPin aria-hidden="true" />
+                <span><strong>Pickup at {stall?.location || "the stall"}</strong><small>Order ahead, collect between classes</small></span>
+              </li>
+              <li>
+                <Clock3 aria-hidden="true" />
+                <span><strong>{stallStatus.open ? "Open now" : "Closed right now"}</strong><small>{hours ? `Hours: ${hours}` : "Ask the seller about pickup times"}</small></span>
+              </li>
+              <li>
+                <Banknote aria-hidden="true" />
+                <span><strong>Cash on pickup</strong><small>Show your pickup code from My orders</small></span>
+              </li>
+            </ul>
+
             <div className="detail-description">
               <h2>About this product</h2>
-              <p>
+              <p className={longDescription && !descOpen ? "pd-desc-clamp" : undefined}>
                 {product.description ||
                   "The seller has not added a description yet."}
               </p>
+              {longDescription && (
+                <button type="button" className="pd-desc-toggle" onClick={() => setDescOpen((open) => !open)} aria-expanded={descOpen}>
+                  {descOpen ? "Show less" : "Read more"}
+                </button>
+              )}
             </div>
 
             <div className="detail-purchase-panel">
               {options.length > 0 && (
-                <fieldset className="detail-options">
+                <fieldset className="detail-options" ref={optionsRef}>
                   <legend id="detail-options-hint">Choose an option {selectedOption && <span>· {selectedOption.label}</span>}</legend>
                   <div>
                     {options.map((option) => (
@@ -478,21 +493,6 @@ export default function ProductDetail() {
                   </div>
                 </fieldset>
               )}
-
-              <div className="detail-availability-row">
-                <span>Availability</span>
-                <strong
-                  className={isOutOfStock ? "out" : isLowStock ? "low" : "in"}
-                >
-                  {isOutOfStock
-                    ? "Out of stock"
-                    : needsOption
-                      ? `${Number(product.stock)} in stock · choose an option`
-                      : isLowStock
-                        ? `Only ${stock} left`
-                        : `${stock} in stock`}
-                </strong>
-              </div>
 
               {user?.role === "buyer" && !isOutOfStock && !needsOption && (
                 <div className="detail-quantity-row">
@@ -577,20 +577,15 @@ export default function ProductDetail() {
                 className="detail-seller-card"
               >
                 <div className="seller-avatar">
-                  {product.stalls.users?.avatar_url ? (
-                    <img src={product.stalls.users.avatar_url} alt="" />
+                  {product.stalls.logo_url ? (
+                    <img src={product.stalls.logo_url} alt="" />
                   ) : (
-                    <span>
-                      {product.stalls.users?.name?.charAt(0)?.toUpperCase() ||
-                        "S"}
-                    </span>
+                    <span>{(product.seller_name || product.stalls.name || "S").charAt(0).toUpperCase()}</span>
                   )}
                 </div>
                 <div className="seller-card-copy">
                   <span>Sold by</span>
-                  <strong>
-                    {product.stalls.users?.name || "Campus seller"}
-                  </strong>
+                  <strong>{product.seller_name || "Campus seller"}</strong>
                   <small>{product.stalls.name}</small>
                 </div>
                 <span className="seller-card-link">
@@ -600,7 +595,7 @@ export default function ProductDetail() {
             )}
 
             {chatOpen && (
-              <div className="detail-chat-panel fade-in">
+              <div className="detail-chat-panel fade-in" ref={chatRef}>
                 <div className="detail-chat-heading">
                   <div>
                     <FiMessageSquare />
@@ -651,6 +646,25 @@ export default function ProductDetail() {
           </article>
         </section>
 
+        {(showCartAction || showMessageAction) && (
+          <div className="pd-buybar" role="region" aria-label="Buy this product">
+            <div className="pd-buybar-price">
+              <strong>{formatPrice(effectivePrice(product))}</strong>
+              <small className={isOutOfStock ? "is-out" : isLowStock ? "is-low" : ""}>{needsOption && !isOutOfStock ? "Choose an option" : stockLabel}</small>
+            </div>
+            {showMessageAction && (
+              <button type="button" className="pd-buybar-msg" onClick={handleToggleChat} aria-expanded={chatOpen} aria-label={chatOpen ? "Close message" : "Message seller"}>
+                <FiMessageSquare aria-hidden="true" />
+              </button>
+            )}
+            {showCartAction && (
+              <button type="button" className={`btn btn-primary pd-buybar-cart ${added ? "btn-added" : ""}`} onClick={handleBuyBar} disabled={adding || isOutOfStock}>
+                {adding ? <><span className="spinner" /> Adding…</> : added ? <><FiCheck aria-hidden="true" /> Added</> : isOutOfStock ? "Sold out" : <><FiShoppingCart aria-hidden="true" /> {needsOption ? "Choose option" : "Add to cart"}</>}
+              </button>
+            )}
+          </div>
+        )}
+
         <section
           className="detail-section detail-reviews-section"
           aria-labelledby="reviews-title"
@@ -660,9 +674,11 @@ export default function ProductDetail() {
               <span>Buyer feedback</span>
               <h2 id="reviews-title">Customer reviews</h2>
             </div>
-            <span>
-              {reviews.length} {reviews.length === 1 ? "review" : "reviews"}
-            </span>
+            {reviews.length > 0 && (
+              <span>
+                {reviews.length} {reviews.length === 1 ? "review" : "reviews"}
+              </span>
+            )}
           </div>
 
           {reviews.length > 0 ? (
@@ -710,9 +726,9 @@ export default function ProductDetail() {
                 <FiStar />
               </span>
               <div>
-                <strong>No reviews yet</strong>
+                <strong>Be the first to review</strong>
                 <p>
-                  Bought this? Once you receive your order, rate it from{" "}
+                  Bought this? Once you pick up your order, rate it from{" "}
                   <Link to="/orders">My orders</Link>.
                 </p>
               </div>
@@ -732,23 +748,15 @@ export default function ProductDetail() {
               </Link>
             </div>
 
-            <div className="product-grid detail-similar-grid">
-              {similarLoading
-                ? Array.from({ length: 4 }).map((_, index) => (
-                    <SkeletonCard key={index} />
-                  ))
-                : similar
-                    .slice(0, 8)
-                    .map((similarProduct) => (
-                      <ProductCard
-                        key={similarProduct.id}
-                        product={similarProduct}
-                      />
-                    ))}
-            </div>
+            {similarLoading ? <SkeletonGrid count={4} /> : (
+              <div className="pc-grid detail-similar-grid">
+                {similar.slice(0, 8).map((similarProduct) => <ProductCard key={similarProduct.id} product={similarProduct} />)}
+              </div>
+            )}
           </section>
         )}
       </main>
+      <Footer />
     </div>
   );
 }

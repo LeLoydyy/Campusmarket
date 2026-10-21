@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import { FiAlertCircle, FiImage, FiRefreshCw, FiSave, FiTrash2, FiUploadCloud, FiX } from "react-icons/fi";
 import Sidebar from "../../components/common/Sidebar.jsx";
 import { stallService } from "../../services/api.js";
-import { StallCard, normalizeStall } from "../buyer/Stalls.jsx";
+import StallCard from "../../components/ui/StallCard.jsx";
 import "../buyer/Stalls.css";
 import "./Mystall.css";
 import "./StallBranding.css";
@@ -93,6 +93,7 @@ function BrandingSlot({ kind, stall, pending, busy, onPick, onSave, onCancel, on
         )}
       </div>
       <small className="stall-branding-note">JPG, PNG or WebP, up to 5 MB. You can also drag an image onto the box.</small>
+      {kind === "cover" && <small className="stall-branding-note">Use your own photos. No cartoon characters or brand logos.</small>}
     </section>
   );
 }
@@ -167,11 +168,9 @@ export default function StallBranding() {
 
   // Preview exactly what buyers see, including images that aren't saved yet.
   const preview = stall && {
-    ...normalizeStall({
-      ...stall,
-      logo_url: pending.logo?.url || stall.logo_url,
-      banner_url: pending.cover?.url || stall.banner_url,
-    }, 0),
+    ...stall,
+    logo_url: pending.logo?.url || stall.logo_url,
+    banner_url: pending.cover?.url || stall.banner_url,
     id: undefined, // render as a plain card, not a link
   };
 
@@ -227,8 +226,8 @@ export default function StallBranding() {
 
               <aside className="stall-branding-preview">
                 <small>How buyers see your stall</small>
-                <div className="market-stalls-shell stall-branding-card">
-                  <StallCard stall={preview} />
+                <div className="stall-branding-card">
+                  <StallCard stall={preview} detailed />
                 </div>
                 <p>
                   {["approved", "active"].includes(stall.status)

@@ -1,0 +1,121 @@
+/* ── Product detail: the parts added on top of the base styles in global.css ── */
+.product-detail-screen { background: var(--cream-50); }
+.detail-breadcrumb { margin-bottom: 1.1rem; }
+.detail-breadcrumb a:hover { text-decoration: underline; }
+.detail-image-wrap { border: 0; border-radius: 28px; box-shadow: var(--shadow-2); }
+.detail-info-card { background: var(--surface); border: 0; border-radius: 28px; box-shadow: var(--shadow-2); }
+
+/* Tags on the photo */
+.pd-media-tags { position: absolute; top: 1rem; left: 1rem; z-index: 2; display: flex; flex-wrap: wrap; gap: .4rem; }
+.pd-media-tags .cm-chip { box-shadow: var(--shadow-1); }
+.pd-sale-tag { padding: .3rem .7rem; color: #fff; background: var(--coral-700); border-radius: var(--radius-pill); font: 800 var(--text-xs)/1.2 var(--font-body); box-shadow: var(--shadow-1); }
+
+/* Stall row above the title */
+.pd-stall { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-bottom: .9rem; color: var(--ink-900); text-decoration: none; }
+.pd-stall-logo { width: 36px; height: 36px; display: grid; place-items: center; overflow: hidden; color: var(--gold-500); background: var(--green-900); border-radius: 12px; box-shadow: var(--shadow-1); font: 900 1rem/1 var(--font-display); }
+.pd-stall-logo img { width: 100%; height: 100%; object-fit: cover; background: #fff; }
+.pd-stall-name { font: 800 var(--text-sm)/1.2 var(--font-body); }
+.pd-stall:hover .pd-stall-name { color: var(--green-700); text-decoration: underline; }
+.pd-verified { width: 16px; height: 16px; color: var(--green-700); }
+
+.detail-title { font-family: var(--font-display); font-weight: 900; }
+.pd-rating-link { display: inline-flex; align-items: center; gap: .4rem; color: inherit; text-decoration: none; }
+.pd-rating-link:hover span { text-decoration: underline; }
+
+/* Price with stock pill */
+.detail-price { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .75rem; font-family: var(--font-display); font-weight: 900; }
+.pd-stock { padding: .3rem .7rem; border-radius: var(--radius-pill); font: 800 var(--text-xs)/1.2 var(--font-body); letter-spacing: 0; }
+.pd-stock.is-in { color: var(--green-700); background: var(--green-100); }
+.pd-stock.is-low { color: var(--gold-700); background: var(--gold-100); }
+.pd-stock.is-out { color: var(--coral-700); background: var(--coral-100); }
+
+/* Pickup facts */
+.pd-facts { display: grid; gap: .1rem; margin: 1.2rem 0 0; padding: .4rem; list-style: none; background: var(--cream-50); border-radius: 18px; }
+.pd-facts li { display: flex; align-items: center; gap: .75rem; padding: .6rem .7rem; }
+.pd-facts li + li { border-top: 1px dashed var(--line); }
+.pd-facts svg { flex: 0 0 auto; width: 36px; height: 36px; padding: 8px; color: var(--green-700); background: #fff; border-radius: 12px; box-shadow: var(--shadow-1); }
+.pd-facts span { display: grid; min-width: 0; }
+.pd-facts strong { color: var(--ink-900); font-size: var(--text-sm); }
+.pd-facts small { color: var(--ink-600); font-size: var(--text-xs); }
+
+.detail-description { border-bottom: 0; }
+.detail-seller-card { border-radius: 18px; }
+.detail-seller-card .seller-avatar { overflow: hidden; }
+
+.detail-similar-grid { margin-top: .25rem; }
+.product-detail-page + .site-footer { margin-top: 0; }
+
+@media (max-width: 600px) {
+  .detail-image-wrap, .detail-info-card { border-radius: 18px; }
+  .pd-media-tags { top: .7rem; left: .7rem; }
+  .pd-facts li { padding: .5rem; }
+  .pd-facts svg { width: 32px; height: 32px; padding: 7px; }
+}
+
+/* Description fold + phone buy bar (hidden on larger screens) */
+.pd-desc-toggle { display: none; margin-top: .3rem; color: var(--green-700); font-size: var(--text-sm); font-weight: 800; }
+.pd-buybar { display: none; }
+
+/* ── Phones: photo and details on one screen, buy bar always in reach ── */
+@media (max-width: 768px) {
+  .product-detail-page { padding: .5rem .75rem calc(84px + env(safe-area-inset-bottom)); }
+  .detail-breadcrumb { display: none; }
+  .detail-layout { gap: 0; }
+
+  /* Shorter photo: 4:3, never more than ~40% of the screen */
+  .detail-image-wrap { aspect-ratio: 4 / 3; max-height: 40vh; width: 100%; border-radius: 18px; box-shadow: var(--shadow-1); }
+  .detail-img { object-fit: cover; }
+  .pd-media-tags { top: .6rem; left: .6rem; }
+  .pd-media-tags .cm-chip { font-size: .75rem; padding: .2rem .55rem; }
+  .detail-thumbs { margin-top: .45rem; }
+  .detail-thumbs button { flex-basis: 48px; height: 48px; border-radius: 10px; }
+
+  /* Info card tucks under the photo */
+  .detail-info-card { position: relative; z-index: 1; margin-top: -1.1rem; padding: 1rem .95rem; border-radius: 20px; }
+  .detail-heading { padding-bottom: .7rem; }
+  .pd-stall { gap: .4rem; margin-bottom: .45rem; }
+  .pd-stall-logo { width: 28px; height: 28px; border-radius: 9px; font-size: .85rem; }
+  .pd-stall-name { font-size: var(--text-xs); }
+  .pd-stall .sc-status { padding: .12rem .45rem; font-size: .6875rem; }
+  .detail-title { font-size: 1.4rem; line-height: 1.15; letter-spacing: -.025em; }
+  .detail-rating { margin-top: .45rem; }
+  .detail-price-block { padding: .7rem 0; }
+  .detail-price-label { display: none; }
+  .detail-price { font-size: 1.6rem; }
+
+  /* Pickup facts become a swipeable row of chips */
+  .pd-facts { display: flex; gap: .4rem; margin-top: .7rem; padding: 0; overflow-x: auto; background: none; scrollbar-width: none; }
+  .pd-facts::-webkit-scrollbar { display: none; }
+  .pd-facts li { flex: 0 0 auto; gap: .45rem; padding: .4rem .65rem .4rem .45rem; background: var(--cream-50); border-radius: 12px; }
+  .pd-facts li + li { border-top: 0; }
+  .pd-facts svg { width: 26px; height: 26px; padding: 5px; border-radius: 8px; }
+  .pd-facts strong { font-size: .75rem; white-space: nowrap; }
+  .pd-facts small { font-size: .6875rem; white-space: nowrap; }
+
+  .detail-description { padding: .8rem 0; }
+  .detail-description h2 { font-size: var(--text-sm); }
+  .detail-description p { font-size: var(--text-sm); line-height: 1.5; }
+  .pd-desc-clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .pd-desc-toggle { display: inline-block; }
+  .detail-purchase-panel { padding-top: .6rem; }
+
+  /* The buy bar replaces the in-card buttons */
+  .detail-actions { display: none; }
+  .detail-seller-card { margin-top: .7rem; padding: .65rem; }
+  .pd-buybar {
+    position: fixed; left: .5rem; right: .5rem; bottom: calc(62px + env(safe-area-inset-bottom)); z-index: 240;
+    display: flex; align-items: center; gap: .5rem; padding: .5rem .5rem .5rem .85rem;
+    background: rgba(255, 255, 255, .97); border-radius: 18px; box-shadow: 0 10px 30px rgba(11, 61, 36, .18), 0 0 0 1px var(--line);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  }
+  .pd-buybar-price { flex: 1; min-width: 0; display: grid; line-height: 1.15; }
+  .pd-buybar-price strong { color: var(--green-700); font: 900 1.15rem/1.1 var(--font-display); }
+  .pd-buybar-price small { overflow: hidden; color: var(--ink-600); font-size: .75rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+  .pd-buybar-price small.is-low { color: var(--gold-700); }
+  .pd-buybar-price small.is-out { color: var(--coral-700); }
+  .pd-buybar-msg { flex: none; width: 44px; height: 44px; display: grid; place-items: center; color: var(--green-700); background: var(--green-100); border-radius: 12px; }
+  .pd-buybar-msg svg { width: 20px; height: 20px; }
+  .pd-buybar-cart { flex: none; min-height: 44px; padding: 0 1.1rem; border-radius: 12px; }
+
+  .detail-section { margin-top: 1.5rem; }
+}

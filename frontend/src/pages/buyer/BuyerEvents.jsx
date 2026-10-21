@@ -67,7 +67,7 @@ export default function BuyerEvents() {
 
         <div className="bev-controls">
           <div className="bev-tabs" role="tablist" aria-label="Filter events">
-            {TABS.map((item) => (
+            {TABS.filter((item) => item.value === "all" || counts[item.value] > 0 || tab === item.value).map((item) => (
               <FilterChip key={item.value} role="tab" aria-selected={tab === item.value} active={tab === item.value} count={counts[item.value]} onClick={() => setTab(item.value)}>
                 {item.value === "ongoing" && counts.ongoing > 0 && <i className="bev-live" aria-hidden="true" />}
                 {item.label}
@@ -80,6 +80,15 @@ export default function BuyerEvents() {
             <input type="search" placeholder="Search events or places" value={query} onChange={(e) => setQuery(e.target.value)} />
           </label>
         </div>
+
+        {!loading && !error && !next && (
+          <p className="bev-slim">
+            <span><span aria-hidden="true">📅</span> No fairs scheduled yet. New ones are posted here first.</span>
+            <Link to={applyTo} className="cm-link">Apply for an event stall <span aria-hidden="true">→</span></Link>
+          </p>
+        )}
+
+        {!loading && !error && !next && visible.length > 0 && <h2 className="bev-past-title">Past fairs</h2>}
 
         {loading ? (
           <div className="ec-grid">{[0, 1, 2].map((i) => <SkeletonBlock key={i} height={380} />)}</div>
@@ -98,14 +107,15 @@ export default function BuyerEvents() {
           </div>
         )}
 
+        {next && (
         <section className="bev-ctas" aria-label="Get involved">
           <article className="bev-cta bev-cta--calendar">
             <CalendarPlus aria-hidden="true" />
             <div>
-              <h2>{next ? `Don't miss ${next.name}` : "Stay in the loop"}</h2>
-              <p>{next ? `${formatEventDate(next)} at ${next.location}. Add it to your calendar so you catch your favourite stalls.` : "New fairs are posted here first — check back soon."}</p>
+              <h2>Don't miss {next.name}</h2>
+              <p>{formatEventDate(next)} at {next.location}. Add it to your calendar so you catch your favourite stalls.</p>
             </div>
-            {next && <a className="btn btn-primary" href={calendarLink(next)} target="_blank" rel="noreferrer">Add to calendar</a>}
+            <a className="btn btn-primary" href={calendarLink(next)} target="_blank" rel="noreferrer">Add to calendar</a>
           </article>
           <article className="bev-cta bev-cta--sell">
             <Store aria-hidden="true" />
@@ -116,6 +126,7 @@ export default function BuyerEvents() {
             <Link className="btn btn-gold" to={applyTo}>Apply for a stall</Link>
           </article>
         </section>
+        )}
       </main>
       <Footer />
     </div>

@@ -3,7 +3,8 @@ import "./ManageUsers.css";
 import "./ManageAdmins.css";
 import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { RefreshCw, Search } from "lucide-react";
+import { Link } from "react-router-dom";
+import { KeyRound, RefreshCw, Search, ShieldCheck } from "lucide-react";
 import Sidebar from "../../components/common/Sidebar.jsx";
 import Navbar from "../../components/common/Navbar.jsx";
 import { DateFilters, Pager } from "../../components/admin/AdminDrawer.jsx";
@@ -89,7 +90,7 @@ export default function LoginLogs({ mine = false }) {
   const title = showAll ? "Login logs" : "My login history";
   const intro = showAll
     ? "Every sign-in with ID number, full name, time in and time out — plus what admins changed."
-    : "Each time your account signed in. Don't recognize one? Change your password right away.";
+    : "Every time your account signed in, newest first.";
 
   const content = (
     <>
@@ -98,7 +99,7 @@ export default function LoginLogs({ mine = false }) {
           <h1>{title}</h1>
           <p>{intro}</p>
         </div>
-        <button type="button" className="btn btn-outline btn-sm" onClick={load} disabled={loading}><RefreshCw aria-hidden="true" /> Refresh</button>
+        <button type="button" className="btn btn-outline btn-sm" onClick={load} disabled={loading}><RefreshCw aria-hidden="true" /> <span className="cm-btn-label">Refresh</span></button>
       </header>
 
       <div className="dashboard-content mu-content">
@@ -107,6 +108,14 @@ export default function LoginLogs({ mine = false }) {
             <FilterChip role="tab" aria-selected={tab === "logins"} active={tab === "logins"} onClick={() => { setTab("logins"); setPage(1); }}>Sign-ins</FilterChip>
             <FilterChip role="tab" aria-selected={tab === "activity"} active={tab === "activity"} onClick={() => { setTab("activity"); setPage(1); }}>Admin activity</FilterChip>
           </div>
+        )}
+
+        {!showAll && (
+          <section className="ll-tip" aria-label="Account safety">
+            <ShieldCheck aria-hidden="true" />
+            <p><strong>Don't recognize a sign-in?</strong> Change your password right away. Every device using the old password gets signed out.</p>
+            <Link to="/account/password" className="btn btn-primary btn-sm"><KeyRound aria-hidden="true" /> Change password</Link>
+          </section>
         )}
 
         <div className="mu-toolbar">
@@ -160,16 +169,17 @@ export default function LoginLogs({ mine = false }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => {
+                  {rows.map((row, index) => {
                     const [tone, label] = row.time_out ? ENDINGS[row.end_reason] || ["closed", "Signed out"] : ["active", "Signed in"];
+                    const latest = !showAll && page === 1 && index === 0;
                     return (
-                      <tr key={row.id}>
+                      <tr key={row.id} className={latest ? "ll-latest" : undefined}>
                         {showAll && <>
                           <td className="mu-id-cell">{row.id_no || "—"}</td>
                           <td><strong>{row.full_name}</strong></td>
                           <td><span className={`cm-chip cm-chip--sm mu-role mu-role--${row.role}`}>{cap(row.role)}</span></td>
                         </>}
-                        <td>{formatDateTime(row.time_in)}</td>
+                        <td>{formatDateTime(row.time_in)}{latest && <span className="ll-latest-tag">Latest</span>}</td>
                         <td>{row.time_out ? formatDateTime(row.time_out) : <span className="ll-sub" title="Last activity">Last active {formatDateTime(row.last_seen_at)}</span>}</td>
                         <td>{duration(row.time_in, row.time_out)}</td>
                         <td><StatusChip status={tone} label={label} /></td>

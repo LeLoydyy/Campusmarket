@@ -14,7 +14,7 @@
 }
 .nb-inner { width: min(1320px, 100% - 2rem); min-height: 72px; margin: 0 auto; display: flex; align-items: center; gap: 1.25rem; }
 .nb-brand { flex: 0 0 auto; display: flex; align-items: center; min-height: 44px; }
-.nb-brand img { height: 34px; width: auto; }
+.nb-brand img { height: 50px; width: auto; }
 
 .nb-links { display: flex; align-items: center; gap: .25rem; }
 .nb-link {
@@ -105,7 +105,7 @@
 }
 @media (max-width: 768px) {
   .nb-inner { width: calc(100% - 1rem); flex-wrap: wrap; row-gap: .4rem; min-height: 52px; padding: .45rem 0; }
-  .nb-brand img { height: 26px; }
+  .nb-brand img { height: 40px; }
   .nb-inner .btn { min-height: 34px; padding: .4rem 1rem; }
   .nb-search { order: 3; flex: 1 1 100%; max-width: none; height: 40px; }
   .nb-search-go { height: 32px; padding: 0 .8rem; }

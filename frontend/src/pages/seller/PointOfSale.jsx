@@ -127,7 +127,7 @@ export default function PointOfSale() {
   const blocker = !buyer ? "Find a verified buyer first." : !lines.length ? "Add at least one product." : cash === "" ? "Enter the cash received." : short ? `Cash is short by ${money(total - cashValue)}.` : "";
 
   return <div className="dashboard-layout"><Sidebar /><main className="dashboard-main">
-    <div className="topbar"><div><h1>Point of sale</h1><p>Record campus counter sales and keep stock up to date.</p></div></div>
+    <div className="topbar"><div className="topbar-titles"><h1>Point of sale</h1><p>Record campus counter sales and keep stock up to date.</p></div></div>
     <div className="dashboard-content pos-page">
       {error && <p className="pos-error" role="alert"><span>{error}</span><button type="button" aria-label="Dismiss message" onClick={() => setError("")}><X size={16} /></button></p>}
       {loading ? <p role="status">Loading your store…</p> : !stall || stall.status !== "approved" || !stall.is_active ? <EmptyState illustration="store" title="Your counter opens with your stall" description="Once your stall is approved and open in My Stall, you can record cash sales here." action={{ label: "Go to My Stall", to: "/seller/stall" }} /> : !stall.plan?.pos ? <EmptyState illustration="store" title="The point of sale is a Premium feature" description="Premium adds counter sales with printable receipts, product analytics, 3 featured products on the buyer home page and up to 25 listings." action={{ label: "See Premium", to: "/seller/plans?feature=pos" }} /> : <>

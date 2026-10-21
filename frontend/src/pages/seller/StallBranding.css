@@ -25,9 +25,8 @@
 
 .stall-branding-preview { position: sticky; top: 1rem; padding: 1.1rem; background: #fff; border: 1px solid var(--cm-border, var(--line)); border-radius: 18px; }
 .stall-branding-preview > small { display: block; margin-bottom: .75rem; color: var(--cm-primary, var(--green-700)); font-size: var(--text-xs); font-weight: 760; letter-spacing: .1em; text-transform: uppercase; }
-/* Reuses the buyer card styles; undo the page-level min-height of .market-stalls-shell. */
-.stall-branding-card { min-height: 0; background: transparent; }
-.stall-branding-card .market-stall-card { pointer-events: none; }
+/* The same card buyers see on the Stalls page. */
+.stall-branding-card .sc { pointer-events: none; }
 .stall-branding-preview > p { margin-top: .85rem; color: var(--cm-text-secondary, var(--ink-600)); font-size: var(--text-xs); line-height: 1.55; }
 .stall-branding-preview > p a { color: var(--cm-primary, var(--green-700)); font-weight: 700; }
 

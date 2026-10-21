@@ -34,8 +34,8 @@ const showSystemNotification = async (notification) => {
     body: notification.body,
     icon: notification.order?.first_item?.image_url
       ? new URL(notification.order.first_item.image_url, window.location.origin).href
-      : "/images/buyer/campusmarket-logo.png",
-    badge: "/images/buyer/campusmarket-logo.png",
+      : "/images/buyer/campusmarket-icon.png",
+    badge: "/images/buyer/campusmarket-icon.png",
     // One entry per order in the tray: a new stage replaces the previous one.
     tag: notification.order_id ? `order-${notification.order_id}` : notification.id,
     renotify: true,

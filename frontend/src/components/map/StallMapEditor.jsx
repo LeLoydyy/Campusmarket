@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { ArrowLeft, CheckCircle2, Keyboard, Minus, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Keyboard, Minus, Plus, Save, Store, Trash2, UserMinus, Users } from "lucide-react";
 import api from "../../services/api.js";
 import { formatCurrency } from "../../utils/formatCurrency.js";
-import { plural } from "../../utils/marketplace.js";
 import StallMap, { isFree, LANDMARKS, MAP_COLS, MAP_ROWS, placeSpaces, SPACE_CATEGORIES, SPACE_STATUSES, StallMapLegend } from "./StallMap.jsx";
 
 // crypto.randomUUID only exists on https:// or localhost; phones on http://192.168… need the fallback.
 const tempId = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
+
+// Application categories → map categories, to flag a seller placed in a different kind of space.
+const APP_TO_SPACE = { food: "food", merchandise: "merchandise", "mixed-use": "mixed" };
 
 const LANDMARK_SIZES = { stage: [6, 3], entrance: [3, 1], exit: [3, 1], restroom: [2, 2], info: [2, 2], custom: [3, 2] };
 
@@ -24,7 +26,7 @@ const firstFree = (w, h, items) => {
  * Admin stall map editor: large grid canvas, drag / resize / keyboard nudge,
  * landmarks, zoom, and a save button that's only active with unsaved changes.
  */
-export default function StallMapEditor({ event: initialEvent, stalls: initialStalls }) {
+export default function StallMapEditor({ event: initialEvent, stalls: initialStalls, applications = [] }) {
   const [event, setEvent] = useState(initialEvent);
   const [stalls, setStalls] = useState(() => placeSpaces(initialStalls, initialEvent.landmarks || []));
   const [landmarks, setLandmarks] = useState(initialEvent.landmarks || []);
@@ -32,6 +34,7 @@ export default function StallMapEditor({ event: initialEvent, stalls: initialSta
   const [zoom, setZoom] = useState(1);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [assigning, setAssigning] = useState(false);
 
   useEffect(() => {
     const warn = (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } };
@@ -44,9 +47,16 @@ export default function StallMapEditor({ event: initialEvent, stalls: initialSta
   const landmark = selected?.kind === "landmark" ? landmarks.find((item) => item.id === selected.id) : null;
   const counts = {
     available: stalls.filter((s) => s.status === "available" && !s.seller_id).length,
-    reserved: stalls.filter((s) => s.status === "reserved").length,
+    reserved: stalls.filter((s) => s.status === "reserved" && !s.seller_id).length,
     occupied: stalls.filter((s) => s.status === "occupied" || s.seller_id).length,
+    placed: stalls.filter((s) => s.seller_id).length,
   };
+
+  // Approved applicants for this event who don't have a space yet.
+  const waiting = applications.filter((app) => String(app.event_id) === String(event.id)
+    && !stalls.some((item) => item.seller_id && item.seller_id === app.seller_id));
+  // Approved for a different event: they can't go on this map, but say where they belong.
+  const elsewhere = applications.filter((app) => String(app.event_id) !== String(event.id));
 
   const change = (fn) => { fn(); setDirty(true); };
   const updateSpace = (key, value) => change(() => setStalls((items) => items.map((item) => (item.id === space.id ? { ...item, [key]: value } : item))));
@@ -104,16 +114,40 @@ export default function StallMapEditor({ event: initialEvent, stalls: initialSta
 
   const isNewSpace = space && String(space.id).startsWith("new-");
 
+  /** Places an applicant on the selected space (or clears it). Saved straight away; doesn't touch unsaved map edits. */
+  const assign = async (application) => {
+    if (!space) return;
+    setAssigning(true);
+    try {
+      const { data } = await api.put(`/admin/events/${event.id}/stalls/${space.id}/assignment`, { applicationId: application?.id ?? null });
+      const sellerFields = { seller_id: data.seller_id, stall_id: data.stall_id, name: data.name, status: data.status,
+        sellerName: data.sellerName, sellerStallId: data.sellerStallId, sellerStallName: data.sellerStallName, sellerLogo: data.sellerLogo, productsAvailable: data.productsAvailable };
+      const cleared = { seller_id: null, stall_id: null, name: null, status: "available", sellerName: "", sellerStallId: null, sellerStallName: null, sellerLogo: null };
+      setStalls((items) => items.map((item) => {
+        if (item.id === space.id) return { ...item, ...sellerFields };
+        // The server moves a seller who already had a space here; mirror that.
+        return application && item.seller_id === application.seller_id ? { ...item, ...cleared } : item;
+      }));
+      toast.success(application ? `${application.stall_name} placed at Space ${space.stall_number}` : `Space ${space.stall_number} is open again`);
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Couldn't update this space");
+    } finally {
+      setAssigning(false);
+    }
+  };
+
   return (
     <div className="sme">
       <div className="sme-bar">
         <Link className="btn btn-ghost btn-sm" to="/admin/events" onClick={(e) => { if (dirty && !window.confirm("Discard unsaved layout changes?")) e.preventDefault(); }}>
           <ArrowLeft aria-hidden="true" /> Events
         </Link>
-        <div className="sme-title">
-          <h2>{event.name}</h2>
-          <p>{event.date} · {event.location} · {plural(stalls.length, "space")} · {counts.available} open</p>
-        </div>
+        <ul className="sme-stats" aria-label="Map summary">
+          <li><b>{stalls.length}</b> {stalls.length === 1 ? "space" : "spaces"}</li>
+          <li><b>{counts.available}</b> open</li>
+          <li><b>{counts.placed}</b> {counts.placed === 1 ? "seller" : "sellers"} placed</li>
+          {waiting.length > 0 && <li className="is-alert"><b>{waiting.length}</b> waiting</li>}
+        </ul>
         <span className={`sme-state ${dirty ? "is-dirty" : "is-clean"}`} role="status">
           {dirty ? <><i aria-hidden="true" /> Unsaved changes</> : <><CheckCircle2 aria-hidden="true" /> Up to date</>}
         </span>
@@ -169,7 +203,49 @@ export default function StallMapEditor({ event: initialEvent, stalls: initialSta
                     {Object.entries(SPACE_STATUSES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
                   </select>
                 </label>
-                {space.seller_id && <p className="sme-note">Assigned to {space.sellerStallName || space.sellerName || "a seller"} — availability is locked.</p>}
+                <div className="sme-seller">
+                  <span className="sme-seller-label">Seller</span>
+                  {!space.seller_id && space.status === "occupied" && (
+                    <p className="sme-note is-warn">Marked occupied, but no seller is placed here. Set Availability back to Open, or place an approved seller.</p>
+                  )}
+                  {space.seller_id ? (
+                    <>
+                      <div className="sme-seller-card">
+                        <span className="sme-seller-logo" aria-hidden="true">{space.sellerLogo ? <img src={space.sellerLogo} alt="" /> : <Store />}</span>
+                        <span><strong>{space.sellerStallName || space.name || "Campus seller"}</strong><small>{space.sellerName ? `by ${space.sellerName}` : "Placed seller"}</small></span>
+                      </div>
+                      <button type="button" className="btn btn-ghost btn-sm sme-delete" onClick={() => assign(null)} disabled={assigning}><UserMinus aria-hidden="true" /> Remove from space</button>
+                    </>
+                  ) : isNewSpace ? (
+                    <p className="sme-note">Save the layout first, then place a seller here.</p>
+                  ) : waiting.length ? (
+                    <ul className="sme-waiting" aria-label="Approved sellers without a space">
+                      {waiting.map((app) => {
+                        const mismatch = APP_TO_SPACE[app.product_category] && APP_TO_SPACE[app.product_category] !== space.category;
+                        return (
+                          <li key={app.id}>
+                            <span><strong>{app.stall_name}</strong><small>{app.seller_name || "Campus seller"} · {app.preferred_stall_size} m²{mismatch ? ` · ${app.product_category} seller` : ""}</small></span>
+                            <button type="button" className="btn btn-primary btn-sm" onClick={() => assign(app)} disabled={assigning}>Place here</button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <>
+                      <p className="sme-note">No approved sellers are waiting for <strong>{event.name}</strong>. Approve its applications in <Link to="/admin/applications">Event Applications</Link>.</p>
+                      {elsewhere.length > 0 && (
+                    <div className="sme-elsewhere">
+                      <p>Approved for other events (they can only go on that event's map):</p>
+                      <ul>
+                        {elsewhere.slice(0, 4).map((app) => (
+                          <li key={app.id}><strong>{app.stall_name}</strong> · <Link to={`/admin/events/${app.event_id}/map`} onClick={(e) => { if (dirty && !window.confirm("Discard unsaved layout changes?")) e.preventDefault(); }}>{app.event?.name || "Open its map"} →</Link></li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                    </>
+                  )}
+                </div>
                 <div className="sme-row">
                   <label>Size label<input maxLength={40} value={space.size} onChange={(e) => updateSpace("size", e.target.value)} /></label>
                   <label>Fee (₱)<input type="number" min="0" max="1000000" step="1" value={space.price} onChange={(e) => updateSpace("price", e.target.value === "" ? "" : Number(e.target.value))} /></label>
@@ -191,12 +267,31 @@ export default function StallMapEditor({ event: initialEvent, stalls: initialSta
             ) : (
               <div className="sme-empty">
                 <h3>Nothing selected</h3>
-                <p>Select a space or landmark on the map to edit it, or add a new one.</p>
+                <p>Select a space to edit it or place a seller, or add a new one.</p>
                 <ul className="sme-counts">
                   <li><b>{counts.available}</b> open</li>
                   <li><b>{counts.reserved}</b> reserved</li>
                   <li><b>{counts.occupied}</b> occupied</li>
                 </ul>
+                {waiting.length > 0 && (
+                  <div className="sme-waiting-box">
+                    <h4><Users aria-hidden="true" /> Waiting for a space</h4>
+                    <ul>
+                      {waiting.map((app) => <li key={app.id}><strong>{app.stall_name}</strong> <small>{app.preferred_stall_size} m² · {app.product_category}</small></li>)}
+                    </ul>
+                    <p>Select an open space on the map, then choose <b>Place here</b>.</p>
+                  </div>
+                )}
+                {!waiting.length && elsewhere.length > 0 && (
+                  <div className="sme-elsewhere sme-elsewhere--top">
+                    <p>Nobody is waiting for this event. Approved for other events:</p>
+                    <ul>
+                      {elsewhere.slice(0, 4).map((app) => (
+                        <li key={app.id}><strong>{app.stall_name}</strong> · <Link to={`/admin/events/${app.event_id}/map`} onClick={(e) => { if (dirty && !window.confirm("Discard unsaved layout changes?")) e.preventDefault(); }}>{app.event?.name || "Open its map"} →</Link></li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </section>

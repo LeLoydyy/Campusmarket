@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { BarChart3, Check, Clock, Crown, Megaphone, Package, ReceiptText, RefreshCw, ShoppingCart, Sparkles, X } from "lucide-react";
+import { ArrowDown, BarChart3, Check, Clock, Crown, Megaphone, Package, ReceiptText, RefreshCw, ShoppingCart, Sparkles, X } from "lucide-react";
 import Sidebar from "../../components/common/Sidebar.jsx";
 import { SkeletonBlock } from "../../components/ui/Skeleton.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
@@ -89,13 +89,6 @@ export default function Plans() {
         </header>
 
         <div className="dashboard-content pl-content">
-          {pitch && !isPremium && (
-            <section className="pl-pitch" role="status">
-              <Sparkles aria-hidden="true" />
-              <div><strong>{pitch[0]}</strong><p>{pitch[1]} Request Premium below.</p></div>
-            </section>
-          )}
-
           {loading && !data ? <SkeletonBlock height={160} /> : !stall ? (
             <section className="pl-card"><p>Open your stall first — plans apply to a stall.</p></section>
           ) : (
@@ -111,34 +104,36 @@ export default function Plans() {
                 </p>
               </div>
               <div className="pl-meter" aria-label={`${used} of ${limit} listings used`}>
-                <span><strong>{used}</strong> / {limit} listings</span>
+                <span><strong>{used}</strong> / {limit} listings used</span>
                 <i><b style={{ width: `${Math.min(100, (used / limit) * 100)}%` }} className={used >= limit ? "is-full" : ""} /></i>
               </div>
+              {pitch && !isPremium && (
+                <p className="pl-pitch" role="status"><Sparkles aria-hidden="true" /><span><strong>{pitch[0]}.</strong> {pitch[1]}</span></p>
+              )}
             </section>
           )}
 
           <div className="pl-compare">
             <PlanCard
               name="Free" price="₱0" current={stall && !isPremium}
+              blurb="Everything you need to start selling."
               items={[
-                [true, `${data?.plans?.free.listing_limit || 5} product listings`],
-                [true, "Online orders, pickup and delivery"],
-                [true, "Messages and your stall page"],
-                [false, "Product analytics"],
-                [false, "Point of sale with receipts"],
-                [false, "Featured products on the buyer home page"],
+                [`${data?.plans?.free.listing_limit || 5} product listings`, Package],
+                ["Online orders, pickup and delivery"],
+                ["Messages and your stall page"],
               ]}
             />
             <PlanCard
               featured name="Premium" price={data?.price || "Ask the admin office"} current={isPremium}
+              blurb="Everything in Free, plus:"
               items={[
-                [true, `${data?.plans?.premium.listing_limit || 25} product listings`],
-                [true, "Online orders, pickup and delivery"],
-                [true, "Messages and your stall page"],
-                [true, "Product analytics", BarChart3],
-                [true, "Point of sale with receipts", ShoppingCart],
-                [true, `Feature ${data?.plans?.premium.featured_limit || 3} products on the buyer home page`, Megaphone],
+                [`${data?.plans?.premium.listing_limit || 25} product listings`, Package],
+                ["Product analytics: revenue trend and best sellers", BarChart3],
+                ["Point of sale with printed receipts", ShoppingCart],
+                [`Feature ${data?.plans?.premium.featured_limit || 3} products on the buyer home page`, Megaphone],
               ]}
+              action={canRequest ? <a href="#pl-request" className="btn btn-primary pl-plan-cta">{renewWindow ? "Renew Premium" : "Request Premium"} <ArrowDown aria-hidden="true" /></a>
+                : data?.pending ? <span className="pl-plan-note"><Clock aria-hidden="true" /> Request waiting for review</span> : null}
             />
           </div>
 
@@ -154,21 +149,30 @@ export default function Plans() {
               <button type="button" className="btn btn-ghost btn-sm" onClick={cancel}><X aria-hidden="true" /> Cancel request</button>
             </section>
           ) : canRequest ? (
-            <form className="pl-card pl-form" onSubmit={submit}>
-              <h2><Crown aria-hidden="true" /> {renewWindow ? "Renew Premium" : "Request Premium"}</h2>
-              {data.payment_info && <p className="pl-payinfo">{data.payment_info}</p>}
-              <label className="form-group">
-                <span className="form-label">Note to the administrator <small className="pl-muted">(optional)</small></span>
-                <textarea className="form-input" rows={3} maxLength={500} placeholder="e.g. We're joining the food fair and need more listings."
-                  value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
-              </label>
-              <label className="form-group">
-                <span className="form-label">Payment reference <small className="pl-muted">(optional — GCash reference no. or official receipt no.)</small></span>
-                <input className="form-input" maxLength={100} placeholder="e.g. GCash 1029 3847 56"
-                  value={form.payment_reference} onChange={(e) => setForm({ ...form, payment_reference: e.target.value })} />
-              </label>
-              <button type="submit" className="btn btn-primary" disabled={busy}><Sparkles aria-hidden="true" /> {busy ? "Sending…" : renewWindow ? "Request renewal" : "Request Premium"}</button>
-            </form>
+            <section id="pl-request" className="pl-card pl-request" aria-labelledby="pl-request-title">
+              <div className="pl-steps">
+                <h2 id="pl-request-title"><Crown aria-hidden="true" /> {renewWindow ? "Renew Premium" : "How upgrading works"}</h2>
+                <ol>
+                  <li><b>1</b><span><strong>Send a request</strong>Add a note if you like, e.g. a fair you're joining.</span></li>
+                  <li><b>2</b><span><strong>Pay the admin office</strong>Add the GCash or receipt number so they can match it.</span></li>
+                  <li><b>3</b><span><strong>Premium switches on</strong>You'll get a notification once it's approved.</span></li>
+                </ol>
+                {data.payment_info && <p className="pl-payinfo">{data.payment_info}</p>}
+              </div>
+              <form className="pl-form" onSubmit={submit}>
+                <label className="form-group">
+                  <span className="form-label">Note to the administrator <small className="pl-muted">optional</small></span>
+                  <textarea className="form-input" rows={3} maxLength={500} placeholder="e.g. We're joining the food fair and need more listings."
+                    value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+                </label>
+                <label className="form-group">
+                  <span className="form-label">Payment reference <small className="pl-muted">optional</small></span>
+                  <input className="form-input" maxLength={100} placeholder="GCash ref. no. or official receipt no."
+                    value={form.payment_reference} onChange={(e) => setForm({ ...form, payment_reference: e.target.value })} />
+                </label>
+                <button type="submit" className="btn btn-primary btn-lg" disabled={busy}><Sparkles aria-hidden="true" /> {busy ? "Sending…" : renewWindow ? "Request renewal" : "Request Premium"}</button>
+              </form>
+            </section>
           ) : stall && stall.status !== "approved" ? (
             <section className="pl-card"><p className="pl-muted">You can request Premium once your stall is approved.</p></section>
           ) : null}
@@ -193,21 +197,26 @@ export default function Plans() {
   );
 }
 
-function PlanCard({ name, price, items, featured = false, current = false }) {
+function PlanCard({ name, price, blurb, items, featured = false, current = false, action = null }) {
+  const isAmount = /^₱/.test(String(price));
   return (
     <section className={`pl-plan ${featured ? "is-featured" : ""}`} aria-label={`${name} plan`}>
       {featured && <span className="pl-ribbon"><Crown aria-hidden="true" /> Recommended</span>}
-      <h2>{name}</h2>
-      <p className="pl-price">{price}</p>
-      {current && <span className="pl-current-tag">Your current plan</span>}
+      <div className="pl-plan-head">
+        <h2>{name}</h2>
+        {current && <span className="pl-current-tag">Current plan</span>}
+      </div>
+      <p className={`pl-price ${isAmount ? "" : "is-text"}`}>{price}</p>
+      {blurb && <p className="pl-plan-blurb">{blurb}</p>}
       <ul>
-        {items.map(([included, text]) => (
-          <li key={text} className={included ? "" : "is-off"}>
-            {included ? <Check aria-hidden="true" /> : <X aria-hidden="true" />}
-            <span>{text}<span className="sr-only">{included ? " — included" : " — not included"}</span></span>
+        {items.map(([text, Icon]) => (
+          <li key={text}>
+            {Icon ? <Icon aria-hidden="true" /> : <Check aria-hidden="true" />}
+            <span>{text}</span>
           </li>
         ))}
       </ul>
+      {action && !current && <div className="pl-plan-action">{action}</div>}
     </section>
   );
 }

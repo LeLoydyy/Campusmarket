@@ -66,7 +66,7 @@ export default function ReviewDialog({ productName, imageUrl, initial, submittin
           <span>What did you think? <small>(optional)</small></span>
           <textarea rows={4} maxLength={MAX_COMMENT} value={comment} onChange={(event) => setComment(event.target.value)}
             placeholder="Taste, quality, how it was packed, how quick the seller was…" disabled={submitting} />
-          <small>{comment.length}/{MAX_COMMENT}</small>
+          <small className="review-count" aria-live="polite">{comment.length}/{MAX_COMMENT}</small>
         </label>
 
         {touched && !rating && <p className="cancel-dialog-error" role="alert">Choose from 1 to 5 stars.</p>}

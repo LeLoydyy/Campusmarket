@@ -12,13 +12,11 @@ import {
   FiExternalLink,
   FiImage,
   FiMoreHorizontal,
-  FiPackage,
   FiMinus,
   FiPlus,
   FiSearch,
   FiStar,
   FiTrash2,
-  FiTrendingDown,
   FiX,
 } from "react-icons/fi";
 import "./ManageProducts.css";
@@ -712,26 +710,6 @@ export default function ManageProducts() {
         </header>
 
         <div className="dashboard-content manage-products-content">
-          {stall?.plan && (
-            <div className={`manage-plan-bar${planHidden ? " is-warning" : ""}`}>
-              <p>
-                <strong>{stall.plan.name} plan</strong> · {products.length} / {stall.plan.listing_limit} listings
-                {featuredLimit > 0 && <> · <FiStar aria-hidden="true" className="is-filled" /> {featuredCount} / {featuredLimit} featured</>}
-                {stall.plan.analytics
-                  ? " · Point of sale and product analytics included"
-                  : <> · Premium gives 25 listings, 3 featured products, point of sale and analytics. <Link to="/seller/plans" className="cm-link">See Premium</Link></>}
-              </p>
-              {planHidden > 0 && (
-                <div className="manage-plan-hidden">
-                  <span>
-                    <FiEyeOff aria-hidden="true" /> {planHidden} product{planHidden === 1 ? " was" : "s were"} hidden when your stall moved to Free.
-                    Buyers see {visibleCount} of {stall.plan.listing_limit}.
-                  </span>
-                  <button type="button" className="btn btn-primary btn-sm" onClick={() => setChooserOpen(true)}>Choose visible products</button>
-                </div>
-              )}
-            </div>
-          )}
           {!loading && stall && !canManageProducts && (
             <div className="manage-products-notice" role="status">
               <FiAlertCircle />
@@ -757,108 +735,71 @@ export default function ManageProducts() {
             </div>
           )}
 
-          <section
-            className="manage-products-summary"
-            aria-label="Inventory summary"
-          >
-            <article>
-              <span className="tone-green">
-                <FiPackage />
-              </span>
-              <div>
-                <small>Total products</small>
-                <strong>{loading ? "—" : products.length}</strong>
+          <section className={`mp-overview${planHidden ? " is-warning" : ""}`} aria-label="Catalog overview">
+            {stall?.plan && (
+              <div className="mp-plan">
+                <div className="mp-plan-head">
+                  <strong>{stall.plan.name} plan</strong>
+                  <span>{products.length} / {stall.plan.listing_limit} listings</span>
+                </div>
+                <div className="mp-plan-meter" role="progressbar" aria-label="Listings used" aria-valuemin={0} aria-valuemax={stall.plan.listing_limit} aria-valuenow={products.length}>
+                  <i style={{ width: `${Math.min(100, (products.length / Math.max(1, stall.plan.listing_limit)) * 100)}%` }} />
+                </div>
+                <p className="mp-plan-note">
+                  {featuredLimit > 0 && <><FiStar aria-hidden="true" className="is-filled" /> {featuredCount} / {featuredLimit} featured · </>}
+                  {stall.plan.analytics
+                    ? "Point of sale and product analytics included"
+                    : <>Premium: 25 listings, featured products, POS and analytics. <Link to="/seller/plans" className="cm-link">See Premium</Link></>}
+                </p>
               </div>
-            </article>
-            <article>
-              <span className="tone-blue">
-                <FiEye />
-              </span>
-              <div>
-                <small>Visible</small>
-                <strong>{loading ? "—" : inventory.active}</strong>
+            )}
+            <dl className="mp-stats">
+              <div><dt>Products</dt><dd>{loading ? "—" : products.length}</dd></div>
+              <div><dt>Visible</dt><dd>{loading ? "—" : inventory.active}</dd></div>
+              <div className={!loading && inventory.lowStock + inventory.outOfStock > 0 ? "is-alert" : ""}><dt>Low stock</dt><dd>{loading ? "—" : inventory.lowStock + inventory.outOfStock}</dd></div>
+              <div><dt>Stock value</dt><dd>{loading ? "—" : formatCurrency(inventory.value)}</dd></div>
+            </dl>
+            {planHidden > 0 && stall?.plan && (
+              <div className="manage-plan-hidden">
+                <span>
+                  <FiEyeOff aria-hidden="true" /> {planHidden} product{planHidden === 1 ? " was" : "s were"} hidden when your stall moved to Free.
+                  Buyers see {visibleCount} of {stall.plan.listing_limit}.
+                </span>
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => setChooserOpen(true)}>Choose visible products</button>
               </div>
-            </article>
-            <article>
-              <span className="tone-orange">
-                <FiTrendingDown />
-              </span>
-              <div>
-                <small>Low or out of stock</small>
-                <strong>
-                  {loading ? "—" : inventory.lowStock + inventory.outOfStock}
-                </strong>
-              </div>
-            </article>
-            <article>
-              <span className="tone-gold">₱</span>
-              <div>
-                <small>Inventory value</small>
-                <strong>
-                  {loading ? "—" : formatCurrency(inventory.value)}
-                </strong>
-              </div>
-            </article>
+            )}
           </section>
 
           {!loading && products.length > 0 && (
-            <section
-              className="manage-products-toolbar"
-              aria-label="Product filters"
-            >
+            <section className="mp-toolbar" aria-label="Product filters">
               <label className="manage-products-search">
-                <FiSearch />
-                <input
-                  type="search"
-                  placeholder="Search products"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
+                <FiSearch aria-hidden="true" />
+                <span className="sr-only">Search products</span>
+                <input type="search" placeholder="Search your products" value={search} onChange={(event) => setSearch(event.target.value)} />
                 {search && (
-                  <button
-                    type="button"
-                    onClick={() => setSearch("")}
-                    aria-label="Clear search"
-                  >
-                    <FiX />
-                  </button>
+                  <button type="button" onClick={() => setSearch("")} aria-label="Clear search"><FiX /></button>
                 )}
               </label>
-
-              <select
-                value={categoryFilter}
-                onChange={(event) => setCategoryFilter(event.target.value)}
-                aria-label="Filter by category"
-              >
-                <option value="all">All categories</option>
-                {CATEGORIES.map((category) => (
-                  <option key={category} value={category}>
-                    {formatCategory(category)}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={visibilityFilter}
-                onChange={(event) => setVisibilityFilter(event.target.value)}
-                aria-label="Filter by visibility"
-              >
-                <option value="all">All visibility</option>
-                <option value="active">Visible</option>
-                <option value="hidden">Hidden</option>
-              </select>
-
-              <select
-                value={sortBy}
-                onChange={(event) => setSortBy(event.target.value)}
-                aria-label="Sort products"
-              >
-                <option value="newest">Newest first</option>
-                <option value="name">Name A–Z</option>
-                <option value="price-low">Lowest price</option>
-                <option value="price-high">Highest price</option>
-                <option value="stock-low">Lowest stock</option>
-              </select>
+              <div className="mp-filters">
+                <div className="mp-seg" role="group" aria-label="Show">
+                  {[["all", "All", products.length], ["active", "Visible", inventory.active], ["hidden", "Hidden", inventory.hidden]].map(([value, label, count]) => (
+                    <button key={value} type="button" className={visibilityFilter === value ? "is-active" : ""} aria-pressed={visibilityFilter === value} onClick={() => setVisibilityFilter(value)}>
+                      {label} <span>{count}</span>
+                    </button>
+                  ))}
+                </div>
+                <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} aria-label="Filter by category">
+                  <option value="all">All categories</option>
+                  {CATEGORIES.map((category) => <option key={category} value={category}>{formatCategory(category)}</option>)}
+                </select>
+                <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="Sort products">
+                  <option value="newest">Newest first</option>
+                  <option value="name">Name A–Z</option>
+                  <option value="price-low">Lowest price</option>
+                  <option value="price-high">Highest price</option>
+                  <option value="stock-low">Lowest stock</option>
+                </select>
+              </div>
             </section>
           )}
 
@@ -882,17 +823,6 @@ export default function ManageProducts() {
             <EmptyState compact illustration="search" title="No matching products" description="Try another keyword or clear the filters." action={{ label: "Clear filters", onClick: clearFilters }} />
           ) : (
             <section className="manage-products-panel">
-              <div className="manage-products-panel-heading">
-                <div>
-                  <small>Product catalog</small>
-                  <h2>
-                    {filteredProducts.length} product
-                    {filteredProducts.length === 1 ? "" : "s"}
-                  </h2>
-                </div>
-                <span>{inventory.hidden} hidden</span>
-              </div>
-
               <div className="manage-products-table-wrap">
                 <table className="manage-products-table">
                   <thead>
@@ -910,7 +840,7 @@ export default function ManageProducts() {
                   <tbody>
                     {filteredProducts.map((product) => (
                       <tr key={product.id}>
-                        <td data-label="Product">
+                        <td className="mp-col-product">
                           <div className="manage-product-identity">
                             <div className="manage-product-thumb">
                               {product.image_url ? (
@@ -936,14 +866,14 @@ export default function ManageProducts() {
                             </div>
                           </div>
                         </td>
-                        <td data-label="Category">
+                        <td className="mp-col-category">
                           <span
                             className={`manage-product-category cat-${product.category}`}
                           >
                             {formatCategory(product.category)}
                           </span>
                         </td>
-                        <td data-label="Price">
+                        <td className="mp-col-price">
                           <strong className="manage-product-price">
                             {formatCurrency(effectivePrice(product))}
                           </strong>
@@ -953,7 +883,7 @@ export default function ManageProducts() {
                             </small>
                           )}
                         </td>
-                        <td data-label="Stock">
+                        <td className="mp-col-stock">
                           {productOptions(product).length ? (
                             <span className="manage-product-stock-options">
                               <span className={`manage-product-stock ${product.stock === 0 ? "out" : product.stock <= 5 ? "low" : ""}`}>
@@ -971,14 +901,14 @@ export default function ManageProducts() {
                             </span>
                           )}
                         </td>
-                        <td data-label="Visibility">
+                        <td className="mp-col-visibility">
                           <span
                             className={`manage-product-visibility ${product.is_active ? "active" : "hidden"}`}
                           >
                             <i /> {product.is_active ? "Visible" : product.hidden_by_plan ? "Hidden by plan" : "Hidden"}
                           </span>
                         </td>
-                        <td data-label="Actions">
+                        <td className="mp-col-actions">
                           <div className="manage-product-actions">
                             <ProductActionsMenu
                               product={product}
@@ -1012,177 +942,38 @@ export default function ManageProducts() {
       <Modal
         open={modalOpen}
         onClose={closeModal}
-        title={editTarget ? "Edit Product" : "Add New Product"}
-        maxWidth={580}
+        title={editTarget ? "Edit product" : "Add a product"}
+        maxWidth={640}
+        className="mp-modal"
       >
-        <form
-          className="manage-product-form"
-          onSubmit={handleSubmit}
-          noValidate
-        >
-          <div className="manage-product-field">
-            <label htmlFor="product-name">
-              Product name <span>*</span>
-            </label>
-            <input
-              id="product-name"
-              className={errors.name ? "is-invalid" : ""}
-              name="name"
-              value={form.name}
-              onChange={handleChange}
-              placeholder="e.g. Adobong Rice Bucket"
-              maxLength={100}
-            />
-            {errors.name && <small>{errors.name}</small>}
-          </div>
-
-          <div className="manage-product-field">
-            <label htmlFor="product-description">Description</label>
-            <textarea
-              id="product-description"
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              placeholder="What should buyers know about this product?"
-              rows={4}
-              maxLength={600}
-            />
-            <span className="manage-product-character-count">
-              {form.description.length}/600
-            </span>
-          </div>
-
-          <div className="manage-product-form-grid">
-            <div className="manage-product-field">
-              <label htmlFor="product-price">
-                Price (₱) <span>*</span>
-              </label>
-              <input
-                id="product-price"
-                className={errors.price ? "is-invalid" : ""}
-                name="price"
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={form.price}
-                onChange={handleChange}
-                placeholder="0.00"
-              />
-              {errors.price && <small>{errors.price}</small>}
-            </div>
-            <div className="manage-product-field">
-              <label htmlFor="product-sale-price">Sale price (₱) <em>optional</em></label>
-              <input
-                id="product-sale-price"
-                className={errors.sale_price ? "is-invalid" : ""}
-                name="sale_price"
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={form.sale_price}
-                onChange={handleChange}
-                placeholder="No sale"
-              />
-              {errors.sale_price ? <small>{errors.sale_price}</small> : <span className="manage-product-photo-help">Buyers pay this instead, and see the regular price crossed out.</span>}
-            </div>
-            <div className="manage-product-field">
-              <label htmlFor="product-stock">
-                Available stock <span>*</span>
-              </label>
-              <input
-                id="product-stock"
-                className={errors.stock ? "is-invalid" : ""}
-                name="stock"
-                type="number"
-                min="0"
-                step="1"
-                value={form.options.length ? String(optionStockTotal) : form.stock}
-                onChange={handleChange}
-                placeholder="0"
-                disabled={form.options.length > 0}
-              />
-              {errors.stock ? <small>{errors.stock}</small> : form.options.length > 0 && <span className="manage-product-photo-help">Total of the options below.</span>}
-            </div>
-          </div>
-
-          <fieldset className="manage-product-options">
-            <legend>Options <em>optional</em></legend>
-            <p className="manage-product-photo-help">Sizes, flavours or colours, each with its own stock. Buyers must pick one.</p>
-            {form.options.length > 0 ? (
-              <ul>
-                {form.options.map((option, index) => (
-                  <li key={index}>
-                    <input aria-label={`Option ${index + 1} name`} value={option.label} maxLength={30} placeholder="e.g. Medium"
-                      onChange={(event) => changeOption(index, "label", event.target.value)} />
-                    <input aria-label={`Stock for ${option.label || `option ${index + 1}`}`} type="number" min="0" step="1" value={option.stock}
-                      onChange={(event) => changeOption(index, "stock", event.target.value)} />
-                    <button type="button" onClick={() => removeOption(index)} aria-label={`Remove option ${option.label || index + 1}`}><FiX /></button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="manage-product-option-presets">
-                {OPTION_PRESETS.map(([label, labels]) => (
-                  <button type="button" key={label} onClick={() => usePreset(labels)}>{label}: {labels.join(", ")}</button>
-                ))}
-              </div>
-            )}
-            {errors.options && <small className="manage-product-options-error" role="alert">{errors.options}</small>}
-            {form.options.length < MAX_OPTIONS && (
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => addOption()}><FiPlus /> Add option</button>
-            )}
-          </fieldset>
-
-          <div className="manage-product-field">
-            <label htmlFor="product-category">
-              Category <span>*</span>
-            </label>
-            <select
-              id="product-category"
-              name="category"
-              value={form.category}
-              onChange={handleChange}
-            >
-              {CATEGORIES.map((category) => (
-                <option key={category} value={category}>
-                  {formatCategory(category)}
-                </option>
-              ))}
-            </select>
-            {errors.category && <small>{errors.category}</small>}
-          </div>
-
-          <div className="manage-product-field">
-            <label htmlFor="product-image">Product photo</label>
-            <input
-              id="product-image"
-              className={errors.image_url ? "is-invalid" : ""}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={selectPhoto}
-              disabled={saving}
-              aria-describedby="product-photo-help product-photo-error"
-              aria-invalid={Boolean(errors.image_url)}
-            />
-            <span id="product-photo-help" className="manage-product-photo-help">Choose a photo from your device. JPG, PNG, or WebP, up to 5 MB.</span>
-            <small id="product-photo-error" role="alert">{errors.image_url}</small>
-            {(photoPreview || form.image_url) && (
-              <div className="manage-product-image-preview">
-                <img
-                  key={photoPreview || form.image_url}
-                  src={photoPreview || form.image_url}
-                  alt="Product preview"
+        <form className="manage-product-form mp-form" onSubmit={handleSubmit} noValidate>
+          {/* Photos first: they sell the product. */}
+          <section className="mp-form-section" aria-labelledby="mp-photos-title">
+            <h3 id="mp-photos-title">Photos</h3>
+            <div className="mp-photos">
+              <label className={`mp-main-photo${errors.image_url ? " is-invalid" : ""}${photoPreview || form.image_url ? " has-photo" : ""}`}>
+                <input
+                  id="product-image"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={selectPhoto}
+                  disabled={saving}
+                  aria-describedby="product-photo-help product-photo-error"
+                  aria-invalid={Boolean(errors.image_url)}
                 />
-                <span>{photo?.name || "Current product photo"}</span>
-                <button type="button" onClick={removePhoto} disabled={saving} aria-label="Remove product photo"><FiTrash2 /> Remove</button>
-              </div>
-            )}
-            {errors.image_url && <button type="button" onClick={removePhoto} disabled={saving}>Clear photo selection</button>}
-          </div>
-
-          <div className="manage-product-field">
-            <span className="manage-product-extra-label">More photos <em>optional, up to {MAX_EXTRA_PHOTOS}</em></span>
-            <div className="manage-product-extra-photos">
+                {photoPreview || form.image_url ? (
+                  <>
+                    <img key={photoPreview || form.image_url} src={photoPreview || form.image_url} alt="Main product photo" />
+                    <span className="mp-main-photo-change">Change</span>
+                  </>
+                ) : (
+                  <span className="mp-main-photo-empty">
+                    <FiImage aria-hidden="true" />
+                    <strong>Main photo</strong>
+                    <small>Tap to upload</small>
+                  </span>
+                )}
+              </label>
               {form.images.map((url, index) => (
                 <span key={url} className="manage-product-extra-photo">
                   <img src={url} alt={`Extra photo ${index + 1}`} />
@@ -1191,15 +982,168 @@ export default function ManageProducts() {
               ))}
               {form.images.length < MAX_EXTRA_PHOTOS && (
                 <label className={`manage-product-extra-add${uploadingExtra ? " is-busy" : ""}`}>
-                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={addExtraPhoto} disabled={saving || uploadingExtra} />
-                  {uploadingExtra ? <span className="manage-products-mini-spinner" /> : <FiPlus />}
-                  <span>{uploadingExtra ? "Uploading…" : "Add photo"}</span>
+                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={addExtraPhoto} disabled={saving || uploadingExtra} aria-label="Add another photo" />
+                  {uploadingExtra ? <span className="manage-products-mini-spinner" /> : <FiPlus aria-hidden="true" />}
+                  <span>{uploadingExtra ? "Uploading…" : "More"}</span>
                 </label>
               )}
             </div>
-          </div>
+            <p id="product-photo-help" className="manage-product-photo-help">
+              JPG, PNG or WebP up to 5 MB, plus up to {MAX_EXTRA_PHOTOS} more. Use your own photos. No cartoon characters or brand logos.
+            </p>
+            {errors.image_url && <small id="product-photo-error" className="mp-error" role="alert">{errors.image_url}</small>}
+            {(photoPreview || form.image_url) && (
+              <button type="button" className="mp-link-danger" onClick={removePhoto} disabled={saving}><FiTrash2 aria-hidden="true" /> Remove main photo</button>
+            )}
+          </section>
 
-          <div className="manage-product-form-actions">
+          <section className="mp-form-section" aria-labelledby="mp-details-title">
+            <h3 id="mp-details-title">Details</h3>
+            <div className="manage-product-field">
+              <label htmlFor="product-name">
+                Product name <span>*</span>
+              </label>
+              <input
+                id="product-name"
+                className={errors.name ? "is-invalid" : ""}
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                placeholder="e.g. Adobong Rice Bucket"
+                maxLength={100}
+              />
+              {errors.name && <small>{errors.name}</small>}
+            </div>
+
+            <div className="manage-product-field">
+              <label htmlFor="product-description">Description <em>optional</em></label>
+              <textarea
+                id="product-description"
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+                placeholder="Ingredients, size, what's included…"
+                rows={3}
+                maxLength={600}
+              />
+              <span className="manage-product-character-count">
+                {form.description.length}/600
+              </span>
+            </div>
+
+            <fieldset className="mp-cats">
+              <legend>Category <span>*</span></legend>
+              <div>
+                {CATEGORIES.map((category) => (
+                  <label key={category} className={form.category === category ? "is-selected" : ""}>
+                    <input type="radio" name="category" value={category} checked={form.category === category} onChange={handleChange} />
+                    {formatCategory(category)}
+                  </label>
+                ))}
+              </div>
+              {errors.category && <small className="mp-error">{errors.category}</small>}
+            </fieldset>
+          </section>
+
+          <section className="mp-form-section" aria-labelledby="mp-price-title">
+            <h3 id="mp-price-title">Price & stock</h3>
+            <div className="manage-product-form-grid mp-price-grid">
+              <div className="manage-product-field">
+                <label htmlFor="product-price">
+                  Price <span>*</span>
+                </label>
+                <span className="mp-peso">
+                  <b aria-hidden="true">₱</b>
+                  <input
+                    id="product-price"
+                    className={errors.price ? "is-invalid" : ""}
+                    name="price"
+                    type="number"
+                    inputMode="decimal"
+                    min="0.01"
+                    step="0.01"
+                    value={form.price}
+                    onChange={handleChange}
+                    placeholder="0.00"
+                  />
+                </span>
+                {errors.price && <small>{errors.price}</small>}
+              </div>
+              <div className="manage-product-field">
+                <label htmlFor="product-sale-price">Sale price <em>optional</em></label>
+                <span className="mp-peso">
+                  <b aria-hidden="true">₱</b>
+                  <input
+                    id="product-sale-price"
+                    className={errors.sale_price ? "is-invalid" : ""}
+                    name="sale_price"
+                    type="number"
+                    inputMode="decimal"
+                    min="0.01"
+                    step="0.01"
+                    value={form.sale_price}
+                    onChange={handleChange}
+                    placeholder="No sale"
+                    aria-describedby="product-sale-help"
+                  />
+                </span>
+                {errors.sale_price && <small>{errors.sale_price}</small>}
+              </div>
+              <div className="manage-product-field">
+                <label htmlFor="product-stock">
+                  Stock <span>*</span>
+                </label>
+                <input
+                  id="product-stock"
+                  className={errors.stock ? "is-invalid" : ""}
+                  name="stock"
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  step="1"
+                  value={form.options.length ? String(optionStockTotal) : form.stock}
+                  onChange={handleChange}
+                  placeholder="0"
+                  disabled={form.options.length > 0}
+                  aria-describedby={form.options.length ? "product-stock-help" : undefined}
+                />
+                {errors.stock && <small>{errors.stock}</small>}
+              </div>
+            </div>
+            <p id="product-sale-help" className="manage-product-photo-help">
+              A sale price shows the regular price crossed out.{form.options.length > 0 && <span id="product-stock-help"> Stock is the total of the options below.</span>}
+            </p>
+
+            <fieldset className="manage-product-options">
+              <legend>Sizes or flavours <em>optional</em></legend>
+              {form.options.length > 0 ? (
+                <ul>
+                  {form.options.map((option, index) => (
+                    <li key={index}>
+                      <input aria-label={`Option ${index + 1} name`} value={option.label} maxLength={30} placeholder="e.g. Medium"
+                        onChange={(event) => changeOption(index, "label", event.target.value)} />
+                      <input aria-label={`Stock for ${option.label || `option ${index + 1}`}`} type="number" inputMode="numeric" min="0" step="1" value={option.stock}
+                        onChange={(event) => changeOption(index, "stock", event.target.value)} />
+                      <button type="button" onClick={() => removeOption(index)} aria-label={`Remove option ${option.label || index + 1}`}><FiX /></button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="manage-product-photo-help">Each option gets its own stock, and buyers pick one. Start from:</p>
+              )}
+              <div className="manage-product-option-presets">
+                {form.options.length === 0 && OPTION_PRESETS.map(([label, labels]) => (
+                  <button type="button" key={label} onClick={() => usePreset(labels)}>{label}: {labels.join(", ")}</button>
+                ))}
+                {form.options.length < MAX_OPTIONS && (
+                  <button type="button" className="mp-add-option" onClick={() => addOption()}><FiPlus aria-hidden="true" /> {form.options.length ? "Add option" : "Custom"}</button>
+                )}
+              </div>
+              {errors.options && <small className="manage-product-options-error" role="alert">{errors.options}</small>}
+            </fieldset>
+          </section>
+
+          <div className="manage-product-form-actions mp-form-actions">
             <button
               type="button"
               className="btn btn-ghost"

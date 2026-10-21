@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { ArrowRight, CalendarDays, Check, ClipboardList, Crown, RefreshCw, Store, UserCheck, Users, Wallet, X } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import Sidebar from "../../components/common/Sidebar.jsx";
+import QuickLinks from "../../components/common/QuickLinks.jsx";
 import StatCard from "../../components/ui/StatCard.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
 import Illustration from "../../components/ui/Illustration.jsx";
@@ -73,7 +74,7 @@ export default function AdminDashboard() {
             <h1>Admin overview</h1>
             <p>What needs you today, and how the marketplace is doing.</p>
           </div>
-          <button type="button" className="btn btn-outline btn-sm" onClick={load} disabled={loading}><RefreshCw aria-hidden="true" /> Refresh</button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={load} disabled={loading} aria-label="Refresh dashboard"><RefreshCw className={loading ? "spin" : ""} aria-hidden="true" /> <span className="cm-btn-label">Refresh</span></button>
         </header>
 
         <div className="dashboard-content ad-content">
@@ -112,7 +113,20 @@ export default function AdminDashboard() {
             )}
           </section>
 
+          <div className="cm-section-head cm-phone-only">
+            <h2>Manage the marketplace</h2>
+          </div>
+          <QuickLinks counts={stats ? {
+            "/admin/users": stats.pending_registrations,
+            "/admin/stalls": Number(stats.pending_stalls || 0) + Number(stats.pending_plan_requests || 0),
+            "/admin/applications": stats.pending_event_applications,
+          } : {}} />
+
           {/* ── KPIs ───────────────────────────────────────────────────── */}
+          <div className="cm-section-head">
+            <h2>Marketplace totals</h2>
+            <p>All time, across every stall</p>
+          </div>
           <section className="ad-kpis" aria-label="Marketplace totals">
             {loading || !stats ? [0, 1, 2, 3].map((i) => <SkeletonBlock key={i} height={128} />) : (
               <>

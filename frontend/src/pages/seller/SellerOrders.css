@@ -225,3 +225,85 @@
 .seller-order-ready-by.is-late { color: var(--coral-700); background: var(--coral-100); }
 
 @media (max-width: 600px) { .seller-orders-empty { min-height: 220px; padding: 1.25rem; } .seller-orders-empty.compact { min-height: 170px; } .seller-orders-skeleton i { height: 160px; } }
+
+/* ══ Redesign: compact order cards ═════════════════════════════════════════ */
+.seller-orders-shell { background: var(--cream-50); }
+.seller-orders-content { display: grid; align-content: start; gap: .85rem; max-width: 1120px; }
+.seller-orders-content > * { margin: 0 !important; }
+
+/* Tabs as pills; the count bubble does the work the summary cards used to do. */
+.seller-orders-tabs { gap: .35rem; padding: .6rem; }
+.seller-orders-tabs button { padding: .45rem .8rem; border-radius: 999px; font-size: var(--text-sm); }
+.seller-orders-tabs button span { min-width: 20px; background: var(--cream-100); color: var(--ink-900); font-weight: 800; }
+.seller-orders-tabs button.active span { color: var(--green-900); background: var(--gold-500); }
+
+.seller-orders-heading { align-items: baseline; margin-bottom: .6rem !important; }
+.seller-orders-heading h2 { margin: 0; font: 900 1.05rem/1.2 var(--font-display); }
+.seller-orders-heading p { color: var(--ink-600); font-size: var(--text-sm); }
+.seller-orders-heading p strong { color: var(--green-700); font-weight: 800; }
+
+.seller-orders-list { gap: .7rem; }
+.seller-order-card { border: 0; border-left: 5px solid var(--order-accent); border-radius: 16px; box-shadow: var(--shadow-1); }
+.seller-order-card.is-done { opacity: 1; }
+
+/* Header: id + time, chips, status + total on one row */
+.so-card-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .5rem 1rem; padding: .8rem 1rem; }
+.seller-order-card.status-pending .so-card-head { background: linear-gradient(90deg, var(--gold-100), #fff 70%); }
+.so-card-id h2 { display: flex; align-items: center; gap: .3rem; color: var(--ink-900); font: 800 .95rem/1.2 var(--font-mono, monospace); }
+.so-card-id p { margin-top: .1rem; color: var(--ink-600); font-size: var(--text-xs); }
+.so-copy { width: 24px; height: 24px; display: grid; place-items: center; color: var(--ink-600); border-radius: 6px; }
+.so-copy:hover { color: var(--green-700); background: var(--green-100); }
+.so-copy svg { width: 13px; height: 13px; }
+.so-card-head .seller-order-chips { margin: 0; }
+.so-card-total { display: flex; align-items: center; gap: .6rem; }
+.so-card-total strong { color: var(--green-700); font: 900 1.15rem/1 var(--font-display); white-space: nowrap; }
+
+/* Slim stepper for active orders */
+.seller-order-progress { padding: .55rem 1rem; background: var(--cream-50); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.seller-order-progress span { width: 20px; height: 20px; font-size: .6875rem; }
+.seller-order-progress > div:not(:last-child)::after { top: 9px; }
+.seller-order-progress small { font-size: .75rem; }
+.seller-order-cancelled { flex-direction: row; justify-content: center; flex-wrap: wrap; gap: .3rem .8rem; padding: .5rem 1rem; border-top: 1px solid var(--coral-300); }
+
+/* Body: buyer & details beside the items */
+.so-card-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 1rem; padding: .85rem 1rem; }
+.seller-order-card.is-done .so-card-body { border-top: 1px solid var(--line); }
+.so-card-buyer { display: grid; grid-template-columns: auto minmax(0, 1fr); align-content: start; gap: .5rem .65rem; }
+.so-card-buyer .seller-order-avatar { width: 36px; height: 36px; border-radius: 11px; }
+.so-card-buyer-text { display: grid; align-content: center; min-width: 0; }
+.so-card-buyer-text strong { overflow: hidden; color: var(--ink-900); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
+.so-card-buyer-text small, .so-card-buyer-text a { overflow: hidden; color: var(--ink-600); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
+.so-card-buyer-text a { color: var(--green-700); font-weight: 700; }
+.so-card-buyer-text a svg { width: 12px; height: 12px; vertical-align: -1px; }
+.so-card-meta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .3rem 1.2rem; margin: 0; font-size: var(--text-xs); }
+.so-card-meta dt { color: var(--ink-600); }
+.so-card-meta dd { margin: .05rem 0 0; color: var(--ink-900); font-weight: 700; overflow-wrap: anywhere; }
+.so-card-meta dd svg { width: 12px; height: 12px; vertical-align: -1px; color: var(--green-700); }
+.so-card-note { grid-column: 1 / -1; display: grid; gap: .15rem; margin: 0; padding: .55rem .7rem; color: var(--ink-900); background: var(--gold-100); border-radius: 10px; font-size: var(--text-sm); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.so-card-note strong { color: var(--gold-700); font-size: .6875rem; letter-spacing: .06em; text-transform: uppercase; }
+
+.so-card-items { min-width: 0; }
+.so-card-items-head { margin-bottom: .35rem; color: var(--ink-600); font-size: var(--text-xs); font-weight: 700; }
+.so-card-items ul { display: grid; gap: .35rem; margin: 0; padding: 0; list-style: none; }
+.so-card-items li { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: .6rem; padding: .35rem; background: var(--cream-50); border-radius: 10px; }
+.so-card-items .seller-order-item-image { width: 36px; height: 36px; }
+.so-item-name { min-width: 0; display: grid; }
+.so-item-name strong { overflow: hidden; color: var(--ink-900); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
+.so-item-name small { color: var(--ink-600); font-size: var(--text-xs); }
+.so-item-total { color: var(--ink-900); font-size: var(--text-sm); white-space: nowrap; }
+
+.seller-order-card-footer { padding: .6rem 1rem; background: var(--cream-50); }
+.seller-order-card-footer button { min-width: 130px; min-height: 38px; border-radius: 10px; font-size: var(--text-sm); }
+
+@media (max-width: 760px) {
+  .so-card-head { grid-template-columns: minmax(0, 1fr) auto; }
+  .so-card-head .seller-order-chips { grid-column: 1 / -1; grid-row: 2; }
+  .so-card-total { flex-direction: column; align-items: flex-end; gap: .3rem; }
+  .so-card-body { grid-template-columns: 1fr; gap: .75rem; }
+  .seller-order-progress small { font-size: .6875rem; }
+}
+@media (max-width: 480px) {
+  .so-card-head, .so-card-body { padding-left: .8rem; padding-right: .8rem; }
+  .seller-order-card-footer { flex-direction: row; }
+  .seller-order-card-footer button { flex: 1; min-width: 0; }
+}

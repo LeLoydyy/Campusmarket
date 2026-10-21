@@ -6,7 +6,8 @@ import Footer from "../../components/common/Footer.jsx";
 import ProductCard from "../../components/ui/ProductCard.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
 import { SkeletonGrid } from "../../components/ui/Skeleton.jsx";
-import { categoryLabel } from "../../components/ui/Chip.jsx";
+import { FilterChip, categoryLabel } from "../../components/ui/Chip.jsx";
+import SellerCta from "../../components/ui/SellerCta.jsx";
 import { productService } from "../../services/api.js";
 import { plural } from "../../utils/marketplace.js";
 import "./Browse.css";
@@ -227,7 +228,7 @@ function Toggle({ checked, onChange, label, hint }) {
   );
 }
 
-/** All filters; used in the desktop sidebar and the mobile bottom sheet. */
+/** Secondary filters (categories are chips above the results); used in the desktop sidebar and the mobile bottom sheet. */
 function FilterPanel({ filters, locations, onChange, onClear, activeCount }) {
   return (
     <div className="bf-panel">
@@ -236,18 +237,6 @@ function FilterPanel({ filters, locations, onChange, onClear, activeCount }) {
         {activeCount > 0 && <button type="button" className="bf-clear" onClick={onClear}>Clear all</button>}
       </div>
       <Toggle label="Open now" hint="Stalls open at this hour" checked={filters.open_now === "true"} onChange={(on) => onChange({ open_now: on ? "true" : "" })} />
-      <Toggle label="Student Made" hint="Handmade by CSUCC students" checked={filters.category === "student-made"} onChange={(on) => onChange({ category: on ? "student-made" : "" })} />
-      <fieldset className="bf-group">
-        <legend>Category</legend>
-        <div className="bf-cats">
-          {[{ id: "", name: "All" }, ...CATEGORIES].map((category) => (
-            <button key={category.id || "all"} type="button" className={`bf-cat bf-cat--${category.id || "all"} ${filters.category === category.id ? "is-active" : ""}`}
-              aria-pressed={filters.category === category.id} onClick={() => onChange({ category: category.id })}>
-              <i aria-hidden="true" />{category.name}
-            </button>
-          ))}
-        </div>
-      </fieldset>
       <PriceRange min={filters.min_price} max={filters.max_price} onCommit={onChange} />
       <fieldset className="bf-group">
         <legend>Pickup location</legend>
@@ -292,11 +281,11 @@ export function Browse() {
 
   const activeChips = [
     filters.q && { key: "q", label: `“${filters.q}”`, clear: { q: "" } },
-    filters.category && { key: "category", label: categoryLabel(filters.category), clear: { category: "" } },
     (filters.min_price || filters.max_price) && { key: "price", label: `₱${filters.min_price || 0} – ${filters.max_price ? `₱${filters.max_price}` : "any"}`, clear: { min_price: "", max_price: "" } },
     filters.location && { key: "location", label: filters.location, clear: { location: "" } },
     filters.open_now && { key: "open", label: "Open now", clear: { open_now: "" } },
   ].filter(Boolean);
+  // The category lives in the chip row above the results, so it isn't repeated here.
   const panelCount = activeChips.filter((chip) => chip.key !== "q").length;
   const heading = filters.q ? `Results for “${filters.q}”` : filters.category ? categoryLabel(filters.category) : "All products";
 
@@ -304,16 +293,11 @@ export function Browse() {
     <div className="browse">
       <Navbar />
       <main>
-        <section className="browse-banner" aria-labelledby="browse-title">
-          <div className="browse-wrap browse-banner-inner">
-            <div>
-              <p className="cm-eyebrow">Shop campus</p>
-              <h1 id="browse-title">{heading}</h1>
-              <p>{isInitialLoading ? "Finding products…" : `${plural(total, "product")} from CSUCC sellers`}</p>
-            </div>
-            <img src="/images/buyer/campusmarket-background.png" alt="" aria-hidden="true" />
-          </div>
-        </section>
+        <header className="browse-wrap browse-hero">
+          <p className="cm-eyebrow">Shop campus</p>
+          <h1 id="browse-title">{heading}</h1>
+          <p className="browse-hero-lede">{isInitialLoading ? "Finding products…" : `${plural(total, "product")} from CSUCC sellers, ready for pickup between classes.`}</p>
+        </header>
 
         <div className="browse-wrap browse-layout">
           <aside className="browse-sidebar" aria-label="Product filters">
@@ -321,6 +305,14 @@ export function Browse() {
           </aside>
 
           <section className="browse-results" aria-live="polite" aria-busy={loading}>
+            <div className="browse-cats" role="group" aria-label="Categories">
+              {[{ id: "", name: "All" }, ...CATEGORIES].map((category) => (
+                <FilterChip key={category.id || "all"} active={filters.category === category.id} onClick={() => commit({ category: filters.category === category.id ? "" : category.id })}>
+                  <i className={`bf-dot bf-dot--${category.id || "all"}`} aria-hidden="true" />{category.name}
+                </FilterChip>
+              ))}
+            </div>
+
             <div className="browse-toolbar">
               <p className="browse-count"><strong>{isInitialLoading ? "…" : total}</strong> {total === 1 ? "result" : "results"}</p>
               <button type="button" className="btn btn-outline btn-sm browse-filter-btn" onClick={() => setSheetOpen(true)}>
@@ -356,9 +348,9 @@ export function Browse() {
             {isInitialLoading ? <SkeletonGrid count={9} /> : error ? null : products.length === 0 ? (
               <EmptyState
                 illustration="search"
-                title={activeChips.length ? "Nothing matches those filters" : "No products yet"}
-                description={activeChips.length ? "Try another category, widen the price range, or turn off “Open now”." : "Campus sellers are setting up — check back soon, or open a stall yourself."}
-                action={activeChips.length ? { label: "Clear filters", onClick: clearAll } : { label: "Open your stall", to: "/open-store" }}
+                title={activeChips.length || filters.category ? "Nothing matches those filters" : "No products yet"}
+                description={activeChips.length || filters.category ? "Try another category, widen the price range, or turn off “Open now”." : "Campus sellers are setting up — check back soon, or open a stall yourself."}
+                action={activeChips.length || filters.category ? { label: "Clear filters", onClick: clearAll } : { label: "Open your stall", to: "/open-store" }}
               />
             ) : (
               <div className="pc-grid browse-grid">
@@ -377,6 +369,7 @@ export function Browse() {
           </section>
         </div>
       </main>
+      <SellerCta />
       <Footer />
 
       {sheetOpen && (

@@ -16,7 +16,9 @@
 
 .review-comment { margin-top: 1rem; }
 .review-comment > span { display: block; margin-bottom: .4rem; color: var(--ink-900); font-size: .8125rem; font-weight: 750; }
-.review-comment > span small { color: var(--ink-600); font-weight: 500; }
+/* The shared dialog style pins every <small> to the textarea corner; only the counter belongs there. */
+.review-comment > span { display: block; margin-bottom: .4rem; }
+.review-comment > span small { position: static; margin-left: .2rem; color: var(--ink-600); font-size: .75rem; font-weight: 500; }
 .review-dialog-note { margin: .6rem 0 0; color: var(--ink-600); font-size: .75rem; }
 
 @media (prefers-reduced-motion: reduce) { .review-stars label { transition: none; } .review-stars label:hover { transform: none; } }

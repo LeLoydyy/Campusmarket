@@ -11,7 +11,13 @@
 .bev-search svg { width: 18px; height: 18px; color: var(--green-700); }
 .bev-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--ink-900); font: 500 var(--text-sm) var(--font-body); }
 .bev-search input:focus-visible { box-shadow: none; }
-.bev-grid { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+.bev-grid { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.bev-wrap { padding-bottom: 4rem; }
+.bev-wrap + .site-footer { margin-top: 0; }
+/* Nothing scheduled: one slim line instead of empty boxes. */
+.bev-slim { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; margin-bottom: 1.5rem; padding: .85rem 1.2rem; color: var(--ink-900); background: var(--surface); border: 1.5px dashed var(--line-strong); border-radius: var(--radius-pill); font-size: var(--text-sm); font-weight: 700; }
+.bev-slim .cm-link { white-space: nowrap; }
+.bev-past-title { margin-bottom: .9rem; color: var(--ink-600); font: 800 var(--text-sm)/1.2 var(--font-body); letter-spacing: .1em; text-transform: uppercase; }
 .bev-ctas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 2.5rem; }
 .bev-cta { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: .9rem 1rem; padding: 1.4rem; border-radius: 22px; box-shadow: var(--shadow-1); }
 .bev-cta > svg { width: 44px; height: 44px; padding: 10px; border-radius: 14px; }
@@ -38,4 +44,5 @@
   .bev-head h1 { font-size: 1.6rem; }
   .bev-head p:last-child { margin-top: .35rem; font-size: .875rem; line-height: 1.5; }
   .bev-search { height: 40px; }
+  .bev-slim { border-radius: 16px; }
 }

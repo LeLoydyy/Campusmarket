@@ -1,5 +1,8 @@
 /* ── Home ───────────────────────────────────────────────────────────────────── */
 .home { min-height: 100vh; background: var(--cream-50); }
+/* Home sections butt up to the footer, so there's no empty cream strip above it. */
+.home .site-footer { margin-top: 0; }
+.home-spotlight-wrap { padding-bottom: 4rem; }
 .home-wrap { width: min(1320px, 100% - 2rem); margin: 0 auto; }
 .home-section { margin-top: 3.5rem; }
 
@@ -25,9 +28,22 @@
 .home-stats > div { padding: .8rem .95rem; background: rgba(255, 255, 255, .8); border-radius: 18px; box-shadow: var(--shadow-1); }
 .home-stats dt { color: var(--ink-600); font: 700 var(--text-xs)/1.25 var(--font-body); }
 .home-stats dd { margin-top: .15rem; color: var(--green-900); font: 900 1.75rem/1 var(--font-display); letter-spacing: -.03em; }
+.home-shopfrom { max-width: 520px; margin-top: 1.9rem; }
 .home-hero-art { position: relative; margin: 0; aspect-ratio: 5 / 4; overflow: hidden; border-radius: 26px; box-shadow: var(--shadow-3); transform: rotate(1.2deg); }
-.home-hero-art img { width: 100%; height: 100%; object-fit: cover; object-position: 82% 55%; transform: scale(1.35); transform-origin: 82% 60%; }
+.home-hero-art img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; }
+/* Logo-only hero card: the mark centred on a soft cream panel. */
+.home-hero-art--logo { display: grid; place-items: center; background: radial-gradient(circle at 50% 45%, #fff 0%, var(--cream-50) 60%, var(--gold-100) 100%); }
+.home-hero-art--logo img { width: 78%; height: auto; object-fit: contain; filter: drop-shadow(0 12px 22px rgba(11, 61, 36, .14)); }
 .home-hero-art::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 6px rgba(255, 255, 255, .7); pointer-events: none; }
+
+/* Quick category chips */
+.home-chips { width: min(1320px, 100% - 2rem); margin: 1rem auto 0; }
+.home-chips ul { display: flex; gap: .6rem; overflow-x: auto; padding: .2rem .1rem .5rem; margin: 0; list-style: none; scroll-snap-type: x proximity; scrollbar-width: none; }
+.home-chips ul::-webkit-scrollbar { display: none; }
+.home-chips li { flex: 0 0 auto; scroll-snap-align: start; }
+.home-chip { display: inline-flex; align-items: center; gap: .45rem; min-height: 44px; padding: 0 1.05rem; color: var(--green-900); background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-pill); box-shadow: var(--shadow-1); font: 700 var(--text-sm)/1 var(--font-body); text-decoration: none; white-space: nowrap; transition: background-color var(--dur-fast), border-color var(--dur-fast); }
+.home-chip svg { width: 18px; height: 18px; color: var(--green-700); }
+.home-chip:hover { background: var(--gold-100); border-color: var(--gold-500); }
 
 /* Just ordered ticker */
 .home-ticker { width: min(1320px, 100% - 2rem); margin: 1rem auto 0; display: flex; align-items: center; gap: .9rem; overflow: hidden; padding: .55rem .6rem .55rem .9rem; background: var(--surface); border-radius: var(--radius-pill); box-shadow: var(--shadow-1); }
@@ -45,6 +61,16 @@
 .home-rail-item { scroll-snap-align: start; }
 .home-rail-item .sc { height: 100%; }
 .home-rail-skel { border-radius: var(--radius-card); }
+
+/* How it works */
+.home-section.home-how { margin-top: 2rem; }
+.home-how ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 0; padding: 0; list-style: none; }
+.home-how li { display: flex; align-items: flex-start; gap: .9rem; padding: 1.2rem; background: var(--surface); border-radius: var(--radius-card); box-shadow: var(--shadow-1); }
+.home-how-num { flex: 0 0 auto; width: 44px; height: 44px; display: grid; place-items: center; color: var(--green-900); background: var(--gold-500); border-radius: 14px; font: 900 1.25rem/1 var(--font-display); }
+.home-how-text { display: grid; gap: .2rem; min-width: 0; }
+.home-how-text strong { display: flex; align-items: center; gap: .4rem; color: var(--ink-900); font: 800 1.05rem/1.25 var(--font-display); }
+.home-how-text strong svg { flex: 0 0 auto; width: 18px; height: 18px; color: var(--green-700); }
+.home-how-text span { color: var(--ink-600); font-size: var(--text-sm); }
 
 /* Bento categories */
 .home-bento { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(150px, auto); gap: 1rem; }
@@ -67,6 +93,8 @@
 .home-tile-text span { font-size: var(--text-sm); opacity: .9; }
 .home-tile-text small { justify-self: start; margin-top: .35rem; padding: .2rem .6rem; background: rgba(255, 255, 255, .72); border-radius: var(--radius-pill); color: var(--ink-900); font: 800 var(--text-xs)/1.3 var(--font-body); }
 .home-tile--food { background: linear-gradient(160deg, #FFE08A, var(--gold-500)); }
+.home-tile-photo { position: absolute; right: -6%; bottom: -6%; z-index: 0; width: min(62%, 300px); aspect-ratio: 1; object-fit: cover; border-radius: 50%; border: 6px solid rgba(255, 255, 255, .55); box-shadow: var(--shadow-3); pointer-events: none; }
+.home-tile--food .home-tile-text { max-width: 60%; }
 .home-tile--food .home-tile-icon { color: var(--gold-700); background: #FFF3D1; }
 .home-tile--clothing { color: #fff; background: linear-gradient(160deg, var(--green-500), var(--green-700)); }
 .home-tile--clothing .home-tile-icon { color: var(--green-700); background: var(--green-100); }
@@ -100,6 +128,10 @@
 .home-events-art .cm-illustration { width: min(320px, 100%); height: auto; filter: drop-shadow(0 18px 30px rgba(0, 0, 0, .25)); }
 .home-events-count { position: absolute; right: 12%; bottom: 10%; padding: .5rem .9rem; color: var(--green-900); background: var(--gold-500); border-radius: var(--radius-pill); font: 800 var(--text-sm) var(--font-body); box-shadow: var(--shadow-2); transform: rotate(-4deg); }
 
+/* Events: slim line when nothing is scheduled */
+.home-events-slim { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; margin: 3.5rem 0; padding: .85rem 1.2rem; color: var(--ink-900); background: var(--surface); border: 1.5px dashed var(--line-strong); border-radius: var(--radius-pill); font-weight: 700; font-size: var(--text-sm); }
+.home-events-slim .cm-link { white-space: nowrap; }
+
 /* Student Made spotlight */
 .home-spotlight { display: grid; grid-template-columns: minmax(280px, .8fr) minmax(0, 1.2fr); gap: 1.5rem; align-items: stretch; padding: clamp(1.25rem, 3vw, 2rem); background: var(--gold-100) var(--texture-leaf); border-radius: 28px; }
 .home-spotlight-story { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: .55rem; padding: 1.4rem; background: var(--surface); border-radius: 22px; box-shadow: var(--shadow-2); }
@@ -119,6 +151,7 @@
   .home-tile--lg { grid-row: span 1; }
 }
 @media (max-width: 860px) {
+  .home-how ol { grid-template-columns: 1fr; }
   .home-hero { grid-template-columns: 1fr; gap: 1.5rem; }
   .home-hero-art { order: -1; aspect-ratio: 16 / 9; transform: none; }
   .home-events-inner, .home-spotlight { grid-template-columns: 1fr; }
@@ -139,6 +172,7 @@
   .home-tile-text span { display: none; }
   .home-tile--lg .home-tile-icon { width: 52px; height: 52px; }
   .home-tile--lg .home-tile-icon svg { width: 24px; height: 24px; }
+  .home-tile-photo { width: 48%; right: -10%; bottom: -10%; border-width: 4px; }
   .home-rail { grid-auto-columns: 78%; }
   .home-countdown span { min-width: 58px; }
 }
@@ -166,4 +200,11 @@
   .home-stats > div { border-radius: 12px; }
   .home-stats dd { font-size: 1.25rem; }
   .home-ticker { padding: .4rem .5rem .4rem .6rem; }
+  .home-chip { min-height: 40px; padding: 0 .85rem; }
+  .home-how li { padding: .9rem; }
+  .home-events-slim { margin: 2.5rem 0; border-radius: 16px; }
+  /* Trending becomes a swipeable row. */
+  .pc-grid.home-trending { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 46%; gap: .6rem; overflow-x: auto; padding-bottom: .5rem; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .pc-grid.home-trending::-webkit-scrollbar { display: none; }
+  .pc-grid.home-trending > * { scroll-snap-align: start; }
 }

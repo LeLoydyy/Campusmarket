@@ -250,7 +250,7 @@ export default function ManageUsers() {
             <h1>Registration & users</h1>
             <p>Approve new CSUCC accounts, and edit, block or remove anyone on the platform.</p>
           </div>
-          <button type="button" className="btn btn-outline btn-sm" onClick={fetchUsers} disabled={loading}><RefreshCw aria-hidden="true" /> Refresh</button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={fetchUsers} disabled={loading}><RefreshCw aria-hidden="true" /> <span className="cm-btn-label">Refresh</span></button>
         </header>
 
         <div className="dashboard-content mu-content">

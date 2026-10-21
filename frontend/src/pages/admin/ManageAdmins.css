@@ -65,3 +65,13 @@
 .mu-table td.ma-wrap { min-width: 120px; white-space: normal; }
 .ma-table th, .ma-table td { padding-left: .7rem; padding-right: .7rem; }
 .ma-table .mu-actions { gap: .15rem; }
+
+/* My login history: safety tip and the newest sign-in */
+.ll-tip { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem 1rem; padding: .85rem 1rem; background: var(--gold-100); border: 1px solid rgba(245, 184, 46, .55); border-radius: 16px; }
+.ll-tip > svg { flex: none; width: 22px; height: 22px; color: var(--gold-700); }
+.ll-tip p { flex: 1; min-width: 220px; color: var(--ink-900); font-size: var(--text-sm); line-height: 1.5; }
+.ll-latest td { background: var(--green-100); }
+.ll-latest-tag { display: inline-block; margin-left: .5rem; padding: .1rem .5rem; color: #fff; background: var(--green-700); border-radius: 999px; font-size: .6875rem; font-weight: 800; vertical-align: 1px; }
+.ll-buyer { min-height: 100vh; background: var(--cream-50); }
+.ll-buyer .mu-topbar { position: static; background: none; border: 0; padding-left: 0; padding-right: 0; }
+.ll-buyer .mu-content { padding-left: 0; padding-right: 0; }

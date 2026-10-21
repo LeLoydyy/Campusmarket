@@ -9,7 +9,8 @@
     "test": "node --test tests/*.test.js",
     "db:import": "node scripts/import-json.js",
     "photos:migrate": "node scripts/migrate-photos.js",
-    "email:test": "node scripts/send-test-email.js"
+    "email:test": "node scripts/send-test-email.js",
+    "account:remove": "node scripts/remove-account.js"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",

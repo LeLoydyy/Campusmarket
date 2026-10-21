@@ -1,18 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Heart } from "lucide-react";
 import EmptyState from "../../components/ui/EmptyState.jsx";
 import Navbar from "../../components/common/Navbar.jsx";
-import ProductCard from "../../components/common/ProductCard.jsx";
-import { SkeletonGrid } from "../../components/common/Ui.jsx";
+import Footer from "../../components/common/Footer.jsx";
+import ProductCard from "../../components/ui/ProductCard.jsx";
+import { SkeletonGrid } from "../../components/ui/Skeleton.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import favoriteService from "../../services/favoriteService.js";
+import { productService } from "../../services/api.js";
+import { plural } from "../../utils/marketplace.js";
+import "./Favorites.css";
+
+// Below this many saved items, suggest popular products so the page isn't empty.
+const SUGGEST_UNDER = 4;
 
 export default function Favorites() {
   const { user } = useAuth();
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [popular, setPopular] = useState([]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -47,82 +55,71 @@ export default function Favorites() {
     };
   }, [user?.id]);
 
+  useEffect(() => {
+    let active = true;
+    productService.getAll({ sort: "popular", limit: 12 })
+      .then(({ data }) => { if (active) setPopular(Array.isArray(data?.data) ? data.data : []); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  const suggestions = useMemo(() => {
+    const saved = new Set(favorites.map((item) => String(item.id)));
+    return popular.filter((item) => !saved.has(String(item.id))).slice(0, 4);
+  }, [favorites, popular]);
+  const showSuggestions = !loading && !error && favorites.length < SUGGEST_UNDER && suggestions.length > 0;
+
   return (
-    <div className="favorites-shell">
+    <div className="fav-shell">
       <Navbar />
 
-      <main className="favorites-page">
-        <header className="favorites-header">
-          <div className="favorites-heading-copy">
-            <span className="favorites-heading-icon" aria-hidden="true">
-              <Heart />
-            </span>
-            <div>
-              <span className="favorites-eyebrow">Your collection</span>
-              <h1>Saved favorites</h1>
-              <p>Keep the campus finds you love in one convenient place.</p>
-            </div>
+      <main className="fav-page">
+        <header className="fav-hero">
+          <span className="fav-hero-icon" aria-hidden="true"><Heart /></span>
+          <div>
+            <p className="cm-eyebrow">Your collection</p>
+            <h1>Saved favorites</h1>
+            <p>{!loading && favorites.length ? `${plural(favorites.length, "product")} saved on this device.` : "Tap the heart on any product to keep it here."}</p>
           </div>
-
-          {!loading && favorites.length > 0 && (
-            <div className="favorites-count">
-              <strong>{favorites.length}</strong>
-              <span>
-                {favorites.length === 1 ? "saved product" : "saved products"}
-              </span>
-            </div>
-          )}
+          {!loading && favorites.length > 0 && <Link to="/browse" className="btn btn-outline btn-sm fav-more">Discover more <ArrowRight aria-hidden="true" /></Link>}
         </header>
 
         {loading ? (
-          <section className="favorites-loading" aria-label="Loading favorites">
-            <SkeletonGrid count={8} />
-          </section>
+          <SkeletonGrid count={4} />
         ) : error ? (
-          <section
-            className="favorites-state-card favorites-error"
-            role="alert"
-          >
-            <span>
-              <Heart />
-            </span>
-            <h2>Favorites unavailable</h2>
-            <p>{error}</p>
-            <button
-              type="button"
-              className="btn btn-outline"
-              onClick={() => window.location.reload()}
-            >
-              Try again
-            </button>
-          </section>
+          <EmptyState compact illustration="heart" title="Favorites unavailable" description={error} action={{ label: "Try again", onClick: () => window.location.reload() }} />
         ) : favorites.length === 0 ? (
           <EmptyState
+            compact
             illustration="heart"
             title="No favorites yet"
-            description="Tap the heart on any product to save it here. Favorites are kept on this device."
+            description="Tap the heart on a product to save it for later. Favorites are kept on this device."
             action={{ label: "Explore products", to: "/browse" }}
           />
         ) : (
-          <section aria-labelledby="favorites-grid-heading">
-            <div className="favorites-section-heading">
-              <div>
-                <span className="favorites-eyebrow">Saved for later</span>
-                <h2 id="favorites-grid-heading">Products you liked</h2>
-              </div>
-              <Link to="/browse">
-                Discover more <ArrowRight size={14} />
-              </Link>
+          <section aria-label="Saved products">
+            <div className="pc-grid fav-grid">
+              {favorites.map((product) => <ProductCard key={product.id} product={product} />)}
             </div>
+          </section>
+        )}
 
-            <div className="product-grid favorites-product-grid fade-in">
-              {favorites.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
+        {showSuggestions && (
+          <section className="fav-suggest" aria-labelledby="fav-suggest-title">
+            <div className="cm-section-head">
+              <div>
+                <p className="cm-eyebrow">Popular on campus</p>
+                <h2 id="fav-suggest-title">{favorites.length ? "You might also like" : "Start with these"}</h2>
+              </div>
+              <Link to="/browse" className="cm-link">Browse all <ArrowRight aria-hidden="true" /></Link>
+            </div>
+            <div className="pc-grid fav-grid">
+              {suggestions.map((product) => <ProductCard key={product.id} product={product} />)}
             </div>
           </section>
         )}
       </main>
+      <Footer />
     </div>
   );
 }

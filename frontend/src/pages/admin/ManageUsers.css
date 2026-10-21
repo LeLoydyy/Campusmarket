@@ -2,7 +2,7 @@
 .mu-topbar { height: auto; min-height: var(--navbar-height); padding-top: .75rem; padding-bottom: .75rem; background: rgba(255, 251, 242, .92); border-bottom: 1px solid var(--line); }
 .mu-topbar h1 { font: 900 1.45rem/1.15 var(--font-display); }
 .mu-topbar p { color: var(--ink-600); font-size: var(--text-sm); }
-.mu-content { display: grid; gap: 1.1rem; max-width: 1400px; }
+.mu-content { display: grid; align-content: start; gap: 1.1rem; }
 .mu-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
 .mu-search { display: flex; align-items: center; gap: .5rem; flex: 1 1 260px; max-width: 360px; height: 46px; padding: 0 1rem; background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-pill); }
 .mu-search:focus-within { border-color: var(--green-700); box-shadow: 0 0 0 4px rgba(245, 184, 46, .3); }
@@ -10,6 +10,9 @@
 .mu-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--ink-900); font: 500 var(--text-sm) var(--font-body); }
 .mu-search input:focus-visible { box-shadow: none; }
 .mu-pills { display: flex; flex-wrap: wrap; gap: .35rem; }
+/* Status and role pills are separate filters: a divider keeps them from reading as one row of choices. */
+.mu-toolbar > .mu-pills + .mu-pills { padding-left: .75rem; border-left: 1px solid var(--line-strong); }
+@media (max-width: 760px) { .mu-toolbar > .mu-pills + .mu-pills { padding-left: 0; border-left: 0; } }
 
 .mu-card { padding: .5rem; background: var(--surface); border-radius: 22px; box-shadow: var(--shadow-1); }
 .mu-skel { margin: .4rem; border-radius: 12px; }

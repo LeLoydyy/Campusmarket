@@ -106,24 +106,14 @@ export const register = async (req, res, next) => {
   }
 };
 
-// ── LOGIN (password, then an emailed code or the security question) ──
-const DEMO_EMAILS = new Set(["seller@campusmarket.test", "buyer@campusmarket.test"]);
-
+// ── LOGIN (email + password) ─────────────────────────────────
+// No emailed sign-in code: a correct password opens the session straight away.
+// (loginUser still enforces bans and admin shifts.)
 export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const user = await authStore.loginUser(email, password);
-    // Admins and the seeded demo accounts skip the emailed code locally for quick access; production still requires it.
-    const skipsCode = user.role === "admin" || DEMO_EMAILS.has(user.email.toLowerCase());
-    if (skipsCode && process.env.NODE_ENV !== "production") return res.json(await openSession(req, user.id));
-    res.json({
-      otp_required: true,
-      challenge: signChallenge(user.id),
-      sent_to: maskEmail(user.email),
-      security_question: user.security_question || null,
-      // Re-entering the password within a minute keeps the code already in the inbox.
-      ...(await deliverCode(user.email, "login", { reusePending: true })),
-    });
+    res.json(await openSession(req, user.id));
   } catch (err) {
     next(err);
   }

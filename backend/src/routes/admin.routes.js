@@ -21,6 +21,10 @@ adminRouter.post("/events", requirePermission("marketplace"), handle(async (req,
 adminRouter.put("/events/:id/layout", requirePermission("marketplace"), handle(async (req, res) => {
   res.json(await eventStore.saveLayout(req.params.id, req.body, req.user.id));
 }));
+// Place an approved applicant on a space ({ applicationId }), or clear it ({ applicationId: null }).
+adminRouter.put("/events/:id/stalls/:spaceId/assignment", requirePermission("marketplace"), handle(async (req, res) => {
+  res.json(await eventStore.assignSpace(req.params.id, req.params.spaceId, { applicationId: req.body?.applicationId ?? null }, req.user.id));
+}));
 adminRouter.get("/stalls", handle(async (_req, res) => res.json(await stallStore.listStalls())));
 adminRouter.put("/stalls/:id/plan", requirePermission("marketplace"), validate(stallPlanSchema), handle(async (req, res) => {
   res.json(await stallStore.setPlan(req.params.id, req.body, req.user.id));

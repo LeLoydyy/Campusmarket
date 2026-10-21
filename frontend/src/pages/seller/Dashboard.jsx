@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, ArrowRight, BarChart3, Crown, X, ClipboardList, PackageCheck, RefreshCw, ShoppingBag, TrendingUp, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowRight, BarChart3, CheckCircle2, ClipboardList, Crown, ExternalLink, Inbox, PackageCheck, Plus, RefreshCw, ShoppingBag, TrendingUp, Wallet } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import Sidebar from "../../components/common/Sidebar.jsx";
+import QuickLinks from "../../components/common/QuickLinks.jsx";
 import StatCard from "../../components/ui/StatCard.jsx";
-import EmptyState from "../../components/ui/EmptyState.jsx";
 import { StatusChip } from "../../components/ui/Chip.jsx";
 import { SkeletonBlock } from "../../components/ui/Skeleton.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
@@ -69,11 +69,11 @@ export default function SellerDashboard() {
     if (data.analytics && data.sales30) {
       const cur = { revenue: Number(data.sales30.total_revenue || 0), orders: Number(data.sales30.total_orders || 0) };
       const prev = { revenue: Number(data.sales60?.total_revenue || 0) - cur.revenue, orders: Number(data.sales60?.total_orders || 0) - cur.orders };
-      return { cur, prev, scope: "Completed & delivered online orders + POS sales, last 30 days", timeline: data.sales30.timeline || [] };
+      return { cur, prev, scope: "Online orders and POS sales marked completed or delivered.", timeline: data.sales30.timeline || [] };
     }
     const cur = summarizeOrders(data.orders, now - 30 * DAY, now + DAY);
     const prev = summarizeOrders(data.orders, now - 60 * DAY, now - 30 * DAY);
-    return { cur, prev, scope: "Completed & delivered online orders, last 30 days (POS needs Premium analytics)", timeline: [] };
+    return { cur, prev, scope: "Online orders marked completed or delivered.", timeline: [] };
   }, [data, now]);
 
   const pickups = data.orders.filter((order) => (order.fulfillment || "pickup") === "pickup" && ACTIVE_PICKUP.has(order.status))
@@ -83,11 +83,8 @@ export default function SellerDashboard() {
   const avg = kpis.cur.orders ? kpis.cur.revenue / kpis.cur.orders : 0;
   const prevAvg = kpis.prev.orders ? kpis.prev.revenue / kpis.prev.orders : 0;
   const firstName = user?.name?.split(" ")[0] || "seller";
-  // Free stalls see a Premium banner until they close it (remembered on this device).
-  const bannerKey = `cm-premium-banner-${user?.id}`;
-  const [bannerClosed, setBannerClosed] = useState(() => { try { return localStorage.getItem(bannerKey) === "closed"; } catch { return false; } });
-  const closeBanner = () => { setBannerClosed(true); try { localStorage.setItem(bannerKey, "closed"); } catch { /* storage blocked */ } };
-  const showBanner = !loading && data.stall && data.stall.tier !== "premium" && !bannerClosed;
+  const isPremium = data.stall?.tier === "premium";
+  const readyCount = pickups.filter((order) => order.status === "ready").length;
 
   return (
     <div className="dashboard-layout sd-shell">
@@ -99,26 +96,18 @@ export default function SellerDashboard() {
             <p>{data.stall?.name ? `${data.stall.name} · ${data.stall.location}` : "Your stall at a glance"}</p>
           </div>
           <div className="sd-topbar-actions">
-            {updatedAt && <span className="sd-updated">Updated {updatedAt.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}</span>}
-            <button type="button" className="btn btn-outline btn-sm" onClick={() => load({ quiet: true })} disabled={refreshing}>
-              <RefreshCw className={refreshing ? "spin" : ""} aria-hidden="true" /> Refresh
+            <button type="button" className="sd-refresh" onClick={() => load({ quiet: true })} disabled={refreshing}
+              aria-label="Refresh dashboard" title={updatedAt ? `Updated ${updatedAt.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}` : "Refresh"}>
+              <RefreshCw className={refreshing ? "spin" : ""} aria-hidden="true" />
             </button>
+            {data.stall?.id && (
+              <Link to={`/stalls/${data.stall.id}`} className="btn btn-outline btn-sm sd-hide-sm"><ExternalLink aria-hidden="true" /> View stall</Link>
+            )}
+            <Link to="/seller/products" className="btn btn-primary btn-sm"><Plus aria-hidden="true" /> Add product</Link>
           </div>
         </header>
 
         <div className="dashboard-content sd-content">
-          {showBanner && (
-            <section className="pl-banner" aria-label="Premium">
-              <Crown aria-hidden="true" />
-              <div>
-                <strong>Grow with Premium</strong>
-                <p>Get 25 listings, product analytics and the point of sale for counter sales.</p>
-              </div>
-              <Link to="/seller/plans" className="btn btn-primary btn-sm">See Premium</Link>
-              <button type="button" className="pl-banner-close" onClick={closeBanner} aria-label="Close Premium banner"><X aria-hidden="true" size={18} /></button>
-            </section>
-          )}
-
           {pending > 0 && (
             <Link to="/seller/orders" className="sd-alert">
               <ClipboardList aria-hidden="true" />
@@ -127,32 +116,97 @@ export default function SellerDashboard() {
             </Link>
           )}
 
-          <section className="sd-kpis" aria-label="Key numbers">
+          <div className="cm-section-head">
+            <h2>Last 30 days</h2>
+            {!loading && <p>{kpis.scope}</p>}
+          </div>
+          <section className="sd-kpis" aria-label="Key numbers, last 30 days">
             {loading ? [0, 1, 2, 3].map((i) => <SkeletonBlock key={i} height={118} />) : (
               <>
-                <StatCard icon={Wallet} tone="green" label="Revenue" value={formatCurrency(kpis.cur.revenue)} delta={pct(kpis.cur.revenue, kpis.prev.revenue)} deltaLabel="vs previous 30 days" scope={kpis.scope} />
-                <StatCard icon={ShoppingBag} tone="gold" label="Completed orders" value={kpis.cur.orders} delta={pct(kpis.cur.orders, kpis.prev.orders)} deltaLabel="vs previous 30 days" scope="Same scope as revenue" />
-                <StatCard icon={TrendingUp} tone="teal" label="Average order" value={formatCurrency(avg)} delta={pct(avg, prevAvg)} deltaLabel="vs previous 30 days" scope="Revenue ÷ completed orders" />
-                <StatCard icon={PackageCheck} tone="coral" label="Pickups to hand over" value={pickups.length} scope={`${plural(pickups.filter((o) => o.status === "ready").length, "order")} ready now`} />
+                <StatCard icon={Wallet} tone="green" label="Revenue · 30 days" value={formatCurrency(kpis.cur.revenue)} delta={pct(kpis.cur.revenue, kpis.prev.revenue)} deltaLabel="vs last 30" />
+                <StatCard icon={ShoppingBag} tone="gold" label="Completed orders" value={kpis.cur.orders} delta={pct(kpis.cur.orders, kpis.prev.orders)} deltaLabel="vs last 30" />
+                <StatCard icon={TrendingUp} tone="teal" label="Average order" value={formatCurrency(avg)} delta={pct(avg, prevAvg)} deltaLabel="vs last 30" />
+                <StatCard icon={PackageCheck} tone="coral" label="Pickups waiting" value={pickups.length} scope={readyCount ? `${readyCount} ready to hand over` : undefined} className={pickups.length ? "sd-kpi-hot" : ""} />
               </>
             )}
           </section>
+          <div className="cm-section-head cm-phone-only">
+            <h2>Manage your stall</h2>
+          </div>
+          <QuickLinks counts={{ "/seller/orders": pending }} />
 
           <div className="sd-grid">
             <div className="sd-col">
+            <section className="sd-card" aria-labelledby="pickups-title">
+              <div className="sd-card-head">
+                <div>
+                  <p className="cm-eyebrow">Hand-overs</p>
+                  <h2 id="pickups-title">Today's pickups</h2>
+                </div>
+                <Link to="/seller/orders" className="cm-link">Orders <ArrowRight aria-hidden="true" /></Link>
+              </div>
+              {loading ? <SkeletonBlock height={120} /> : pickups.length === 0 ? (
+                <p className="sd-empty"><Inbox aria-hidden="true" /> No pickups waiting. Confirmed orders line up here.</p>
+              ) : (
+                <ul className="sd-pickups">
+                  {pickups.slice(0, 6).map((order) => (
+                    <li key={order.id}>
+                      <span className="sd-pickup-thumb">{order.items?.[0]?.product?.image_url ? <img src={order.items[0].product.image_url} alt="" /> : <ShoppingBag aria-hidden="true" />}</span>
+                      <span className="sd-pickup-text">
+                        <strong>{order.buyer_name || "Campus buyer"}</strong>
+                        <small>{plural(order.items?.reduce((s, i) => s + Number(i.quantity), 0) || 0, "item")} · {formatCurrency(order.total)}</small>
+                      </span>
+                      <StatusChip status={order.status} label={order.status === "ready" ? "Ready" : undefined} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {data.stall?.location && <p className="sd-scope">Pickup point: <strong>{data.stall.location}</strong></p>}
+            </section>
+            <section className="sd-card sd-orders" aria-labelledby="recent-title">
+              <div className="sd-card-head">
+                <div>
+                  <p className="cm-eyebrow">Order activity</p>
+                  <h2 id="recent-title">Recent orders</h2>
+                </div>
+                <Link to="/seller/orders" className="cm-link">All orders <ArrowRight aria-hidden="true" /></Link>
+              </div>
+              {loading ? <SkeletonBlock height={180} /> : data.orders.length === 0 ? (
+                <p className="sd-empty"><ShoppingBag aria-hidden="true" /> No orders yet. Share your stall link so buyers can find you.{data.stall && <> <Link to={`/stalls/${data.stall.id}`} className="cm-link">View your stall</Link></>}</p>
+              ) : (
+                <div className="sd-table-wrap">
+                  <table className="sd-table">
+                    <thead><tr><th scope="col">Order</th><th scope="col">Buyer</th><th scope="col" className="sd-hide-sm">Placed</th><th scope="col" className="sd-hide-sm">Type</th><th scope="col">Total</th><th scope="col">Status</th></tr></thead>
+                    <tbody>
+                      {data.orders.slice(0, 6).map((order) => (
+                        <tr key={order.id}>
+                          <td>#{order.id.slice(0, 8).toUpperCase()}</td>
+                          <td>{order.buyer_name || "Campus buyer"}</td>
+                          <td className="sd-hide-sm">{new Date(order.created_at).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</td>
+                          <td className="sd-hide-sm">{order.fulfillment === "delivery" ? "Delivery" : "Pickup"}</td>
+                          <td><strong>{formatCurrency(order.total)}</strong></td>
+                          <td><StatusChip status={order.status} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+            </div>
+            <div className="sd-col">
+            {isPremium || data.analytics ? (
+              <>
             <section className="sd-card sd-chart" aria-labelledby="revenue-title">
               <div className="sd-card-head">
                 <div>
                   <p className="cm-eyebrow">Revenue trend</p>
                   <h2 id="revenue-title">Last 30 days</h2>
-                  <p className="sd-scope">{kpis.scope}</p>
                 </div>
                 <Link to="/seller/analytics" className="cm-link">Full analytics <ArrowRight aria-hidden="true" /></Link>
               </div>
-              {loading ? <SkeletonBlock height={260} /> : !data.analytics ? (
-                <EmptyState compact illustration="sprout" title="Revenue charts are a Premium feature" description="Your KPIs above still count your completed online orders. Premium adds charts, best sellers and point-of-sale analytics." action={{ label: "See Premium", to: "/seller/plans?feature=analytics" }} />
-              ) : kpis.timeline.length === 0 ? (
-                <EmptyState compact illustration="sprout" title="No completed sales yet" description="When orders are completed or delivered, your daily revenue will grow here." action={{ label: "Review orders", to: "/seller/orders" }} />
+              {loading ? <SkeletonBlock height={240} /> : kpis.timeline.length === 0 ? (
+                <p className="sd-empty"><TrendingUp aria-hidden="true" /> No completed sales yet. Daily revenue appears here once orders are completed.</p>
               ) : (
                 <div className="sd-chart-box">
                   <ResponsiveContainer width="100%" height={260}>
@@ -173,8 +227,7 @@ export default function SellerDashboard() {
                 </div>
               )}
             </section>
-
-<section className="sd-card" aria-labelledby="top-title">
+            <section className="sd-card" aria-labelledby="top-title">
               <div className="sd-card-head">
                 <div>
                   <p className="cm-eyebrow">Best sellers</p>
@@ -182,8 +235,8 @@ export default function SellerDashboard() {
                 </div>
                 <BarChart3 className="sd-head-icon" aria-hidden="true" />
               </div>
-              {loading ? <SkeletonBlock height={160} /> : data.top.length === 0 ? (
-                <EmptyState compact illustration="bag" title={data.analytics ? "No sales yet" : "Premium feature"} description={data.analytics ? "Your best sellers will rank here." : "Product rankings come with Premium analytics."} action={data.analytics ? undefined : { label: "See Premium", to: "/seller/plans?feature=analytics" }} />
+              {loading ? <SkeletonBlock height={140} /> : data.top.length === 0 ? (
+                <p className="sd-empty"><BarChart3 aria-hidden="true" /> Your best sellers will rank here.</p>
               ) : (
                 <ol className="sd-top">
                   {data.top.map((row, index) => {
@@ -202,35 +255,19 @@ export default function SellerDashboard() {
                 </ol>
               )}
             </section>
-            </div>
-            <div className="sd-col">
-            <section className="sd-card" aria-labelledby="pickups-title">
-              <div className="sd-card-head">
-                <div>
-                  <p className="cm-eyebrow">Hand-overs</p>
-                  <h2 id="pickups-title">Today's pickups</h2>
-                </div>
-                <Link to="/seller/orders" className="cm-link">Orders <ArrowRight aria-hidden="true" /></Link>
-              </div>
-              {loading ? <SkeletonBlock height={200} /> : pickups.length === 0 ? (
-                <EmptyState compact illustration="box" title="No pickups waiting" description="Confirmed pickup orders will line up here." />
-              ) : (
-                <ul className="sd-pickups">
-                  {pickups.slice(0, 6).map((order) => (
-                    <li key={order.id}>
-                      <span className="sd-pickup-thumb">{order.items?.[0]?.product?.image_url ? <img src={order.items[0].product.image_url} alt="" /> : <ShoppingBag aria-hidden="true" />}</span>
-                      <span className="sd-pickup-text">
-                        <strong>{order.buyer_name || "Campus buyer"}</strong>
-                        <small>{plural(order.items?.reduce((s, i) => s + Number(i.quantity), 0) || 0, "item")} · {formatCurrency(order.total)}</small>
-                      </span>
-                      <StatusChip status={order.status} label={order.status === "ready" ? "Ready" : undefined} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {data.stall?.location && <p className="sd-scope">Pickup point: <strong>{data.stall.location}</strong></p>}
+              </>
+            ) : !loading && (
+            <section className="sd-card sd-premium" aria-labelledby="premium-title">
+              <Crown className="sd-premium-icon" aria-hidden="true" />
+              <h2 id="premium-title">Unlock Premium</h2>
+              <ul>
+                <li>Revenue chart and best sellers</li>
+                <li>Point of sale for counter sales</li>
+                <li>25 listings and featured products</li>
+              </ul>
+              <Link to="/seller/plans" className="btn btn-primary btn-sm">See Premium</Link>
             </section>
-
+            )}
             <section className={`sd-card ${lowStock.length ? "sd-card--warn" : ""}`} aria-labelledby="stock-title">
               <div className="sd-card-head">
                 <div>
@@ -239,8 +276,8 @@ export default function SellerDashboard() {
                 </div>
                 <Link to="/seller/products" className="cm-link">Products <ArrowRight aria-hidden="true" /></Link>
               </div>
-              {loading ? <SkeletonBlock height={160} /> : lowStock.length === 0 ? (
-                <EmptyState compact illustration="check" title="All stocked up" description={`None of your ${plural(data.products.length, "product")} is at 5 or fewer.`} />
+              {loading ? <SkeletonBlock height={100} /> : lowStock.length === 0 ? (
+                <p className="sd-empty is-good"><CheckCircle2 aria-hidden="true" /> All stocked up. None of your {plural(data.products.length, "product")} is at 5 or fewer.</p>
               ) : (
                 <ul className="sd-stock">
                   {lowStock.slice(0, 6).map((product) => (
@@ -253,41 +290,8 @@ export default function SellerDashboard() {
                 </ul>
               )}
             </section>
-
-
             </div>
           </div>
-
-          <section className="sd-card sd-orders" aria-labelledby="recent-title">
-            <div className="sd-card-head">
-              <div>
-                <p className="cm-eyebrow">Order activity</p>
-                <h2 id="recent-title">Recent orders</h2>
-              </div>
-              <Link to="/seller/orders" className="cm-link">All orders <ArrowRight aria-hidden="true" /></Link>
-            </div>
-            {loading ? <SkeletonBlock height={180} /> : data.orders.length === 0 ? (
-              <EmptyState compact illustration="box" title="No orders yet" description="Share your stall link so buyers can find you." action={data.stall ? { label: "View your stall", to: `/stalls/${data.stall.id}` } : undefined} />
-            ) : (
-              <div className="sd-table-wrap">
-                <table className="sd-table">
-                  <thead><tr><th scope="col">Order</th><th scope="col">Buyer</th><th scope="col">Placed</th><th scope="col">Type</th><th scope="col">Total</th><th scope="col">Status</th></tr></thead>
-                  <tbody>
-                    {data.orders.slice(0, 6).map((order) => (
-                      <tr key={order.id}>
-                        <td>#{order.id.slice(0, 8).toUpperCase()}</td>
-                        <td>{order.buyer_name || "Campus buyer"}</td>
-                        <td>{new Date(order.created_at).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</td>
-                        <td>{order.fulfillment === "delivery" ? "Delivery" : "Pickup"}</td>
-                        <td><strong>{formatCurrency(order.total)}</strong></td>
-                        <td><StatusChip status={order.status} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
         </div>
       </main>
     </div>

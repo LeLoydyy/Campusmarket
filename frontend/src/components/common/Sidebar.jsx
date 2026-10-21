@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { ChevronRight, LogOut, Menu, ShieldCheck, X } from "lucide-react";
+import { CalendarDays, ChevronRight, ClipboardList, LayoutDashboard, LogOut, Menu, MessageSquare, Package, ShieldCheck, Store, Users, X } from "lucide-react";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { clearTokens } from "../../services/tokens.js";
 import { can } from "../../utils/adminAccess.js";
@@ -21,18 +21,35 @@ const NAVIGATION = {
 
 const GROUP_LABELS = {
   seller: [
-    ["Workspace", ["Dashboard", "My Stall", "Stall Branding", "Products", "Point of Sale", "Orders"]],
-    ["Growth", ["Events & Reservations", "Analytics", "Messages", "Notifications", "Premium"]],
-    ["Account", ["Reviews", "Settings", "Password", "Login History"]],
+    // Same groups as the dashboard shortcut tiles (QuickLinks), so both menus read alike.
+    ["Sell", ["Dashboard", "Orders", "Point of Sale", "Messages", "Notifications"]],
+    ["Your stall", ["Products", "My Stall", "Stall Branding", "Events & Reservations"]],
+    ["Grow & account", ["Analytics", "Reviews", "Premium", "Settings", "Password", "Login History"]],
   ],
+  // Same groups as the admin dashboard shortcut tiles.
   admin: [
-    ["Overview", ["Dashboard", "Analytics", "Reports"]],
-    ["Management", ["Registration & Users", "Stores & Plans", "Event Applications"]],
+    ["Overview", ["Dashboard"]],
+    ["Approvals", ["Registration & Users", "Stores & Plans", "Event Applications", "Events"]],
     ["Security", ["Administrators", "Login Logs"]],
-    ["Operations", ["Events", "Stall Map", "Reservations", "Complaints"]],
-    ["Account", ["Settings", "Password", "Login History"]],
+    ["Account", ["Password", "Login History"]],
   ],
   buyer: [["Marketplace", []]],
+};
+
+// Bottom bar on phones: the four most used pages per role, plus "More" for the full menu.
+const TABS = {
+  seller: [
+    { to: "/seller", label: "Home", icon: LayoutDashboard, end: true },
+    { to: "/seller/orders", label: "Orders", icon: ClipboardList },
+    { to: "/seller/products", label: "Products", icon: Package },
+    { to: "/seller/messages", label: "Messages", icon: MessageSquare },
+  ],
+  admin: [
+    { to: "/admin", label: "Home", icon: LayoutDashboard, end: true },
+    { to: "/admin/users", label: "Users", icon: Users },
+    { to: "/admin/stalls", label: "Stores", icon: Store },
+    { to: "/admin/events", label: "Events", icon: CalendarDays },
+  ],
 };
 
 const getInitials = (value) =>
@@ -71,6 +88,15 @@ export default function Sidebar({ open, isOpen: legacyOpen, onClose }) {
     closeSidebar();
   }, [location.pathname]);
 
+  // The chat page needs the bottom of the screen for its message box, so it keeps the menu button instead.
+  const tabs = TABS[role];
+  const showTabbar = Boolean(tabs) && !location.pathname.startsWith("/seller/messages");
+  useEffect(() => {
+    if (!showTabbar) return undefined;
+    document.body.classList.add("has-workspace-tabbar");
+    return () => document.body.classList.remove("has-workspace-tabbar");
+  }, [showTabbar]);
+
   const groups = useMemo(() => {
     const definitions = GROUP_LABELS[role] || GROUP_LABELS.seller;
     const assigned = new Set();
@@ -106,15 +132,33 @@ export default function Sidebar({ open, isOpen: legacyOpen, onClose }) {
 
   return (
     <>
-      <button
-        type="button"
-        className="cm-sidebar-mobile-trigger"
-        onClick={() => setInternalOpen(true)}
-        aria-label="Open navigation"
-        aria-expanded={isOpen}
-      >
-        <Menu size={20} />
-      </button>
+      {showTabbar ? (
+        <nav className="cm-seller-tabbar" aria-label={`${ROLE_LABELS[role] || role} quick navigation`}>
+          {tabs.map(({ to, label, icon: Icon, end }) => (
+            <NavLink key={to} to={to} end={end} className={({ isActive }) => `cm-seller-tab ${isActive ? "is-active" : ""}`}>
+              <Icon aria-hidden="true" />
+              <span>{label}</span>
+            </NavLink>
+          ))}
+          <button type="button" className={`cm-seller-tab ${isOpen ? "is-active" : ""}`} onClick={() => setInternalOpen(true)} aria-expanded={isOpen} aria-label={`More pages${unread ? `, ${unread} unread notifications` : ""}`}>
+            <span className="cm-seller-tab-icon">
+              <Menu aria-hidden="true" />
+              {unread > 0 && <b>{unread > 9 ? "9+" : unread}</b>}
+            </span>
+            <span>More</span>
+          </button>
+        </nav>
+      ) : (
+        <button
+          type="button"
+          className="cm-sidebar-mobile-trigger"
+          onClick={() => setInternalOpen(true)}
+          aria-label="Open navigation"
+          aria-expanded={isOpen}
+        >
+          <Menu size={20} />
+        </button>
+      )}
 
       <aside className={`cm-sidebar cm-sidebar--${role} ${isOpen ? "cm-sidebar--open" : ""}`}>
         <div className="cm-sidebar-brand">
@@ -125,7 +169,7 @@ export default function Sidebar({ open, isOpen: legacyOpen, onClose }) {
           >
             {/* Same brand block on every dashboard; only the workspace name changes. */}
             <span className="cm-sidebar-logo-mark">
-              <img src="/images/auth/logo-mark.png" alt="" />
+              <img src="/images/buyer/campusmarket-icon.png" alt="" />
             </span>
             <span className="cm-sidebar-brand-copy">
               <strong>Campus Market</strong>

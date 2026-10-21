@@ -97,67 +97,37 @@ export default function ManageStalls() {
               disabled={loading}
             >
               <FiRefreshCw size={14} className={loading ? "spin" : ""} />{" "}
-              Refresh
+              <span className="cm-btn-label">Refresh</span>
             </button>
           </div>
         </div>
 
-        <div className="dashboard-content">
+        <div className="dashboard-content ms-content">
           <PremiumRequests onChanged={fetchStalls} />
-          {/* Search */}
-          <div
-            style={{
-              position: "relative",
-              maxWidth: 360,
-              marginBottom: "1.25rem",
-            }}
-          >
-            <FiSearch
-              style={{
-                position: "absolute",
-                left: 12,
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--gray-400)",
-              }}
-            />
-            <input
-              className="form-input"
-              placeholder="Search stalls or owners..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ paddingLeft: "2.5rem" }}
-            />
-          </div>
-
-          <div className="sp-filters" role="group" aria-label="Filter by plan">
-            {PLAN_FILTERS.map(([key, label]) => (
-              <button key={key} type="button" className={planFilter === key ? "is-active" : ""} aria-pressed={planFilter === key} onClick={() => setPlanFilter(key)}>
-                {label}
-                {key === "expiring" && expiringCount > 0 && <span>{expiringCount}</span>}
-              </button>
-            ))}
-          </div>
-
-          {/* Status tabs */}
-          <div className="stall-tabs">
-            {STATUS_TABS.map((tab) => (
-              <button
-                key={tab}
-                className={`stall-tab ${activeTab === tab ? "active" : ""}`}
-                onClick={() => setActiveTab(tab)}
-              >
-                <span style={{ textTransform: "capitalize" }}>{tab}</span>
-                {tabCount(tab) > 0 && (
-                  <span
-                    className={`tab-count ${activeTab === tab ? "active" : ""}`}
-                  >
-                    {tabCount(tab)}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+          <section className="ms-toolbar" aria-label="Find a stall">
+            <div className="ms-tabs" role="group" aria-label="Stall status">
+              {STATUS_TABS.map((tab) => (
+                <button key={tab} type="button" className={activeTab === tab ? "is-active" : ""} aria-pressed={activeTab === tab} onClick={() => setActiveTab(tab)}>
+                  <span className="ms-tab-label">{tab}</span> <span className="ms-count">{tabCount(tab)}</span>
+                </button>
+              ))}
+            </div>
+            <div className="ms-toolbar-row">
+              <label className="ms-search">
+                <FiSearch aria-hidden="true" />
+                <span className="sr-only">Search stalls or owners</span>
+                <input type="search" placeholder="Search stalls or owners" value={search} onChange={(e) => setSearch(e.target.value)} />
+              </label>
+              <div className="sp-filters ms-plans" role="group" aria-label="Filter by plan">
+                {PLAN_FILTERS.map(([key, label]) => (
+                  <button key={key} type="button" className={planFilter === key ? "is-active" : ""} aria-pressed={planFilter === key} onClick={() => setPlanFilter(key)}>
+                    {label}
+                    {key === "expiring" && expiringCount > 0 && <span>{expiringCount}</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
 
           {/* Stalls grid */}
           {loading ? (
@@ -278,6 +248,21 @@ export default function ManageStalls() {
       </main>
 
       <style>{`
+        .admin-shell .dashboard-content.ms-content { display: grid; align-content: start; gap: 1rem; }
+        .ms-content > .pr-panel { margin: 0; }
+        .ms-toolbar { display: grid; gap: .6rem; padding: .6rem; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+        .ms-tabs { display: inline-flex; flex-wrap: wrap; justify-self: start; gap: 3px; padding: 3px; background: var(--cream-100); border-radius: 11px; }
+        .ms-tabs button { display: inline-flex; align-items: center; gap: .35rem; height: 34px; padding: 0 .85rem; color: var(--ink-600); border-radius: 8px; font-size: var(--text-sm); font-weight: 700; }
+        .ms-tab-label { text-transform: capitalize; }
+        .ms-count { min-width: 20px; padding: 0 .35rem; background: rgba(255,255,255,.75); border-radius: 99px; font-size: .75rem; text-align: center; }
+        .ms-tabs button.is-active { color: var(--green-900); background: var(--surface); box-shadow: var(--shadow-1); }
+        .ms-tabs button.is-active .ms-count { color: #fff; background: var(--green-700); }
+        .ms-toolbar-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; }
+        .ms-search { flex: 0 1 340px; display: flex; align-items: center; gap: .5rem; height: 40px; padding: 0 .8rem; color: var(--ink-600); background: var(--cream-50); border: 1px solid var(--line); border-radius: 10px; }
+        .ms-search:focus-within { border-color: var(--green-700); }
+        .ms-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--ink-900); font: 500 var(--text-sm) var(--font-body); }
+        .ms-plans { margin: 0 !important; }
+        @media (max-width: 600px) { .ms-tabs { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; } .ms-search { flex: 1 1 100%; } }
         .stall-tabs { display: flex; gap: 0.25rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
         .stall-tab { display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 1rem; border-radius: var(--radius-full); border: 1.5px solid var(--gray-200); background: #fff; font-size: 0.875rem; font-weight: 500; color: var(--gray-600); transition: var(--transition-fast); white-space: nowrap; }
         .stall-tab:hover { border-color: var(--color-primary); color: var(--color-primary); }

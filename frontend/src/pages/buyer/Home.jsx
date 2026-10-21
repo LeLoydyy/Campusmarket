@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, CalendarDays, Clock3, MapPin, Store } from "lucide-react";
+import { ArrowRight, CalendarDays, Clock3, MapPin, ShoppingCart, Store, Wallet } from "lucide-react";
 import Navbar from "../../components/common/Navbar.jsx";
 import Footer from "../../components/common/Footer.jsx";
 import ProductCard from "../../components/ui/ProductCard.jsx";
 import StallCard from "../../components/ui/StallCard.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import SellerCta from "../../components/ui/SellerCta.jsx";
+import ShopFrom from "../../components/ui/ShopFrom.jsx";
 import Illustration from "../../components/ui/Illustration.jsx";
 import { categoryKey } from "../../components/ui/Chip.jsx";
 import { SkeletonGrid, SkeletonBlock } from "../../components/ui/Skeleton.jsx";
@@ -13,12 +15,28 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import { productService, stallService, statsService } from "../../services/api.js";
 import eventService from "../../services/eventService.js";
 import { eventStart, eventStatus, formatEventDate, parseEventDate, plural, stallOpenStatus, timeUntil } from "../../utils/marketplace.js";
-import { CATEGORY_TILES } from "../../config/categories.js";
+import { CATEGORY_TILES, QUICK_CHIPS } from "../../config/categories.js";
 import "./Home.css";
 
 
-const SUGGEST_EMAIL = import.meta.env.VITE_CONTACT_EMAIL;
 const list = (payload) => (Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : []);
+
+const MIN_STATS_STALLS = 10;
+const MIN_STATS_PRODUCTS = 30;
+const MIN_TICKER_ORDERS = 3;
+const MIN_TRENDING = 4;
+const MIN_TILE_COUNT = 10;
+// Shown on the Food & drinks tile when no food listing has a photo yet.
+const FOOD_TILE_FALLBACK = "/images/buyer/product-adobo.png";
+const MAX_TRENDING = 8;
+const MAX_TICKER_ORDERS = 6;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const HOW_STEPS = [
+  { title: "Order online", text: "Browse stalls and add to cart.", icon: ShoppingCart },
+  { title: "Pay your way", text: "GCash or cash on pickup.", icon: Wallet },
+  { title: "Pick up between classes", text: "Ready at the stall's location.", icon: MapPin },
+];
 
 const minutesAgo = (value) => {
   const minutes = Math.max(0, Math.round((Date.now() - Date.parse(value)) / 60000));
@@ -69,10 +87,19 @@ export default function BuyerHome() {
     return counts;
   }, {}), [products]);
 
-  // Real featured (Premium) listings, most viewed first. Falls back to the most viewed overall.
+  const foodPhoto = useMemo(() =>
+    products.find((product) => categoryKey(product.category) === "food" && product.image_url)?.image_url || FOOD_TILE_FALLBACK, [products]);
+
+  // Featured (Premium) listings, most viewed first. Under 4, topped up with the newest listings from
+  // Premium stalls only — this row is advertising space, so Free stalls never appear here.
   const trending = useMemo(() => {
-    const source = featured.length ? featured : products;
-    return [...source].sort((a, b) => Number(b.view_count || 0) - Number(a.view_count || 0)).slice(0, 8);
+    const picks = [...featured].sort((a, b) => Number(b.view_count || 0) - Number(a.view_count || 0)).slice(0, MAX_TRENDING);
+    if (picks.length >= MIN_TRENDING) return picks;
+    const taken = new Set(picks.map((product) => product.id));
+    const newest = products
+      .filter((product) => !taken.has(product.id) && (product.stalls || product.stall)?.tier === "premium")
+      .sort((a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0));
+    return [...picks, ...newest].slice(0, MAX_TRENDING);
   }, [featured, products]);
 
   // Student Made spotlight: the stall with the most student-made listings, excluding items already in Trending.
@@ -88,6 +115,21 @@ export default function BuyerHome() {
     const stall = stalls.find((entry) => entry.id === stallId) || items[0].stalls;
     return stall ? { stall, items: items.filter((item) => !trendingIds.has(item.id)).slice(0, 3), total: items.length } : null;
   }, [products, stalls, trending]);
+
+  // The count cards only once the numbers look healthy; until then, show who you can shop from.
+  const showStats = Boolean(stats) && Number(stats.active_stalls) >= MIN_STATS_STALLS && Number(stats.products) >= MIN_STATS_PRODUCTS;
+  const heroStalls = useMemo(() => openStalls.slice(0, 5), [openStalls]);
+
+  // Ticker: last 24 hours only, one line per product.
+  const recentOrders = useMemo(() => {
+    const seen = new Set();
+    return (stats?.recent_orders || []).filter((order) => {
+      const at = Date.parse(order.ordered_at);
+      if (!(Date.now() - at <= DAY_MS) || seen.has(order.product_name)) return false;
+      seen.add(order.product_name);
+      return true;
+    }).slice(0, MAX_TICKER_ORDERS);
+  }, [stats]);
 
   const nextEvent = useMemo(() => {
     const live = events.find((event) => eventStatus(event) === "ongoing");
@@ -116,32 +158,43 @@ export default function BuyerHome() {
               <Link to="/browse" className="btn btn-primary btn-lg">Start shopping <ArrowRight aria-hidden="true" /></Link>
               <Link to={stallCta.to} className="btn btn-gold-outline btn-lg"><Store aria-hidden="true" /> {stallCta.label}</Link>
             </div>
-            <dl className="home-stats" aria-label="Campus Market right now">
-              {stats ? (
-                <>
-                  <div><dt>Active stalls</dt><dd>{stats.active_stalls}</dd></div>
-                  <div><dt>Products</dt><dd>{stats.products}</dd></div>
-                  <div><dt>{Number(stats.students_served) === 1 ? "Student served" : "Students served"}</dt><dd>{stats.students_served}</dd></div>
-                </>
-              ) : (
-                [0, 1, 2].map((i) => <div key={i}><SkeletonBlock height={46} /></div>)
-              )}
-            </dl>
+            {showStats ? (
+              <dl className="home-stats" aria-label="Campus Market right now">
+                <div><dt>Active stalls</dt><dd>{stats.active_stalls}</dd></div>
+                <div><dt>Products</dt><dd>{stats.products}</dd></div>
+                <div><dt>{Number(stats.students_served) === 1 ? "Student served" : "Students served"}</dt><dd>{stats.students_served}</dd></div>
+              </dl>
+            ) : loading ? (
+              <div className="cm-shopfrom home-shopfrom"><SkeletonBlock height={44} /></div>
+            ) : (
+              <ShopFrom stalls={heroStalls} className="home-shopfrom" />
+            )}
           </div>
-          <figure className="home-hero-art">
-            <img src="/images/buyer/campusmarket-background.png" alt="A Campus Market tote bag and books among leaves in front of the CSUCC building" />
+          <figure className="home-hero-art home-hero-art--logo">
+            <img src="/images/buyer/campusmarket-logo.png" alt="Campus Market" />
           </figure>
         </section>
 
+        {/* ── Quick category chips ─────────────────────────────────────── */}
+        <nav className="home-chips" aria-label="Popular categories">
+          <ul>
+            {QUICK_CHIPS.map(({ label, icon: Icon, params }) => (
+              <li key={label}>
+                <Link to={`/browse?${new URLSearchParams(params)}`} className="home-chip"><Icon aria-hidden="true" /> {label}</Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
         {/* ── Just ordered ticker ─────────────────────────────────────── */}
-        {stats?.recent_orders?.length > 0 && (
+        {recentOrders.length >= MIN_TICKER_ORDERS && (
           <section className="home-ticker" aria-label="Recent orders on campus">
             <span className="home-ticker-label"><i aria-hidden="true" /> Live</span>
             <div className="home-ticker-track">
               {[0, 1].map((copy) => (
                 <ul key={copy} aria-hidden={copy === 1 ? true : undefined}>
-                  {stats.recent_orders.map((order, index) => (
-                    <li key={`${copy}-${index}`}>Someone just ordered <strong>{order.product_name}</strong> · {minutesAgo(order.ordered_at)}</li>
+                  {recentOrders.map((order, index) => (
+                    <li key={`${copy}-${index}`}>A student ordered <strong>{order.product_name}</strong> · {minutesAgo(order.ordered_at)}</li>
                   ))}
                 </ul>
               ))}
@@ -170,6 +223,22 @@ export default function BuyerHome() {
             )}
           </section>
 
+          {/* ── How it works ───────────────────────────────────────────── */}
+          <section className="home-section home-how" aria-labelledby="how-title">
+            <h2 id="how-title" className="sr-only">How Campus Market works</h2>
+            <ol>
+              {HOW_STEPS.map(({ title, text, icon: Icon }, index) => (
+                <li key={title}>
+                  <span className="home-how-num" aria-hidden="true">{index + 1}</span>
+                  <span className="home-how-text">
+                    <strong><Icon aria-hidden="true" /> {title}</strong>
+                    <span>{text}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </section>
+
           {/* ── Shop by category ───────────────────────────────────────── */}
           <section className="home-section" aria-labelledby="categories-title">
             <div className="cm-section-head">
@@ -185,8 +254,9 @@ export default function BuyerHome() {
                   <span className="home-tile-text">
                     <strong>{label}</strong>
                     <span>{blurb}</span>
-                    <small>{categoryCounts[key] ? plural(categoryCounts[key], "item") : "Browse"}</small>
+                    <small>{categoryCounts[key] >= MIN_TILE_COUNT && <>{plural(categoryCounts[key], "item")} · </>}Browse <span aria-hidden="true">→</span></small>
                   </span>
+                  {key === "food" && <img className="home-tile-photo" src={foodPhoto} alt="" loading="lazy" />}
                   {key === "student-made" && <span className="home-tile-sticker" aria-hidden="true">Made at CSUCC</span>}
                 </Link>
               ))}
@@ -197,56 +267,53 @@ export default function BuyerHome() {
           <section className="home-section" aria-labelledby="trending-title">
             <div className="cm-section-head">
               <div>
-                <p className="cm-eyebrow">{featured.length ? "Featured by Premium stalls" : "Most viewed this week"}</p>
+                <p className="cm-eyebrow">Popular this week</p>
                 <h2 id="trending-title">Trending on campus</h2>
               </div>
               <Link to="/browse" className="cm-link">Browse all products <ArrowRight aria-hidden="true" /></Link>
             </div>
             {loading ? <SkeletonGrid count={4} /> : trending.length ? (
-              <div className="pc-grid">{trending.map((product) => <ProductCard key={product.id} product={product} />)}</div>
+              <div className="pc-grid home-trending">{trending.map((product) => <ProductCard key={product.id} product={product} />)}</div>
             ) : (
               <EmptyState illustration="bag" title="Nothing listed yet" description="Products from campus stalls will show up here as soon as sellers add them." action={{ label: stallCta.label, to: stallCta.to }} />
             )}
           </section>
         </div>
 
-        {/* ── Events (deep green) ────────────────────────────────────────── */}
-        <section className="home-events" aria-labelledby="events-title">
-          <div className="home-wrap home-events-inner">
-            <div className="home-events-copy">
-              <p className="cm-eyebrow">Campus fairs & pop-ups</p>
-              <h2 id="events-title">{nextEvent ? (eventStatus(nextEvent) === "ongoing" ? "Happening now" : "Next on campus") : "Events"}</h2>
-              {nextEvent ? (
-                <>
-                  <h3>{nextEvent.name}</h3>
-                  <p className="home-events-meta"><CalendarDays aria-hidden="true" /> {formatEventDate(nextEvent)}</p>
-                  <p className="home-events-meta"><MapPin aria-hidden="true" /> {nextEvent.location}</p>
-                  {eventStatus(nextEvent) === "upcoming" && <Countdown event={nextEvent} />}
-                  <div className="home-events-ctas">
-                    <Link to={`/events/${nextEvent.id}/stalls`} className="btn btn-gold btn-lg">View stall map <ArrowRight aria-hidden="true" /></Link>
-                    <Link to="/events" className="btn btn-on-dark btn-lg">All events</Link>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className="home-events-empty">No fairs on the calendar right now. When the next one is announced, you'll see the stall map here.</p>
-                  <div className="home-events-ctas">
-                    {SUGGEST_EMAIL && <a className="btn btn-gold btn-lg" href={`mailto:${SUGGEST_EMAIL}?subject=Campus%20Market%20event%20idea`}>Suggest an event</a>}
-                    <Link to="/events" className="btn btn-on-dark btn-lg">See past events</Link>
-                  </div>
-                </>
-              )}
+        {/* ── Events (deep green) — full section only when there's an event to show ── */}
+        {nextEvent ? (
+          <section className="home-events" aria-labelledby="events-title">
+            <div className="home-wrap home-events-inner">
+              <div className="home-events-copy">
+                <p className="cm-eyebrow">Campus fairs & pop-ups</p>
+                <h2 id="events-title">{eventStatus(nextEvent) === "ongoing" ? "Happening now" : "Next on campus"}</h2>
+                <h3>{nextEvent.name}</h3>
+                <p className="home-events-meta"><CalendarDays aria-hidden="true" /> {formatEventDate(nextEvent)}</p>
+                <p className="home-events-meta"><MapPin aria-hidden="true" /> {nextEvent.location}</p>
+                {eventStatus(nextEvent) === "upcoming" && <Countdown event={nextEvent} />}
+                <div className="home-events-ctas">
+                  <Link to={`/events/${nextEvent.id}/stalls`} className="btn btn-gold btn-lg">View stall map <ArrowRight aria-hidden="true" /></Link>
+                  <Link to="/events" className="btn btn-on-dark btn-lg">All events</Link>
+                </div>
+              </div>
+              <div className="home-events-art" aria-hidden="true">
+                <Illustration name="map" size={300} />
+                <span className="home-events-count">{plural(nextEvent.stall_count || 0, "stall space")}</span>
+              </div>
             </div>
-            <div className="home-events-art" aria-hidden="true">
-              <Illustration name={nextEvent ? "map" : "calendar"} size={300} />
-              {nextEvent && <span className="home-events-count">{plural(nextEvent.stall_count || 0, "stall space")}</span>}
-            </div>
+          </section>
+        ) : !loading && (
+          <div className="home-wrap">
+            <p className="home-events-slim">
+              <span><span aria-hidden="true">📅</span> No fairs scheduled yet.</span>
+              <Link to="/events" className="cm-link">Apply for an event stall <span aria-hidden="true">→</span></Link>
+            </p>
           </div>
-        </section>
+        )}
 
         {/* ── Student Made spotlight ─────────────────────────────────────── */}
         {spotlight && (
-          <div className="home-wrap">
+          <div className="home-wrap home-spotlight-wrap">
             <section className="home-section home-spotlight" aria-labelledby="spotlight-title">
               <div className="home-spotlight-story">
                 <span className="cm-chip cm-chip--student-made home-spotlight-sticker">Student Made</span>
@@ -269,6 +336,7 @@ export default function BuyerHome() {
           </div>
         )}
       </main>
+      <SellerCta />
       <Footer />
     </div>
   );

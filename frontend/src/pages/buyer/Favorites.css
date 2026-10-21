@@ -1,0 +1,23 @@
+/* ── Saved favorites ───────────────────────────────────────────────────────── */
+.fav-shell { min-height: 100vh; background: var(--cream-50); }
+.fav-page { width: min(1240px, 100% - 2rem); margin: 0 auto; padding: 1.25rem 0 4rem; display: grid; gap: 1.25rem; }
+.fav-page + .site-footer { margin-top: 0; }
+
+.fav-hero { position: relative; overflow: hidden; display: flex; align-items: center; gap: 1rem; padding: clamp(1.1rem, 3vw, 1.6rem); background: linear-gradient(135deg, #FFF7E3 0%, var(--cream-50) 55%, var(--coral-100) 160%); border-radius: 24px; box-shadow: var(--shadow-2); }
+.fav-hero::before { content: ""; position: absolute; inset: 0; background: var(--texture-leaf); pointer-events: none; }
+.fav-hero > * { position: relative; }
+.fav-hero > div { flex: 1; min-width: 0; }
+.fav-hero-icon { flex: none; width: 52px; height: 52px; display: grid; place-items: center; color: var(--coral-700); background: #fff; border-radius: 16px; box-shadow: var(--shadow-1); }
+.fav-hero-icon svg { width: 24px; height: 24px; fill: currentColor; }
+.fav-hero h1 { margin-top: .2rem; color: var(--ink-900); font: 900 clamp(1.5rem, 3vw, 2.1rem)/1.1 var(--font-display); letter-spacing: -.03em; }
+.fav-hero p:last-child { margin-top: .25rem; color: var(--ink-600); font-size: var(--text-sm); }
+.fav-more { flex: none; }
+
+.fav-suggest { margin-top: .5rem; }
+
+@media (max-width: 600px) {
+  .fav-page { width: calc(100% - 1rem); padding-top: .75rem; gap: 1rem; }
+  .fav-hero { border-radius: 18px; }
+  .fav-hero-icon { width: 44px; height: 44px; }
+  .fav-more { display: none; }
+}

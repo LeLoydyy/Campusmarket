@@ -160,8 +160,8 @@ test("admins: create with starter password, first-login setup, privileges, block
   assert.ok(["admin.created", "account.removed", "account.restored", "account.blocked"].every((action) => activity.data.data.some((row) => row.action === action)));
 
   // Users see only their own sign-ins.
-  const mariaLogin = await request("/auth/login", null, { email: "maria@test.invalid", password: "campus-pass-1" });
-  const mariaSession = await request("/auth/login/verify", null, { challenge: mariaLogin.data.challenge, code: mariaLogin.data.dev_code });
+  // A correct password signs straight in (no emailed sign-in code).
+  const mariaSession = await request("/auth/login", null, { email: "maria@test.invalid", password: "campus-pass-1" });
   const own = await request("/auth/logins", mariaSession.data.accessToken);
   assert.ok(own.data.total >= 1 && own.data.data.every((row) => row.user_id === maria));
   assert.equal((await request("/admin/logs", mariaSession.data.accessToken)).status, 403);

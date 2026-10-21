@@ -147,8 +147,13 @@ export default function Navbar() {
               </div>
             ) : (
               <div className="nb-auth">
+                {/* Guests see the cart too; /cart sends them to log in first. */}
+                <Link to="/cart" className="nb-icon" aria-label={`Cart, ${cartCount} ${cartCount === 1 ? "item" : "items"}`} title="Cart">
+                  <ShoppingCart aria-hidden="true" />
+                  {cartCount > 0 && <span key={bump} className={`cart-badge nb-badge ${bump ? "is-bumped" : ""}`}>{cartCount > 99 ? "99+" : cartCount}</span>}
+                </Link>
                 <Link to="/login" className="btn btn-ghost btn-sm nb-hide-mobile">Log in</Link>
-                <Link to="/register" className="btn btn-primary btn-sm">Join</Link>
+                <Link to="/register" className="btn btn-primary btn-sm">Register</Link>
               </div>
             )}
           </div>

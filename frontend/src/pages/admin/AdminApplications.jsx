@@ -1,13 +1,123 @@
 import "./AdminWorkspace.css";
+import "./AdminApplications.css";
 import { useState, useEffect } from "react";
 import Sidebar from "../../components/common/Sidebar.jsx";
-import { EmptyState } from "../../components/common/Ui.jsx";
+import EmptyState from "../../components/ui/EmptyState.jsx";
+import { SkeletonBlock } from "../../components/ui/Skeleton.jsx";
 import eventService from "../../services/eventService.js";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
-import { FiSearch, FiCheck, FiX, FiRefreshCw } from "react-icons/fi";
+import { FiCalendar, FiCheck, FiClock, FiMail, FiMap, FiPhone, FiRefreshCw, FiSearch, FiX } from "react-icons/fi";
+import { Link } from "react-router-dom";
 
-const STATUS_TABS = ["pending", "approved", "rejected", "all"];
+const STATUS_TABS = [
+  { key: "pending", label: "Pending" },
+  { key: "approved", label: "Approved" },
+  { key: "rejected", label: "Rejected" },
+  { key: "all", label: "All" },
+];
+const CATEGORY_LABELS = { food: "Food stall", merchandise: "Merchandise", "mixed-use": "Mixed-use" };
+const MIN_NOTE = 5;
+// One-tap starting points for the note the seller receives.
+const NOTE_IDEAS = {
+  approved: ["Your space is assigned on the stall map.", "Please set up 1 hour before the event starts."],
+  rejected: ["All stall spaces for this event are taken.", "Your products don't match this event's theme."],
+};
+
+const statusOf = (application) => String(application.status || "pending").toLowerCase();
+const eventDate = (application) => (application.event?.date ? format(new Date(`${application.event.date}T00:00:00`), "EEE, MMM d, yyyy") : null);
+
+function ContactLink({ value }) {
+  const text = String(value || "").trim();
+  if (!text) return <span>—</span>;
+  if (text.includes("@")) return <a href={`mailto:${text}`}><FiMail aria-hidden="true" /> {text}</a>;
+  if (/^[\d\s+()-]{7,}$/.test(text)) return <a href={`tel:${text.replace(/[^\d+]/g, "")}`}><FiPhone aria-hidden="true" /> {text}</a>;
+  return <span>{text}</span>;
+}
+
+function ApplicationCard({ application, busy, onReview }) {
+  const status = statusOf(application);
+  const [decision, setDecision] = useState(null); // "approved" | "rejected" while the note box is open
+  const [note, setNote] = useState("");
+  const date = eventDate(application);
+
+  const open = (next) => { setDecision(next); setNote(""); };
+  const submit = async (event) => {
+    event.preventDefault();
+    if (note.trim().length < MIN_NOTE) return toast.error(`Write a note of at least ${MIN_NOTE} characters.`);
+    if (await onReview(application, decision, note.trim())) setDecision(null);
+  };
+
+  return (
+    <article className={`aa-card is-${status}`}>
+      <header className="aa-card-head">
+        <span className="aa-avatar" aria-hidden="true">{(application.stall_name || "S").charAt(0).toUpperCase()}</span>
+        <div className="aa-card-title">
+          <h2>{application.stall_name}</h2>
+          <p>{application.business_name !== application.stall_name ? `${application.business_name} · ` : ""}by {application.seller_name || "Campus seller"}</p>
+        </div>
+        <span className={`aa-status aa-status--${status}`}>{status}</span>
+      </header>
+
+      <div className="aa-event">
+        <FiCalendar aria-hidden="true" />
+        <div>
+          <strong>{application.event?.name || "Event removed"}</strong>
+          {date && <small>{date}</small>}
+        </div>
+      </div>
+
+      <dl className="aa-facts">
+        <div><dt>Category</dt><dd>{CATEGORY_LABELS[application.product_category] || application.product_category}</dd></div>
+        <div><dt>Space</dt><dd>{application.preferred_stall_size} m²</dd></div>
+        <div><dt>Duration</dt><dd>{application.duration} {Number(application.duration) === 1 ? "day" : "days"}</dd></div>
+      </dl>
+
+      <div className="aa-section">
+        <span>Products</span>
+        <p className="aa-products">{application.product_list}</p>
+      </div>
+
+      <div className="aa-meta">
+        <ContactLink value={application.contact_info} />
+        <span className="aa-applied"><FiClock aria-hidden="true" /> Applied {format(new Date(application.created_at), "MMM d, yyyy")}</span>
+      </div>
+
+      {application.review_note && (
+        <p className={`aa-review-note is-${status}`}><strong>{status === "rejected" ? "Reason" : "Note to seller"}</strong>{application.review_note}</p>
+      )}
+
+      {status === "approved" && application.event_id && (
+        <Link to={`/admin/events/${application.event_id}/map`} className="btn btn-outline btn-sm aa-map-link"><FiMap aria-hidden="true" /> Place on stall map</Link>
+      )}
+
+      {status === "pending" && (decision ? (
+        <form className={`aa-decide is-${decision}`} onSubmit={submit}>
+          <label htmlFor={`aa-note-${application.id}`}>
+            {decision === "approved" ? "Note for the seller (assigned space, setup time…)" : "Reason for rejecting (the seller sees this)"}
+          </label>
+          <textarea id={`aa-note-${application.id}`} rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} autoFocus />
+          <div className="aa-ideas">
+            {NOTE_IDEAS[decision].map((idea) => (
+              <button key={idea} type="button" onClick={() => setNote(idea)}>{idea}</button>
+            ))}
+          </div>
+          <div className="aa-actions">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDecision(null)} disabled={busy}>Back</button>
+            <button type="submit" className={`btn btn-sm ${decision === "approved" ? "btn-primary" : "btn-danger"}`} disabled={busy || note.trim().length < MIN_NOTE}>
+              {busy ? "Saving…" : decision === "approved" ? <><FiCheck aria-hidden="true" /> Confirm approval</> : <><FiX aria-hidden="true" /> Confirm rejection</>}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="aa-actions">
+          <button type="button" className="btn btn-outline btn-sm aa-reject" onClick={() => open("rejected")} disabled={busy}><FiX aria-hidden="true" /> Reject</button>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => open("approved")} disabled={busy}><FiCheck aria-hidden="true" /> Approve</button>
+        </div>
+      ))}
+    </article>
+  );
+}
 
 export default function AdminApplications() {
   const [applications, setApplications] = useState([]);
@@ -20,7 +130,7 @@ export default function AdminApplications() {
     setLoading(true);
     try {
       const { data } = await eventService.getApplications();
-      setApplications(data);
+      setApplications(Array.isArray(data) ? data : []);
     } catch {
       toast.error("Failed to load applications");
     } finally {
@@ -32,34 +142,27 @@ export default function AdminApplications() {
     fetchApplications();
   }, []);
 
-  const handleReview = async (application, status) => {
-    const note = window.prompt(
-      status === "approved"
-        ? "Approval note for the seller (e.g. assigned space, setup time):"
-        : "Reason for rejecting (shown to the seller):",
-    );
-    if (note === null) return;
-    if (note.trim().length < 5) {
-      toast.error("Please write a note of at least 5 characters.");
-      return;
-    }
+  /** Returns true when the review was saved, so the card can close its note box. */
+  const handleReview = async (application, status, note) => {
     try {
       setActingId(application.id);
-      const { data } = await eventService.reviewApplication(application.id, { status, note: note.trim() });
+      const { data } = await eventService.reviewApplication(application.id, { status, note });
       setApplications((prev) => prev.map((item) => (item.id === application.id ? { ...item, ...data } : item)));
-      toast.success(`Application ${status}`);
+      toast.success(status === "approved" ? "Application approved" : "Application rejected");
+      return true;
     } catch (error) {
       toast.error(error.response?.data?.error || "Review failed");
+      return false;
     } finally {
       setActingId(null);
     }
   };
 
-  const statusOf = (application) => String(application.status || "pending").toLowerCase();
+  const query = search.trim().toLowerCase();
   const filtered = applications.filter((application) => {
     const matchTab = activeTab === "all" || statusOf(application) === activeTab;
     const haystack = `${application.stall_name} ${application.business_name} ${application.seller_name || ""} ${application.event?.name || ""}`.toLowerCase();
-    return matchTab && (!search || haystack.includes(search.toLowerCase()));
+    return matchTab && (!query || haystack.includes(query));
   });
   const tabCount = (tab) => (tab === "all" ? applications.length : applications.filter((item) => statusOf(item) === tab).length);
 
@@ -75,95 +178,47 @@ export default function AdminApplications() {
             </div>
           </div>
           <div className="topbar-right">
-            <button className="btn btn-ghost btn-sm" onClick={fetchApplications} disabled={loading}>
-              <FiRefreshCw size={14} className={loading ? "spin" : ""} /> Refresh
+            <button type="button" className="btn btn-outline btn-sm" onClick={fetchApplications} disabled={loading}>
+              <FiRefreshCw size={14} className={loading ? "spin" : ""} /> <span className="cm-btn-label">Refresh</span>
             </button>
           </div>
         </div>
 
-        <div className="dashboard-content">
-          <div style={{ position: "relative", maxWidth: 360, marginBottom: "1.25rem" }}>
-            <FiSearch style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--gray-400)" }} />
-            <input
-              className="form-input"
-              placeholder="Search stall, business, seller or event..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ paddingLeft: "2.5rem" }}
-            />
-          </div>
-
-          <div className="stall-tabs">
-            {STATUS_TABS.map((tab) => (
-              <button key={tab} className={`stall-tab ${activeTab === tab ? "active" : ""}`} onClick={() => setActiveTab(tab)}>
-                <span style={{ textTransform: "capitalize" }}>{tab}</span>
-                {tabCount(tab) > 0 && <span className={`tab-count ${activeTab === tab ? "active" : ""}`}>{tabCount(tab)}</span>}
-              </button>
-            ))}
-          </div>
+        <div className="dashboard-content aa-content">
+          <section className="aa-toolbar" aria-label="Filter applications">
+            <div className="aa-tabs" role="group" aria-label="Status">
+              {STATUS_TABS.map((tab) => (
+                <button key={tab.key} type="button" className={activeTab === tab.key ? "is-active" : ""} aria-pressed={activeTab === tab.key} onClick={() => setActiveTab(tab.key)}>
+                  {tab.label} <span>{tabCount(tab.key)}</span>
+                </button>
+              ))}
+            </div>
+            <label className="aa-search">
+              <FiSearch aria-hidden="true" />
+              <span className="sr-only">Search applications</span>
+              <input type="search" placeholder="Search stall, seller or event" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </label>
+          </section>
 
           {loading ? (
-            <div className="stalls-grid">
-              {[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 180, borderRadius: 12 }} />)}
-            </div>
+            <div className="aa-grid">{[1, 2, 3].map((i) => <SkeletonBlock key={i} height={300} />)}</div>
           ) : filtered.length === 0 ? (
-            <EmptyState icon="📋" title="No applications found" description={`No ${activeTab === "all" ? "" : activeTab} applications`} />
+            <EmptyState
+              compact
+              illustration={query ? "search" : "check"}
+              title={query ? "No applications match" : activeTab === "pending" ? "You're all caught up" : `No ${activeTab === "all" ? "" : activeTab} applications`}
+              description={query ? "Try another stall, seller or event name." : activeTab === "pending" ? "New stall applications for campus events will show up here." : "Applications appear here once sellers apply for an event."}
+              action={query ? { label: "Clear search", onClick: () => setSearch("") } : undefined}
+            />
           ) : (
-            <div className="stalls-grid">
+            <div className="aa-grid">
               {filtered.map((application) => (
-                <div key={application.id} className="stall-card card">
-                  <div className="stall-card-body">
-                    <span className={`badge status-${statusOf(application)}`} style={{ alignSelf: "flex-start" }}>{statusOf(application)}</span>
-                    <p className="stall-card-name">{application.stall_name}</p>
-                    <p className="text-sm text-muted">
-                      {application.business_name} · by {application.seller_name || "Campus seller"}
-                    </p>
-                    <p className="text-sm">
-                      <strong>{application.event?.name || "Event removed"}</strong>
-                      {application.event?.date && ` · ${format(new Date(`${application.event.date}T00:00:00`), "MMM d, yyyy")}`}
-                    </p>
-                    <p className="text-sm text-muted">
-                      {application.product_category} · {application.preferred_stall_size} m² · {application.duration} day(s)
-                    </p>
-                    <p className="stall-card-desc text-sm text-muted">{application.product_list}</p>
-                    <p className="text-sm text-muted">Contact: {application.contact_info}</p>
-                    {application.review_note && <p className="text-sm"><strong>Note:</strong> {application.review_note}</p>}
-                    <p className="text-xs text-muted" style={{ marginTop: 4 }}>
-                      Applied {format(new Date(application.created_at), "MMM d, yyyy")}
-                    </p>
-                    {statusOf(application) === "pending" && (
-                      <div className="stall-card-actions">
-                        <button className="btn btn-secondary btn-sm" onClick={() => handleReview(application, "approved")} disabled={actingId === application.id}>
-                          <FiCheck size={13} /> Approve
-                        </button>
-                        <button className="btn btn-danger btn-sm" onClick={() => handleReview(application, "rejected")} disabled={actingId === application.id}>
-                          <FiX size={13} /> Reject
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <ApplicationCard key={application.id} application={application} busy={actingId === application.id} onReview={handleReview} />
               ))}
             </div>
           )}
         </div>
       </main>
-
-      <style>{`
-        .stall-tabs { display: flex; gap: 0.25rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
-        .stall-tab { display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 1rem; border-radius: var(--radius-full); border: 1.5px solid var(--gray-200); background: #fff; font-size: 0.875rem; font-weight: 500; color: var(--gray-600); transition: var(--transition-fast); white-space: nowrap; }
-        .stall-tab:hover { border-color: var(--color-primary); color: var(--color-primary); }
-        .stall-tab.active { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
-        .tab-count { background: var(--gray-200); color: var(--gray-700); font-size: 0.7rem; font-weight: 700; padding: 1px 6px; border-radius: var(--radius-full); }
-        .tab-count.active { background: rgba(255,255,255,0.3); color: #fff; }
-        .stalls-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.25rem; }
-        .stall-card { display: flex; flex-direction: column; overflow: hidden; }
-        .stall-card-body { padding: 1rem; display: flex; flex-direction: column; gap: 0.25rem; flex: 1; }
-        .stall-card-name { font-weight: 700; font-size: 1rem; color: var(--gray-900); }
-        .stall-card-desc { margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-        .stall-card-actions { display: flex; gap: 0.5rem; margin-top: auto; padding-top: 0.75rem; }
-        .spin { animation: spin 0.7s linear infinite; }
-      `}</style>
     </div>
   );
 }

@@ -1,0 +1,132 @@
+/* ── Seller/admin workspace on phones ─────────────────────────────────────────
+   One shared layer so every workspace page gets the same compact header, type
+   scale and stat cards. Selectors start with .dashboard-layout so they win over
+   the page stylesheets, which load later. */
+
+/* The main column is a flex item: without this, one wide row (filters, tables)
+   stretches the whole page past the screen edge. */
+.dashboard-main { min-width: 0; }
+.dashboard-content > * { min-width: 0; }
+
+/* Small heading above a group of dashboard cards (numbers, shortcuts) */
+.cm-section-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .15rem .6rem; margin-bottom: -.4rem; }
+.cm-section-head h2 { color: var(--ink-900); font: 900 1rem/1.2 var(--font-display); }
+.cm-section-head p { color: var(--ink-600); font-size: var(--text-xs); }
+.cm-phone-only { display: none; }
+/* Matches when the shortcut tiles show (.cm-quick in ui.css) */
+@media (max-width: 760px) { .cm-phone-only { display: flex; } }
+
+/* Seller and admin bottom bar (rendered by Sidebar) */
+.cm-seller-tabbar { display: none; }
+
+@media (max-width: 768px) {
+  .cm-seller-tabbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 120;
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: .25rem .25rem calc(.25rem + env(safe-area-inset-bottom));
+    background: rgba(255, 251, 242, .96);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -6px 20px rgba(11, 61, 36, .08);
+  }
+  .cm-seller-tab { position: relative; min-height: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .2rem; color: var(--ink-600); border-radius: 12px; font: 700 .6875rem/1.1 var(--font-body); text-decoration: none; }
+  .cm-seller-tab svg { width: 21px; height: 21px; }
+  .cm-seller-tab.is-active { color: var(--green-900); }
+  .cm-seller-tab.is-active svg { color: var(--green-700); }
+  .cm-seller-tab.is-active::before { content: ""; position: absolute; top: 1px; width: 24px; height: 3px; background: var(--gold-500); border-radius: 3px; }
+  .cm-seller-tab-icon { position: relative; display: grid; place-items: center; }
+  .cm-seller-tab-icon b { position: absolute; top: -6px; right: -10px; min-width: 17px; height: 17px; display: grid; place-items: center; padding: 0 4px; color: #fff; background: var(--coral-700); border: 2px solid var(--cream-50); border-radius: 99px; font: 800 .5625rem/1 var(--font-body); }
+  body.has-workspace-tabbar { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+  /* No floating menu button on these pages, so titles can start at the edge. */
+  body.has-workspace-tabbar .dashboard-layout .topbar { padding-left: 1rem; }
+}
+
+@media (max-width: 600px) {
+  /* ── Type: one calmer scale. Headings use the body family at 800, which reads
+     cleaner on small screens than the heavy display face. */
+  /* Slightly smaller root size on workspace pages scales every rem-based size
+     (text, padding, buttons) down together, so pages feel compact, not cramped. */
+  html:has(.dashboard-layout) { font-size: 15px; }
+  .dashboard-layout { font-size: 14px; line-height: 1.5; }
+  .dashboard-layout :is(h1, h2, h3) { font-family: var(--font-body); font-weight: 800; letter-spacing: -.02em; }
+  body .dashboard-layout .dashboard-content { padding: .85rem .85rem 1.25rem; }
+  .dashboard-layout :is(input, select, textarea) { font-size: 16px; } /* stops iOS zooming into fields */
+
+  /* ── Header: title on one line, small actions on the right ── */
+  body .dashboard-layout .topbar { position: sticky; top: 0; flex-wrap: nowrap; align-items: center; min-height: 56px; height: auto; gap: .5rem; padding-top: .5rem; padding-bottom: .5rem; padding-right: 1rem; }
+  .dashboard-layout .topbar :is(.topbar-left, .topbar-titles) { flex: 1 1 auto; min-width: 0; }
+  .dashboard-layout .topbar h1 { overflow: hidden; font-size: 1.125rem; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+  /* Page descriptions repeat the title; the dashboard keeps its stall line. */
+  .dashboard-layout .topbar:not(.sd-topbar) :is(.topbar-titles, .seller-messages-header > div) > p { display: none; }
+  .dashboard-layout .topbar :is(.topbar-right, [class$="-topbar-actions"], .ma-top-actions) { flex: 0 0 auto; display: flex; align-items: center; gap: .35rem; }
+  .dashboard-layout .topbar :is(button, .btn) { min-height: 34px; height: 34px; padding: 0 .7rem; border-radius: 10px; font-size: .75rem; box-shadow: none; }
+  /* Several pages set font-size: 0 on icon buttons to hide the label; fixed
+     sizes keep the icon visible (1em-sized icons vanished with the text). */
+  .dashboard-layout .topbar :is(button, .btn) svg { width: 16px; height: 16px; flex: 0 0 auto; }
+  .dashboard-layout .topbar :is(.seller-reviews-refresh, .seller-orders-refresh, .seller-reservations-refresh, .manage-products-add-top, .sd-refresh),
+  .dashboard-layout .my-stall-topbar .btn { width: 34px; padding: 0; justify-content: center; }
+  /* Text buttons like "Refresh" become icon-only; the label stays for screen readers. */
+  .dashboard-layout .topbar .cm-btn-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .dashboard-layout .topbar :is(button, .btn):has(> .cm-btn-label) { width: 34px; padding: 0; justify-content: center; }
+  /* Live/updated stamps don't fit beside the actions. */
+  .dashboard-layout .topbar .seller-orders-live { display: none; }
+
+  /* ── Stat cards: two across, number first ── */
+  .dashboard-layout :is(.seller-reviews-metrics, .seller-reservations-summary, .analytics-metrics-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; margin-bottom: .75rem; }
+  .dashboard-layout :is(.seller-reviews-metrics, .seller-reservations-summary) article { position: relative; display: block; padding: .65rem .75rem; border-radius: 14px; }
+  .dashboard-layout :is(.seller-reviews-metrics, .seller-reservations-summary) article > span { position: absolute; top: .55rem; right: .55rem; width: 26px; height: 26px; border-radius: 8px; font-size: .85rem; }
+  .dashboard-layout :is(.seller-reviews-metrics, .seller-reservations-summary) article > span svg { width: 14px; height: 14px; }
+  .dashboard-layout :is(.seller-reviews-metrics, .seller-reservations-summary) small { display: block; padding-right: 1.9rem; font-size: .75rem; }
+  .dashboard-layout :is(.seller-reviews-metrics, .seller-reservations-summary) strong { font-size: 1.15rem; }
+  .dashboard-layout .seller-reviews-metrics article p, .dashboard-layout .seller-reviews-metrics article > div > span { font-size: .6875rem; }
+
+  .dashboard-layout .analytics-metric { position: relative; gap: .15rem; padding: .65rem .75rem; border-radius: 14px; }
+  .dashboard-layout .analytics-metric-head { padding-right: 1.9rem; }
+  .dashboard-layout .analytics-metric-head > span { position: absolute; top: .55rem; right: .55rem; width: 26px; height: 26px; border-radius: 8px; }
+  .dashboard-layout .analytics-metric-head > span svg { width: 14px; height: 14px; }
+  .dashboard-layout .analytics-metric small { font-size: .75rem; }
+  .dashboard-layout .analytics-metric strong { font-size: 1.15rem; }
+  .dashboard-layout .analytics-metric.tone-coral strong { font-size: .95rem; }
+  .dashboard-layout .analytics-metric p { font-size: .6875rem; line-height: 1.35; }
+  .dashboard-layout .analytics-overview { padding: .85rem 1rem; border-radius: 14px; }
+  .dashboard-layout .analytics-overview h2 { font-size: 1.05rem; }
+  .dashboard-layout .analytics-overview p { font-size: .75rem; }
+
+  .dashboard-layout .mp-stats dd { font-size: 1rem; }
+
+  /* ── Filter rows: search on top, the smaller controls share one line ── */
+  .dashboard-layout .seller-orders-filter-row { flex-direction: row; flex-wrap: wrap; align-items: center; gap: .45rem; }
+  .dashboard-layout .seller-orders-search { flex: 1 1 100%; }
+  .dashboard-layout .seller-orders-filter-row select { flex: 1 1 0; min-width: 0; }
+  .dashboard-layout .seller-orders-view-toggle { align-self: auto; }
+  .dashboard-layout .seller-reviews-panel-heading { flex-wrap: wrap; gap: .6rem; }
+  .dashboard-layout .seller-reviews-panel-heading .seller-reviews-search { flex: 1 1 100%; }
+
+  /* ── My Stall: location and contact side by side, hours underneath ── */
+  .dashboard-layout .my-stall-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; margin-top: .9rem; }
+  .dashboard-layout .my-stall-info-grid article { padding: .55rem .65rem; border-radius: 10px; }
+  .dashboard-layout .my-stall-info-grid article:nth-child(odd):last-child { grid-column: 1 / -1; }
+
+  /* ── Dashboard section headings ── */
+  .cm-section-head { flex-direction: column; gap: .1rem; margin: .25rem 0 -.3rem; padding: 0 .15rem; }
+  .cm-section-head p { font-size: .6875rem; }
+
+  /* ── Admin events: three totals in one compact row ── */
+  .dashboard-layout .admin-event-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 1rem; padding: .7rem 0; border-radius: 14px; }
+  .dashboard-layout .admin-summary-item { display: block; padding: 0 .7rem; border-right: 1px solid var(--line); border-bottom: 0; }
+  .dashboard-layout .admin-summary-item:last-child { border-right: 0; }
+  .dashboard-layout .admin-summary-icon { display: none; }
+  .dashboard-layout .admin-summary-item > div { display: grid; grid-template-columns: 1fr; gap: 0; }
+  .dashboard-layout .admin-summary-item strong { grid-column: auto; grid-row: auto; font-size: 1.2rem; }
+  .dashboard-layout .admin-summary-item small { display: none; }
+
+  /* ── Point of sale: three products across ── */
+  .dashboard-layout .pos-products { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; }
+  .dashboard-layout .pos-product { border-radius: 12px; }
+  .dashboard-layout .pos-product-body { gap: .2rem; padding: .45rem .5rem .55rem; }
+  .dashboard-layout .pos-product-body strong { display: -webkit-box; overflow: hidden; font-size: .75rem; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
+  .dashboard-layout .pos-product-price { font-size: .75rem; }
+  .dashboard-layout .pos-stock { padding: 0 .35rem; font-size: .625rem; }
+  .dashboard-layout .pos-product-add { top: .3rem; right: .3rem; width: 24px; height: 24px; }
+  .dashboard-layout .pos-product-add svg { width: 14px; height: 14px; }
+}

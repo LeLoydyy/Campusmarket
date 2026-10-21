@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import "./AuthLayout.css";
 
 /**
@@ -17,7 +18,7 @@ export default function AuthLayout({ children, title, subtitle }) {
               <path d="M74 0 C 108 50 120 120 120 180 V 0 Z" fill="var(--green-500)" opacity=".55" />
             </svg>
             <Link to="/" className="auth2-logo" aria-label="Campus Market home">
-              <img src="/images/auth/logo-mark.png" alt="" width="72" height="80" />
+              <img src="/images/auth/campusmarket-mark.png" alt="" width="143" height="240" />
               <span>Campus<br />Market</span>
             </Link>
             <p className="auth2-tagline">Buy. Sell. Connect.</p>
@@ -33,6 +34,7 @@ export default function AuthLayout({ children, title, subtitle }) {
 
         <main className="auth2-form">
           <div className="auth2-form-inner fade-in">
+            <Link to="/" className="auth2-home-link"><ArrowLeft size={15} aria-hidden="true" />Back to home</Link>
             <header className="auth-form-header">
               <h1>{title}</h1>
               {subtitle && <p>{subtitle}</p>}

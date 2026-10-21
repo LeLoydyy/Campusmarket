@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RefreshCw, Search, XCircle } from "lucide-react";
+import { MessageCircle, RefreshCw, Search, Store, XCircle } from "lucide-react";
 
 import Navbar from "../../components/common/Navbar.jsx";
 import Sidebar from "../../components/common/Sidebar.jsx";
 import ChatWindow from "../../components/buyer/ChatWindow.jsx";
-import { messageService, productService } from "../../services/api.js";
+import { messageService, productService, stallService } from "../../services/api.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useCart } from "../../context/CartContext.jsx";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import EmptyState from "../../components/ui/EmptyState.jsx";
 import toast from "react-hot-toast";
 
@@ -96,6 +96,16 @@ const getConversationTime = (conversation) => {
 export default function Messages({ sellerMode = false }) {
   const { user } = useAuth();
   const isSeller = sellerMode || user?.role === "seller";
+  const [suggestedStalls, setSuggestedStalls] = useState([]);
+  useEffect(() => {
+    if (isSeller) return undefined;
+    let active = true;
+    stallService.getAll().then(({ data }) => {
+      const list = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+      if (active) setSuggestedStalls(list.slice(0, 3));
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [isSeller]);
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -287,6 +297,8 @@ export default function Messages({ sellerMode = false }) {
     setMessageError("");
   };
 
+  const inboxEmpty = !conversationLoading && !error && !conversations.length && !selectedConversation;
+
   return (
     <div
       className={
@@ -329,6 +341,35 @@ export default function Messages({ sellerMode = false }) {
           </button>
         </header>
 
+        {inboxEmpty ? (
+          <section className="messages-empty" aria-label="Inbox">
+            <span className="messages-empty-icon" aria-hidden="true"><MessageCircle /></span>
+            <h2>No conversations yet</h2>
+            <p>{isSeller
+              ? "When a buyer asks about one of your products, the conversation shows up here and you'll get a notification."
+              : "Questions about sizes, stock or pickup times? Open a product and tap “Message seller”. The chat shows up here."}</p>
+            {!isSeller && (
+              <>
+                <Link to="/browse" className="btn btn-primary">Browse products</Link>
+                {suggestedStalls.length > 0 && (
+                  <div className="messages-suggest">
+                    <p>Or visit a stall to see what they sell:</p>
+                    <ul>
+                      {suggestedStalls.map((stall) => (
+                        <li key={stall.id}>
+                          <Link to={`/stalls/${stall.id}`}>
+                            <span className="messages-suggest-logo" aria-hidden="true">{stall.logo_url ? <img src={stall.logo_url} alt="" /> : <Store />}</span>
+                            <span><strong>{stall.name}</strong><small>{stall.location || "CSUCC campus"}</small></span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        ) : (
         <section
           className={`messages-layout ${
             isSeller ? "seller-messages-layout" : ""
@@ -447,6 +488,7 @@ export default function Messages({ sellerMode = false }) {
             )}
           </div>
         </section>
+        )}
       </main>
     </div>
   );

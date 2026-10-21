@@ -7,7 +7,6 @@ import {
   FiAlertCircle,
   FiArrowRight,
   FiCheck,
-  FiCheckCircle,
   FiClock,
   FiCopy,
   FiDownload,
@@ -299,11 +298,6 @@ function OrderRow({ order, now, isNew, updating, onAdvance, onCancel }) {
 }
 
 function OrderCard({ order, now, isNew, updating, onAdvance, onCancel }) {
-  const detailsRef = useRef(null);
-  const openDetails = () => {
-    detailsRef.current.open = true;
-    detailsRef.current.querySelector("summary").focus();
-  };
   const copyReference = async () => {
     try {
       await navigator.clipboard.writeText(order.id);
@@ -312,103 +306,75 @@ function OrderCard({ order, now, isNew, updating, onAdvance, onCancel }) {
       toast.error("Couldn't copy the reference");
     }
   };
+  const active = ACTIVE_STATUSES.includes(order.status);
+  const delivery = order.fulfillment === "delivery";
+  const units = order.items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <article className={`seller-order-card status-${order.status}${isNew ? " is-new" : ""}`}>
-      <header className="seller-order-card-header">
-        <div>
-          <span>Order {isNew && <em className="seller-order-new">New</em>}</span>
-          <h2>#{getOrderCode(order.id)}</h2>
+    <article className={`seller-order-card status-${order.status}${isNew ? " is-new" : ""}${active ? "" : " is-done"}`}>
+      <header className="so-card-head">
+        <div className="so-card-id">
+          <h2>
+            #{getOrderCode(order.id)}
+            <button type="button" className="so-copy" onClick={copyReference} aria-label="Copy full order reference" title="Copy full reference"><FiCopy /></button>
+            {isNew && <em className="seller-order-new">New</em>}
+          </h2>
           <p>{formatDate(order.createdAt)}</p>
-          <div className="seller-order-chips">
-            <WaitingChip order={order} now={now} />
-            <FulfillmentChip order={order} />
-          </div>
         </div>
-        <div>
-          <span className={`seller-order-badge status-${order.status}`}>
-            {order.status}
-          </span>
+        <div className="seller-order-chips">
+          <WaitingChip order={order} now={now} />
+          <FulfillmentChip order={order} />
+        </div>
+        <div className="so-card-total">
+          <span className={`seller-order-badge status-${order.status}`}>{order.status}</span>
           <strong>{formatCurrency(order.total)}</strong>
         </div>
       </header>
 
-      <OrderProgress status={order.status} reason={order.cancel_reason} />
+      {active ? <OrderProgress status={order.status} /> : order.status === "cancelled" && <OrderProgress status="cancelled" reason={order.cancel_reason} />}
 
-      <div className="seller-order-buyer">
-        <div className="seller-order-avatar">
-          {order.buyer.avatar ? (
-            <img src={order.buyer.avatar} alt="" />
-          ) : (
-            <span>{order.buyer.name.charAt(0).toUpperCase()}</span>
+      <div className="so-card-body">
+        <div className="so-card-buyer">
+          <div className="seller-order-avatar">
+            {order.buyer.avatar ? <img src={order.buyer.avatar} alt="" /> : <span>{order.buyer.name.charAt(0).toUpperCase()}</span>}
+          </div>
+          <div className="so-card-buyer-text">
+            <strong>{order.buyer.name}</strong>
+            {order.buyer_phone ? (
+              <a href={`tel:${order.buyer_phone.replace(/[^\d+]/g, "")}`}><FiPhone aria-hidden="true" /> {order.buyer_phone}</a>
+            ) : order.buyer.email && <small>{order.buyer.email}</small>}
+          </div>
+          <dl className="so-card-meta">
+            <div><dt>Payment</dt><dd>Cash {delivery ? "on delivery" : "at pickup"}</dd></div>
+            {delivery && order.delivery_address && <div><dt>Deliver to</dt><dd><FiMapPin aria-hidden="true" /> {order.delivery_address}</dd></div>}
+          </dl>
+          {order.notes && (
+            <p className="so-card-note"><strong>Buyer note</strong>{order.notes}</p>
           )}
         </div>
-        <div>
-          <small>Buyer</small>
-          <strong>{order.buyer.name}</strong>
-          {order.buyer.email && <p>{order.buyer.email}</p>}
+
+        <div className="so-card-items">
+          <p className="so-card-items-head">{units} {units === 1 ? "item" : "items"}</p>
+          {order.items.length === 0 ? (
+            <p className="seller-order-items-missing">Item information is unavailable.</p>
+          ) : (
+            <ul>
+              {order.items.map((item) => (
+                <li key={item.id}>
+                  <span className="seller-order-item-image">
+                    {item.image ? <img src={item.image} alt="" loading="lazy" /> : <FiPackage />}
+                  </span>
+                  <span className="so-item-name">
+                    <strong>{item.name}</strong>
+                    <small>{formatCurrency(item.unitPrice)} × {item.quantity}</small>
+                  </span>
+                  <strong className="so-item-total">{formatCurrency(item.subtotal)}</strong>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        {order.notes && (
-          <button type="button" className="seller-order-note-flag" onClick={openDetails}>
-            Buyer note
-          </button>
-        )}
       </div>
-
-      <div className="seller-order-items">
-        <div className="seller-order-items-heading">
-          <span>Items <small>Click a product to view order details</small></span>
-          <small>
-            {order.items.length} line item{order.items.length === 1 ? "" : "s"}
-          </small>
-        </div>
-
-        {order.items.length === 0 ? (
-          <p className="seller-order-items-missing">
-            Item information is unavailable.
-          </p>
-        ) : (
-          order.items.map((item) => (
-            <button type="button" key={item.id} className="seller-order-item" onClick={openDetails} aria-label={`View order details and buyer notes for ${item.name}`}>
-              <span className="seller-order-item-image">
-                {item.image ? (
-                  <img src={item.image} alt="" loading="lazy" />
-                ) : (
-                  <FiPackage />
-                )}
-              </span>
-              <span>
-                <strong>{item.name}</strong>
-                <small>
-                  {formatCurrency(item.unitPrice)} × {item.quantity}
-                </small>
-              </span>
-              <strong>{formatCurrency(item.subtotal)}</strong>
-            </button>
-          ))
-        )}
-      </div>
-
-      <details ref={detailsRef} className="seller-order-details">
-        <summary>Order details <span>{order.notes ? "Buyer note attached" : "View details"}</span></summary>
-        <div className="seller-order-notes">
-          <span>Buyer note</span>
-          <p>{order.notes || "The buyer did not add a note to this order."}</p>
-        </div>
-        <dl>
-          <dt>Order reference</dt>
-          <dd className="seller-order-reference">
-            <code>{order.id}</code>
-            <button type="button" onClick={copyReference} aria-label="Copy order reference" title="Copy">
-              <FiCopy />
-            </button>
-          </dd>
-          <dt>Fulfillment</dt><dd>{order.fulfillment === "delivery" ? "Campus delivery" : "Campus pickup"}</dd>
-          {order.fulfillment === "delivery" && order.delivery_address && <><dt>Deliver to</dt><dd><FiMapPin aria-hidden="true" /> {order.delivery_address}</dd></>}
-          {order.buyer_phone && <><dt>Buyer phone</dt><dd><a href={`tel:${order.buyer_phone.replace(/[^\d+]/g, "")}`}><FiPhone aria-hidden="true" /> {order.buyer_phone}</a></dd></>}
-          <dt>Payment</dt><dd>Cash {order.fulfillment === "delivery" ? "on delivery" : "at pickup"}</dd>
-        </dl>
-      </details>
 
       {STATUS_FLOW[order.status]?.next && (
         <footer className="seller-order-card-footer">
@@ -695,60 +661,6 @@ export default function SellerOrders() {
             </div>
           )}
 
-          <section className="seller-orders-summary" aria-label="Order summary">
-            <button
-              type="button"
-              className={activeTab === "pending" ? "is-selected" : ""}
-              onClick={() => showTab("pending")}
-              disabled={loading}
-            >
-              <span className="tone-gold">
-                <FiClock />
-              </span>
-              <div>
-                <small>Pending</small>
-                <strong>{loading ? "—" : summary.pending}</strong>
-              </div>
-            </button>
-            <button
-              type="button"
-              className={activeTab === "active" ? "is-selected" : ""}
-              onClick={() => showTab("active")}
-              disabled={loading}
-            >
-              <span className="tone-blue">
-                <FiPackage />
-              </span>
-              <div>
-                <small>In progress</small>
-                <strong>{loading ? "—" : summary.processing}</strong>
-              </div>
-            </button>
-            <button
-              type="button"
-              className={activeTab === "delivered" ? "is-selected" : ""}
-              onClick={() => showTab("delivered")}
-              disabled={loading}
-            >
-              <span className="tone-green">
-                <FiCheckCircle />
-              </span>
-              <div>
-                <small>Delivered</small>
-                <strong>{loading ? "—" : summary.delivered}</strong>
-              </div>
-            </button>
-            <article>
-              <span className="tone-dark">₱</span>
-              <div>
-                <small>Completed revenue</small>
-                <strong>
-                  {loading ? "—" : formatCurrency(summary.revenue)}
-                </strong>
-              </div>
-            </article>
-          </section>
-
           {!loading && orders.length > 0 && (
             <section
               className="seller-orders-controls"
@@ -847,14 +759,11 @@ export default function SellerOrders() {
           ) : (
             <section>
               <div className="seller-orders-heading">
-                <div>
-                  <small>Order queue</small>
-                  <h2>
-                    {displayedOrders.length} order
-                    {displayedOrders.length === 1 ? "" : "s"}
-                  </h2>
-                </div>
-                <p>Process orders from oldest to newest when possible.</p>
+                <h2>
+                  {displayedOrders.length} order
+                  {displayedOrders.length === 1 ? "" : "s"}
+                </h2>
+                <p>Completed revenue <strong>{formatCurrency(summary.revenue)}</strong></p>
               </div>
               <div className={`seller-orders-list${view === "compact" ? " is-compact" : ""}`}>
                 {displayedOrders.map((order) => {

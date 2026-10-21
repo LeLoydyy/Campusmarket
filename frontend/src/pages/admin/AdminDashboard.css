@@ -62,3 +62,44 @@
   .ad-approvals .btn { flex: 1; }
 }
 @media (min-width: 1700px) { .ad-action-list { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* ── Phones: same compact pattern as the seller dashboard ── */
+@media (max-width: 600px) {
+  .ad-topbar { padding-top: .6rem; padding-bottom: .6rem; }
+  .ad-topbar h1 { font-size: 1.1rem; }
+  .ad-topbar p { font-size: .8125rem; }
+  .ad-content { gap: .75rem; }
+
+  /* To-do list: slim rows */
+  .ad-actions { padding: .9rem; border-radius: 18px; }
+  .ad-actions h2 { font-size: 1.1rem; }
+  .ad-actions-head { margin-bottom: .6rem; }
+  .ad-action-list { gap: .45rem; }
+  .ad-action { min-height: 0; gap: .6rem; padding: .6rem .7rem; border-radius: 14px; }
+  .ad-action-icon { width: 34px; height: 34px; border-radius: 10px; }
+  .ad-action-icon svg { width: 17px; height: 17px; }
+  .ad-action-text strong { font-size: .8125rem; }
+  .ad-action-text small { font-size: .6875rem; }
+  .ad-action-count { min-width: 30px; height: 30px; font-size: .875rem; }
+  .ad-action-arrow { display: none; }
+  .ad-clear { flex-direction: row; text-align: left; gap: .75rem; padding: .4rem .2rem; }
+  .ad-clear .cm-illustration { width: 56px; height: 56px; }
+  .ad-clear h3 { font-size: 1rem; }
+  .ad-clear p { font-size: .75rem; }
+
+  /* 2×2 totals with the icon in the corner */
+  .ad-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+  .ad-kpis .cm-stat { position: relative; display: block; padding: .65rem .75rem; border-radius: 14px; }
+  .ad-kpis .cm-stat-icon { position: absolute; top: .55rem; right: .55rem; width: 26px; height: 26px; border-radius: 8px; }
+  .ad-kpis .cm-stat-icon svg { width: 14px; height: 14px; }
+  .ad-kpis .cm-stat-label { padding-right: 1.9rem; font-size: .75rem; }
+  .ad-kpis .cm-stat-value { margin-top: .2rem; font-size: 1.15rem; }
+  .ad-kpis .cm-stat-scope { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: .6875rem; }
+
+  .ad-card { padding: .85rem; border-radius: 16px; }
+  .ad-card-head { margin-bottom: .6rem; }
+  .ad-card-head .cm-eyebrow { display: none; }
+  .ad-card-head h2 { font-size: 1.05rem; }
+  .ad-approvals li { flex-wrap: wrap; gap: .5rem; padding: .55rem; }
+  .ad-approvals li .btn { flex: 1; justify-content: center; }
+}

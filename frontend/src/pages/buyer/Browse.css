@@ -2,14 +2,25 @@
 .browse { min-height: 100vh; background: var(--cream-50); }
 .browse-wrap { width: min(1320px, 100% - 2rem); margin: 0 auto; }
 
-/* Short banner */
-.browse-banner { margin-top: 1rem; }
-.browse-banner-inner { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 132px; padding: 1.5rem 1.75rem; color: #fff; background: var(--green-900) var(--texture-leaf-light); border-radius: 26px; box-shadow: var(--shadow-2); }
-.browse-banner .cm-eyebrow { color: var(--gold-500); }
-.browse-banner h1 { margin-top: .2rem; color: #fff; font: 900 clamp(1.7rem, 3.4vw, 2.5rem)/1.05 var(--font-display); letter-spacing: -.035em; }
-.browse-banner p:last-child { margin-top: .35rem; color: rgba(255, 255, 255, .9); font-size: var(--text-sm); }
-.browse-banner img { position: absolute; right: 0; top: 0; height: 100%; width: 46%; object-fit: cover; object-position: 88% 55%; opacity: .95; mask-image: linear-gradient(90deg, transparent, #000 45%); }
-.browse-banner-inner > div { position: relative; z-index: 1; max-width: 60%; }
+/* Hero: the same cream card as Home and Stalls. */
+.browse-hero { position: relative; overflow: hidden; margin-top: 1.25rem; padding: clamp(1.25rem, 3vw, 2.25rem); background: linear-gradient(135deg, #FFF7E3 0%, var(--cream-50) 55%, var(--green-100) 140%); border-radius: 28px; box-shadow: var(--shadow-2); }
+.browse-hero::before { content: ""; position: absolute; inset: 0; background: var(--texture-leaf); pointer-events: none; }
+.browse-hero > * { position: relative; }
+.browse-hero h1 { margin-top: .4rem; font: 900 clamp(1.8rem, 3.8vw, 2.9rem)/1.05 var(--font-display); letter-spacing: -.04em; }
+.browse-hero-lede { max-width: 560px; margin-top: .6rem; color: var(--ink-600); font-size: 1rem; line-height: 1.55; }
+
+/* Category chips above the results */
+.browse-cats { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .3rem; margin-bottom: .9rem; scrollbar-width: none; }
+.browse-cats::-webkit-scrollbar { display: none; }
+.browse-cats .cm-chip--filter { flex: 0 0 auto; }
+.bf-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--cat-other-solid); }
+.bf-dot--all { background: conic-gradient(var(--gold-500) 0 25%, var(--green-700) 0 50%, var(--teal-700) 0 75%, var(--coral-300) 0); }
+.bf-dot--food { background: var(--cat-food-solid); }
+.bf-dot--clothing { background: var(--cat-clothing-solid); }
+.bf-dot--electronics { background: var(--cat-electronics-solid); }
+.bf-dot--accessories { background: var(--cat-accessories-solid); }
+.bf-dot--student-made { background: var(--cat-student-solid); box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--green-900); }
+.cm-chip--filter.is-active .bf-dot { box-shadow: 0 0 0 2px #fff; }
 
 .browse-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 1.75rem; align-items: start; margin-top: 1.5rem; }
 
@@ -93,12 +104,9 @@
 }
 @media (max-width: 600px) {
   .browse-wrap { width: calc(100% - 1rem); }
-  .browse-banner { margin-top: .5rem; }
-  .browse-banner-inner { min-height: 72px; padding: .75rem 1rem; border-radius: 14px; }
-  .browse-banner h1 { font-size: 1.45rem; }
-  .browse-banner p:last-child { margin-top: .15rem; font-size: .85rem; }
-  .browse-banner img { width: 55%; opacity: .5; }
-  .browse-banner-inner > div { max-width: 80%; }
+  .browse-hero { margin-top: .5rem; padding: 1rem; border-radius: 16px; }
+  .browse-hero h1 { font-size: 1.5rem; }
+  .browse-hero-lede { margin-top: .3rem; font-size: .875rem; }
   .browse-layout { margin-top: .75rem; }
   /* Count, sort and filters share one slim row */
   .browse-toolbar { gap: .4rem; margin-bottom: .6rem; }

@@ -253,7 +253,7 @@ export default function ManageAdmins() {
             <p>Create admins, set their duty shifts and decide what each one can do.</p>
           </div>
           <div className="ma-top-actions">
-            <button type="button" className="btn btn-outline btn-sm" onClick={load} disabled={loading}><RefreshCw aria-hidden="true" /> Refresh</button>
+            <button type="button" className="btn btn-outline btn-sm" onClick={load} disabled={loading}><RefreshCw aria-hidden="true" /> <span className="cm-btn-label">Refresh</span></button>
             {manage && <button type="button" className="btn btn-primary btn-sm" onClick={() => setForm({ admin: null })}><ShieldPlus aria-hidden="true" /> New admin</button>}
           </div>
         </header>

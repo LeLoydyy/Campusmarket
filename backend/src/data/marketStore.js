@@ -107,10 +107,12 @@ const publicUser = (user) => user ? { id: user.id, name: user.name, role: user.r
 // A stall is publicly visible when approved, active and owned by an approved, unbanned user.
 const PUBLIC_STALL = "s.status = 'approved' AND s.is_active AND o.status = 'approved' AND NOT o.is_banned";
 const STALL_SELECT = `SELECT s.*, coalesce(o.name, 'Campus seller') AS seller_name,
-  (SELECT count(*) FROM products c WHERE c.stall_id = s.id) AS product_count
+  (SELECT count(*) FROM products c WHERE c.stall_id = s.id) AS product_count,
+  (SELECT round(avg(r.rating)::numeric, 1)::float FROM reviews r JOIN products rp ON rp.id = r.product_id WHERE rp.stall_id = s.id) AS avg_rating,
+  (SELECT count(*)::int FROM reviews r JOIN products rp ON rp.id = r.product_id WHERE rp.stall_id = s.id) AS review_count
   FROM stalls s LEFT JOIN users o ON o.id = s.owner_id`;
 const withPlan = (stall) => stall && { ...stall, plan: getPlan(stall.tier) };
-const PRODUCT_SELECT = `SELECT p.*, to_jsonb(s) AS stalls,
+const PRODUCT_SELECT = `SELECT p.*, to_jsonb(s) AS stalls, coalesce(o.name, 'Campus seller') AS seller_name,
   (SELECT round(avg(r.rating)::numeric, 1)::float FROM reviews r WHERE r.product_id = p.id) AS avg_rating,
   (SELECT count(*)::int FROM reviews r WHERE r.product_id = p.id) AS review_count,
   (SELECT coalesce(json_agg(json_build_object('id', po.id, 'label', po.label, 'stock', po.stock) ORDER BY po.position, po.label), '[]'::json)
@@ -1771,6 +1773,13 @@ const mapGeometry = (item, what) => {
 };
 const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
+// Event spaces with the placed seller's display details (map tiles show the stall logo).
+const EVENT_STALL_SELECT = `SELECT es.*, coalesce(u.name, '') AS "sellerName", s.id AS "sellerStallId", s.name AS "sellerStallName", s.logo_url AS "sellerLogo",
+    coalesce((SELECT json_agg(p.name ORDER BY p.created_at) FROM products p WHERE p.stall_id = s.id), '[]'::json) AS "productsAvailable"
+  FROM event_stalls es
+  LEFT JOIN stalls s ON s.owner_id = es.seller_id
+  LEFT JOIN users u ON u.id = s.owner_id`;
+
 export const eventStore = {
   async saveEvent(payload, actorId) {
     const name = String(payload.name || "").trim();
@@ -1847,6 +1856,47 @@ export const eventStore = {
     });
   },
 
+  /**
+   * Puts an approved applicant's stall on a saved space (or clears the space when applicationId is null).
+   * A seller holds at most one space per event: placing them again moves them.
+   * Doesn't bump layout_version, so unsaved geometry edits in an open editor stay valid.
+   */
+  async assignSpace(eventId, spaceId, { applicationId = null } = {}, actorId) {
+    return tx(async (run) => {
+      const [space] = await run("SELECT * FROM event_stalls WHERE id = $1 AND event_id = $2 FOR UPDATE", [String(spaceId), String(eventId)]);
+      if (!space) fail("Save the layout first, then assign a seller to this space.", 404);
+      const [event] = await run("SELECT id, name, date FROM events WHERE id = $1", [space.event_id]);
+
+      if (!applicationId) {
+        if (!space.seller_id) return (await run(`${EVENT_STALL_SELECT} WHERE es.id = $1`, [space.id]))[0];
+        await run("UPDATE event_stalls SET seller_id = NULL, stall_id = NULL, name = NULL, status = 'available' WHERE id = $1", [space.id]);
+        await audit(run, actorId, "event.space_unassigned", space.id, `Space ${space.stall_number}`);
+        await run("INSERT INTO notifications (user_id, type, status, title, body, link) VALUES ($1, 'event', 'unassigned', $2, $3, '/events')",
+          [space.seller_id, `Your space at ${event.name} changed`, `You're no longer placed at Space ${space.stall_number}. The event team will be in touch.`]);
+        return (await run(`${EVENT_STALL_SELECT} WHERE es.id = $1`, [space.id]))[0];
+      }
+
+      const [application] = await run("SELECT * FROM seller_applications WHERE id = $1 AND event_id = $2", [String(applicationId), space.event_id]);
+      if (!application) fail("That application isn't for this event.", 404);
+      if (String(application.status).toLowerCase() !== "approved") fail("Approve the application before placing the seller.", 409);
+      if (space.seller_id && space.seller_id !== application.seller_id) fail(`Space ${space.stall_number} already has a seller. Remove them first.`, 409);
+
+      // Moving a seller who already has a space here frees the old one.
+      await run(
+        "UPDATE event_stalls SET seller_id = NULL, stall_id = NULL, name = NULL, status = 'available' WHERE event_id = $1 AND seller_id = $2 AND id <> $3",
+        [space.event_id, application.seller_id, space.id]);
+      const [sellerStall] = await run("SELECT id FROM stalls WHERE owner_id = $1", [application.seller_id]);
+      await run(
+        "UPDATE event_stalls SET seller_id = $2, stall_id = $3, name = $4, status = 'occupied' WHERE id = $1",
+        [space.id, application.seller_id, sellerStall?.id || null, application.stall_name]);
+      await audit(run, actorId, "event.space_assigned", space.id, `${application.stall_name} → Space ${space.stall_number}`);
+      await run("INSERT INTO notifications (user_id, type, status, title, body, link) VALUES ($1, 'event', 'assigned', $2, $3, $4)",
+        [application.seller_id, `You're at Space ${space.stall_number} 🎉`,
+          `${application.stall_name} has a spot at ${event.name}. Open the stall map to see where you'll be.`, `/events/${space.event_id}/stalls`]);
+      return (await run(`${EVENT_STALL_SELECT} WHERE es.id = $1`, [space.id]))[0];
+    });
+  },
+
   async listEvents() {
     return q(`SELECT e.*, (SELECT count(*) FROM event_stalls es WHERE es.event_id = e.id) AS stall_count
               FROM events e ORDER BY e.date, e.created_at`);
@@ -1860,15 +1910,7 @@ export const eventStore = {
 
   async listStallsForEvent(eventId) {
     if (!(await q1("SELECT 1 FROM events WHERE id = $1", [String(eventId)]))) fail("Event not found", 404);
-    return q(
-      `SELECT es.*, coalesce(u.name, '') AS "sellerName", s.id AS "sellerStallId", s.name AS "sellerStallName", s.logo_url AS "sellerLogo",
-              coalesce((SELECT json_agg(p.name ORDER BY p.created_at) FROM products p WHERE p.stall_id = s.id), '[]'::json) AS "productsAvailable"
-       FROM event_stalls es
-       LEFT JOIN stalls s ON s.owner_id = es.seller_id
-       LEFT JOIN users u ON u.id = s.owner_id
-       WHERE es.event_id = $1 ORDER BY es.stall_number`,
-      [String(eventId)],
-    );
+    return q(`${EVENT_STALL_SELECT} WHERE es.event_id = $1 ORDER BY es.stall_number`, [String(eventId)]);
   },
 
   async submitApplication(sellerId, payload = {}) {
@@ -2167,8 +2209,8 @@ export const statsStore = {
       FROM orders o
       JOIN LATERAL (SELECT * FROM order_items WHERE order_id = o.id ORDER BY id LIMIT 1) i ON TRUE
       LEFT JOIN products p ON p.id = i.product_id
-      WHERE o.status <> 'cancelled' AND o.created_at > now() - interval '14 days'
-      ORDER BY o.created_at DESC LIMIT 12`);
+      WHERE o.status <> 'cancelled' AND o.created_at > now() - interval '24 hours'
+      ORDER BY o.created_at DESC LIMIT 30`);
     return { ...counts, recent_orders: recent };
   },
 };
