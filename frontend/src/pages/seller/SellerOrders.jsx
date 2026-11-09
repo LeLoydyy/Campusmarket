@@ -615,7 +615,7 @@ export default function SellerOrders() {
               disabled={loading || !orders.length}
               title="Download all orders as a spreadsheet (CSV)"
             >
-              <FiDownload /> Export CSV
+              <FiDownload aria-hidden="true" /> <span className="cm-btn-label">Export CSV</span>
             </button>
             <button
               type="button"
@@ -623,7 +623,7 @@ export default function SellerOrders() {
               onClick={() => fetchOrders({ quiet: true })}
               disabled={loading || refreshing}
             >
-              <FiRefreshCw className={refreshing ? "is-spinning" : ""} /> Refresh
+              <FiRefreshCw className={refreshing ? "is-spinning" : ""} aria-hidden="true" /> <span className="cm-btn-label">Refresh</span>
             </button>
           </div>
         </header>

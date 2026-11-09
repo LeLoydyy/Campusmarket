@@ -6,6 +6,8 @@ import toast from "react-hot-toast";
 import {
   FiAlertCircle,
   FiCheckCircle,
+  FiChevronRight,
+  FiCircle,
   FiClock,
   FiEdit2,
   FiExternalLink,
@@ -96,6 +98,17 @@ export default function MyStall() {
   useEffect(() => {
     loadStall();
   }, [loadStall]);
+
+  const checklist = stall
+    ? [
+        { label: "Stall logo", done: Boolean(stall.logo_url), branding: true },
+        { label: "Cover photo", done: Boolean(stall.banner_url), branding: true },
+        { label: "Description", done: Boolean(stall.description) },
+        { label: "Location", done: Boolean(stall.location) },
+        { label: "Contact number", done: Boolean(stall.contact_number) },
+        { label: "Operating hours", done: Boolean(stall.operating_hours) },
+      ]
+    : [];
 
   const completion = useMemo(() => {
     if (!stall) return 0;
@@ -198,11 +211,11 @@ export default function MyStall() {
               catch (error) { toast.error(error.response?.data?.error || "Could not update store availability"); }
               finally { setSaving(false); }
             }} aria-label={stall.is_active ? "Close store for now" : "Open store"} title={stall.is_active ? "Close store for now" : "Open store"}>
-              {stall.is_active ? <FiPauseCircle /> : <FiPlayCircle />} {stall.is_active ? "Close store for now" : "Open store"}
+              {stall.is_active ? <FiPauseCircle aria-hidden="true" /> : <FiPlayCircle aria-hidden="true" />} <span className="cm-btn-label">{stall.is_active ? "Close store for now" : "Open store"}</span>
             </button>}
             {stall && !editing && (
               <Link className="btn btn-outline btn-sm" to="/seller/stall/branding" aria-label="Logo & cover" title="Logo & cover">
-                <FiImage /> Logo & cover
+                <FiImage aria-hidden="true" /> <span className="cm-btn-label">Logo & cover</span>
               </Link>
             )}
             {stall && !editing && (
@@ -212,7 +225,7 @@ export default function MyStall() {
                 aria-label="Edit profile"
                 title="Edit profile"
               >
-                <FiEdit2 /> Edit profile
+                <FiEdit2 aria-hidden="true" /> Edit<span className="cm-btn-extra"> profile</span>
               </button>
             )}
           </div>
@@ -294,8 +307,7 @@ export default function MyStall() {
                         <div>
                           <span>
                             {CATEGORY_LABELS[stall.category] ||
-                              stall.category ||
-                              "Campus seller"}
+                              (stall.category ? stall.category.charAt(0).toUpperCase() + stall.category.slice(1) : "Campus seller")}
                           </span>
                           <h2>{stall.name || "Untitled stall"}</h2>
                           <p>
@@ -355,39 +367,32 @@ export default function MyStall() {
                         ? "Your storefront contains all the essential information."
                         : "Complete the missing details to help buyers trust and find your stall."}
                     </p>
-                    <ul>
-                      <li className={stall.logo_url ? "done" : ""}>
-                        <FiCheckCircle /> Stall logo
-                      </li>
-                      <li className={stall.banner_url ? "done" : ""}>
-                        <FiCheckCircle /> Cover photo
-                      </li>
-                      <li className={stall.description ? "done" : ""}>
-                        <FiCheckCircle /> Description
-                      </li>
-                      <li className={stall.location ? "done" : ""}>
-                        <FiCheckCircle /> Location
-                      </li>
-                      <li className={stall.contact_number ? "done" : ""}>
-                        <FiCheckCircle /> Contact number
-                      </li>
-                      <li className={stall.operating_hours ? "done" : ""}>
-                        <FiCheckCircle /> Operating hours
-                      </li>
+                    <p className="my-stall-checklist-count">
+                      {checklist.filter((item) => item.done).length} of {checklist.length} done
+                      {completion < 100 && " · tap a step to finish it"}
+                    </p>
+                    <ul className="my-stall-checklist">
+                      {checklist.map((item) => (
+                        <li key={item.label} className={item.done ? "done" : ""}>
+                          {item.done ? (
+                            <span className="my-stall-check-row">
+                              <FiCheckCircle aria-hidden="true" /> {item.label}
+                              <span className="sr-only"> (done)</span>
+                            </span>
+                          ) : item.branding ? (
+                            <Link className="my-stall-check-row" to="/seller/stall/branding">
+                              <FiCircle aria-hidden="true" /> {item.label}
+                              <FiChevronRight className="my-stall-check-go" aria-hidden="true" />
+                            </Link>
+                          ) : (
+                            <button type="button" className="my-stall-check-row" onClick={() => setEditing(true)}>
+                              <FiCircle aria-hidden="true" /> {item.label}
+                              <FiChevronRight className="my-stall-check-go" aria-hidden="true" />
+                            </button>
+                          )}
+                        </li>
+                      ))}
                     </ul>
-                    {(!stall.logo_url || !stall.banner_url) && (
-                      <Link className="btn btn-outline" to="/seller/stall/branding">
-                        Add logo & cover photo
-                      </Link>
-                    )}
-                    {completion < 100 && (
-                      <button
-                        className="btn btn-outline"
-                        onClick={() => setEditing(true)}
-                      >
-                        Complete profile
-                      </button>
-                    )}
                   </aside>
                 </div>
               ) : (

@@ -221,9 +221,13 @@ export const completeSetup = async (req, res, next) => {
   }
 };
 
-// ── RECOVERY QUESTIONS (set or replace all three) ────────────
+// ── RECOVERY QUESTIONS (set or replace: three for administrators, one for everyone else) ──
 export const setRecoveryQuestions = async (req, res, next) => {
   try {
+    const needed = req.user.role === "admin" ? 3 : 1;
+    if (req.body.security_questions.length !== needed) {
+      return res.status(400).json({ error: needed === 3 ? "Answer three security questions." : "Answer the security question." });
+    }
     res.json(withShift(await authStore.setRecoveryQuestions(req.user.id, req.body.current_password, req.body.security_questions)));
   } catch (err) {
     next(err);

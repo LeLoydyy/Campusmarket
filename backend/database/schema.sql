@@ -233,7 +233,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS must_setup BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
--- Three recovery questions: [{ "question": "...", "answer_hash": "<bcrypt>" }]. Answers are never stored in plain text.
+-- Recovery questions (one, or three for administrators and older accounts): [{ "question": "...", "answer_hash": "<bcrypt>" }]. Answers are never stored in plain text.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_questions JSONB;
 -- Removed accounts keep their row (orders and logs still point at it) with who removed it and why.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;

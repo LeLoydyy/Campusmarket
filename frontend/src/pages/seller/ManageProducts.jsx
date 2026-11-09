@@ -702,10 +702,11 @@ export default function ManageProducts() {
           <button
             type="button"
             className="btn btn-primary manage-products-add-top"
+            aria-label="Add product"
             onClick={openCreate}
             disabled={loading || !canManageProducts}
           >
-            <FiPlus /> Add product
+            <FiPlus aria-hidden="true" /> Add<span className="cm-btn-extra"> product</span>
           </button>
         </header>
 

@@ -92,13 +92,16 @@ test("admins: create with starter password, first-login setup, privileges, block
   assert.equal((await request("/admin/logs", evening)).status, 200);
   assert.equal((await request("/admin/admins", evening, { username: "nope", email: "nope@test.invalid" })).data.code, "NO_PRIVILEGE");
 
-  // Registrations with three hashed recovery questions.
+  // Registrations with one hashed recovery question.
   const sent = await request("/auth/email/send-code", null, { email: "maria@test.invalid" });
   const { data: { email_token } } = await request("/auth/email/verify", null, { email: "maria@test.invalid", code: sent.data.dev_code });
-  const registered = await request("/auth/register", null, {
+  const registration = {
     name: "Maria Santos", email: "maria@test.invalid", email_token, password: "campus-pass-1", role: "buyer",
-    campus_id: "2024-00077", affiliation: "student", department: "BSIT", security_questions: questions,
-  });
+    campus_id: "2024-00077", affiliation: "student", department: "BSIT", security_questions: questions.slice(0, 1),
+  };
+  assert.equal((await request("/auth/register", null, { ...registration, security_questions: questions })).status, 400, "Sign-up takes one question");
+  assert.equal((await request("/auth/register", null, { ...registration, security_questions: [] })).status, 400, "Sign-up needs a question");
+  const registered = await request("/auth/register", null, registration);
   assert.equal(registered.status, 201, JSON.stringify(registered.data));
   assert.equal(registered.data.user.recovery_questions, undefined, "Hashes never reach the browser");
   const maria = registered.data.user.id;
@@ -166,17 +169,36 @@ test("admins: create with starter password, first-login setup, privileges, block
   assert.ok(own.data.total >= 1 && own.data.data.every((row) => row.user_id === maria));
   assert.equal((await request("/admin/logs", mariaSession.data.accessToken)).status, 403);
 
-  // Forgot password: emailed code, then 2 of 3 answers.
+  // Changing questions: one for buyers, three for administrators.
+  const newQuestion = [{ question: "What is your favorite Filipino dish?", answer: "Adobo" }];
+  const changeQuestions = (token, current_password, security_questions) => request("/auth/recovery-questions", token, { current_password, security_questions }, "PUT");
+  assert.equal((await changeQuestions(mariaSession.data.accessToken, "campus-pass-1", questions)).status, 400, "Buyers set one question");
+  assert.equal((await changeQuestions(mariaSession.data.accessToken, "campus-pass-1", questions.slice(0, 1))).status, 200);
+  assert.equal((await changeQuestions(root, "testpassword1", newQuestion)).status, 400, "Administrators keep three questions");
+  assert.equal((await changeQuestions(root, "testpassword1", [questions[0], questions[0], questions[1]])).status, 400, "Questions must differ");
+  assert.equal((await changeQuestions(root, "testpassword1", questions)).status, 200);
+
+  // Forgot password: emailed code, then the account's one answer.
   assert.equal((await request("/auth/forgot/start", null, { email: "nobody@test.invalid" })).status, 200, "Unknown emails look the same");
   const started = await request("/auth/forgot/start", null, { email: "maria@test.invalid" });
   const checked = await request("/auth/forgot/verify", null, { email: "maria@test.invalid", code: started.data.dev_code });
-  assert.deepEqual(checked.data, { questions: questions.map((item) => item.question), answers_needed: 2 });
-  const oneRight = await request("/auth/forgot/complete", null, { email: "maria@test.invalid", code: started.data.dev_code, answers: ["bantay", "wrong", "wrong"], new_password: "new-pass-22" });
-  assert.equal(oneRight.status, 400);
-  assert.match(oneRight.data.error, /don't match/);
+  assert.deepEqual(checked.data, { questions: [questions[0].question], answers_needed: 1 });
+  const wrongAnswer = await request("/auth/forgot/complete", null, { email: "maria@test.invalid", code: started.data.dev_code, answers: ["wrong"], new_password: "new-pass-22" });
+  assert.equal(wrongAnswer.status, 400);
+  assert.match(wrongAnswer.data.error, /don't match/);
   await tick();
-  const twoRight = await request("/auth/forgot/complete", null, { email: "maria@test.invalid", code: started.data.dev_code, answers: [" BANTAY ", "wrong", "mrs.  reyes"], new_password: "new-pass-22" });
-  assert.equal(twoRight.status, 200, JSON.stringify(twoRight.data));
+  const rightAnswer = await request("/auth/forgot/complete", null, { email: "maria@test.invalid", code: started.data.dev_code, answers: [" BANTAY "], new_password: "new-pass-22" });
+  assert.equal(rightAnswer.status, 200, JSON.stringify(rightAnswer.data));
   assert.equal((await request("/auth/me", mariaSession.data.accessToken)).status, 401, "A reset signs out old sessions");
   assert.equal((await request("/auth/login", null, { email: "maria@test.invalid", password: "new-pass-22" })).status, 200);
+
+  // An account with three questions (administrators, older accounts) still needs 2 of 3.
+  const adminStarted = await request("/auth/forgot/start", null, { email: "evening@test.invalid" });
+  const adminChecked = await request("/auth/forgot/verify", null, { email: "evening@test.invalid", code: adminStarted.data.dev_code });
+  assert.deepEqual(adminChecked.data, { questions: questions.map((item) => item.question), answers_needed: 2 });
+  const oneRight = await request("/auth/forgot/complete", null, { email: "evening@test.invalid", code: adminStarted.data.dev_code, answers: ["bantay", "wrong", "wrong"], new_password: "new-pass-33" });
+  assert.equal(oneRight.status, 400);
+  assert.match(oneRight.data.error, /don't match/);
+  const twoRight = await request("/auth/forgot/complete", null, { email: "evening@test.invalid", code: adminStarted.data.dev_code, answers: [" BANTAY ", "wrong", "mrs.  reyes"], new_password: "new-pass-33" });
+  assert.equal(twoRight.status, 200, JSON.stringify(twoRight.data));
 });

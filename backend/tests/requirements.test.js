@@ -38,7 +38,7 @@ test("CSUCC registration, store plans, ownership, public visibility, messaging a
     const sent = await request("/auth/email/send-code", null, { email: body.email });
     if (sent.status !== 200) return sent;
     const { data } = await request("/auth/email/verify", null, { email: body.email, code: sent.data.dev_code });
-    return request("/auth/register", null, { ...body, email_token: data.email_token, security_questions: [{ question: "What was the name of your first pet?", answer: "Bantay" }, { question: "What was your childhood nickname?", answer: "Jun" }, { question: "What is the name of your favorite teacher?", answer: "Mrs. Reyes" }] });
+    return request("/auth/register", null, { ...body, email_token: data.email_token, security_questions: [{ question: "What was the name of your first pet?", answer: "Bantay" }] });
   };
   const signIn = async (email, password) => {
     const first = await request("/auth/login", null, { email, password });

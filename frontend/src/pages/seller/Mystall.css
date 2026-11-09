@@ -58,11 +58,16 @@
 .my-stall-completion > div { height: 7px; flex: 1; overflow: hidden; background: var(--cream-100); border-radius: 999px; }
 .my-stall-completion i { display: block; height: 100%; background: linear-gradient(90deg,var(--cm-primary, var(--green-700)),var(--green-500)); border-radius: inherit; transition: width .35s ease; }
 .my-stall-sidebar-card > p { margin-top: .55rem; color: var(--cm-text-secondary, var(--ink-600)); font-size: var(--text-xs); line-height: 1.5; }
-.my-stall-sidebar-card ul { display: grid; gap: .45rem; margin-top: .8rem; padding-top: .75rem; border-top: 1px solid var(--cm-border, var(--line)); list-style: none; }
-.my-stall-sidebar-card li { display: flex; align-items: center; gap: .4rem; color: var(--ink-600); font-size: var(--text-xs); }
-.my-stall-sidebar-card li svg { color: var(--ink-600); }
-.my-stall-sidebar-card li.done { color: var(--cm-text-secondary, var(--ink-600)); }
-.my-stall-sidebar-card li.done svg { color: var(--cm-primary, var(--green-700)); }
+.my-stall-sidebar-card > p.my-stall-checklist-count { margin-top: .8rem; padding-top: .75rem; color: var(--cm-text, var(--ink-900)); border-top: 1px solid var(--cm-border, var(--line)); font-weight: 700; }
+/* Checklist: done steps are quiet; steps still to do are tappable rows that open the right editor. */
+.my-stall-sidebar-card ul.my-stall-checklist { display: grid; gap: .35rem; margin-top: .55rem; list-style: none; }
+.my-stall-check-row { width: 100%; min-height: 38px; display: flex; align-items: center; gap: .55rem; padding: .4rem .65rem; color: var(--cm-text, var(--ink-900)); background: var(--cm-surface, var(--cream-50)); border: 1px dashed var(--line-strong, var(--line)); border-radius: 11px; font: 650 var(--text-xs)/1.3 var(--font-body); text-align: left; text-decoration: none; cursor: pointer; transition: background var(--dur-fast, .15s), border-color var(--dur-fast, .15s); }
+.my-stall-check-row svg { width: 16px; height: 16px; flex: 0 0 auto; color: var(--gold-700, var(--ink-600)); }
+.my-stall-check-row .my-stall-check-go { margin-left: auto; color: var(--cm-primary, var(--green-700)); }
+:is(a, button).my-stall-check-row:hover { background: var(--cm-primary-light, var(--green-100)); border-color: var(--cm-primary, var(--green-700)); border-style: solid; }
+:is(a, button).my-stall-check-row:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.my-stall-checklist li.done .my-stall-check-row { color: var(--cm-text-secondary, var(--ink-600)); background: transparent; border-color: transparent; cursor: default; font-weight: 600; }
+.my-stall-checklist li.done .my-stall-check-row svg { color: var(--cm-primary, var(--green-700)); }
 .my-stall-sidebar-card .btn { width: 100%; justify-content: center; margin-top: .9rem; min-height: 36px; font-size: var(--text-xs); }
 
 .my-stall-form { overflow: hidden; }
@@ -107,7 +112,7 @@
   .my-stall-grid { grid-template-columns: 1fr; }
   .my-stall-sidebar-card { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1rem; }
   .my-stall-sidebar-card > span,.my-stall-sidebar-card > p,.my-stall-sidebar-card > .btn { grid-column: 1 / -1; }
-  .my-stall-sidebar-card ul { margin-top: .5rem; padding: .6rem 0 0; border-top: 0; }
+  .my-stall-sidebar-card ul.my-stall-checklist { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
   .my-stall-form-layout { grid-template-columns: 1fr; }
@@ -116,8 +121,7 @@
   .my-stall-loading > div { grid-template-columns: 1fr; }
 }
 @media (max-width: 560px) {
-  .my-stall-topbar .btn { width: 36px; height: 36px; justify-content: center; padding: 0; font-size: 0; }
-  .my-stall-topbar .btn svg { width: 16px; height: 16px; flex: 0 0 auto; }
+  .my-stall-sidebar-card ul.my-stall-checklist { grid-template-columns: 1fr; }
   .my-stall-status { align-items: flex-start; }
   .my-stall-status > span { display: none; }
   .my-stall-identity { grid-template-columns: 68px minmax(0,1fr); gap: .75rem; }

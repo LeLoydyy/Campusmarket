@@ -10,6 +10,7 @@ import {
   FiClock,
   FiFileText,
   FiMapPin,
+  FiPlus,
   FiRefreshCw,
   FiSearch,
   FiShoppingBag,
@@ -218,11 +219,11 @@ export default function SellerReservations() {
               onClick={() => loadPage(true)}
               disabled={refreshing}
             >
-              <FiRefreshCw className={refreshing ? "spinning" : ""} />
-              Refresh
+              <FiRefreshCw className={refreshing ? "spinning" : ""} aria-hidden="true" />
+              <span className="cm-btn-label">Refresh</span>
             </button>
-            <Link className="btn btn-primary btn-sm" to="/seller/apply">
-              Apply for a stall
+            <Link className="btn btn-primary btn-sm" to="/seller/apply" aria-label="Apply for a stall">
+              <FiPlus aria-hidden="true" /> Apply<span className="cm-btn-extra"> for a stall</span>
             </Link>
           </div>
         </header>

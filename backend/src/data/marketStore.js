@@ -248,10 +248,10 @@ const sameHash = (a, b) => a.length === b.length && timingSafeEqual(Buffer.from(
 const normalizeAnswer = (answer) => String(answer).trim().toLowerCase().replace(/\s+/g, " ");
 const hashRecoveryQuestions = (items) => items.map(({ question, answer }) => ({ question, answer_hash: bcrypt.hashSync(normalizeAnswer(answer), 12) }));
 const RECOVERY_ANSWERS_NEEDED = 2;
-/** Recovery questions for a user: the three from registration, or the single older one. */
+/** Recovery questions for a user: one (buyers and sellers), three (administrators and older accounts), or the single older one. */
 const recoveryQuestionsOf = (user) => user.recovery_questions?.length ? user.recovery_questions
   : user.security_answer_hash ? [{ question: user.security_question, answer_hash: user.security_answer_hash }] : [];
-/** Two of three right (or the single older question) — answers are matched by position. */
+/** Two of three right, or the answer to an account's only question — answers are matched by position. */
 const recoveryAnswersPass = (user, answers = []) => {
   const questions = recoveryQuestionsOf(user);
   if (!questions.length) return true;
@@ -521,7 +521,7 @@ export const authStore = {
     });
   },
 
-  /** Saves the user's three recovery questions (answers hashed); the first also backs the sign-in fallback. */
+  /** Saves the user's recovery questions (answers hashed); the first also backs the sign-in fallback. */
   async setRecoveryQuestions(userId, currentPassword, questions) {
     const user = await q1("SELECT password_hash FROM users WHERE id = $1", [userId]);
     if (!user) fail("User not found", 404);
@@ -531,7 +531,7 @@ export const authStore = {
       [userId, JSON.stringify(hashRecoveryQuestions(questions)), questions[0].question, bcrypt.hashSync(normalizeAnswer(questions[0].answer), 12)]);
   },
 
-  // ── Forgot password: emailed code → 2 of 3 recovery answers → new password ──
+  // ── Forgot password: emailed code → recovery answer(s) → new password ──
   async resetAccount(email) {
     return q1("SELECT id, email FROM users WHERE email = $1 AND deleted_at IS NULL", [email]);
   },

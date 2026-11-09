@@ -1,5 +1,5 @@
 /* ── Manage users ──────────────────────────────────────────────────────────── */
-.mu-topbar { height: auto; min-height: var(--navbar-height); padding-top: .75rem; padding-bottom: .75rem; background: rgba(255, 251, 242, .92); border-bottom: 1px solid var(--line); }
+.mu-topbar { height: auto; min-height: var(--navbar-height); padding-top: .75rem; padding-bottom: .75rem; background: rgba(255, 250, 250, .92); border-bottom: 1px solid var(--line); }
 .mu-topbar h1 { font: 900 1.45rem/1.15 var(--font-display); }
 .mu-topbar p { color: var(--ink-600); font-size: var(--text-sm); }
 .mu-content { display: grid; align-content: start; gap: 1.1rem; }

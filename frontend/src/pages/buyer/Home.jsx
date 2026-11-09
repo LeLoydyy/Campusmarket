@@ -26,8 +26,6 @@ const MIN_STATS_PRODUCTS = 30;
 const MIN_TICKER_ORDERS = 3;
 const MIN_TRENDING = 4;
 const MIN_TILE_COUNT = 10;
-// Shown on the Food & drinks tile when no food listing has a photo yet.
-const FOOD_TILE_FALLBACK = "/images/buyer/product-adobo.png";
 const MAX_TRENDING = 8;
 const MAX_TICKER_ORDERS = 6;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -86,9 +84,6 @@ export default function BuyerHome() {
     counts[key] = (counts[key] || 0) + 1;
     return counts;
   }, {}), [products]);
-
-  const foodPhoto = useMemo(() =>
-    products.find((product) => categoryKey(product.category) === "food" && product.image_url)?.image_url || FOOD_TILE_FALLBACK, [products]);
 
   // Featured (Premium) listings, most viewed first. Under 4, topped up with the newest listings from
   // Premium stalls only — this row is advertising space, so Free stalls never appear here.
@@ -256,7 +251,6 @@ export default function BuyerHome() {
                     <span>{blurb}</span>
                     <small>{categoryCounts[key] >= MIN_TILE_COUNT && <>{plural(categoryCounts[key], "item")} · </>}Browse <span aria-hidden="true">→</span></small>
                   </span>
-                  {key === "food" && <img className="home-tile-photo" src={foodPhoto} alt="" loading="lazy" />}
                   {key === "student-made" && <span className="home-tile-sticker" aria-hidden="true">Made at CSUCC</span>}
                 </Link>
               ))}

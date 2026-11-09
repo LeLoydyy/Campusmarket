@@ -26,10 +26,11 @@ export default function Register() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
-    name: "", emailUser: "", password: "", confirmPassword: "", security_questions: emptyRecoveryQuestions(),
+    name: "", emailUser: "", password: "", confirmPassword: "", security_questions: emptyRecoveryQuestions(1),
     role: "buyer", campus_id: "", affiliation: "student", department: "", store_name: "", campus_location: "",
   });
   const [showPass, setShowPass] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -92,7 +93,7 @@ export default function Register() {
     const errors = {};
     if (!passwordMeetsRules(form.password)) errors.password = "Your password needs 8+ characters, a letter and a number.";
     else if (form.password !== form.confirmPassword) errors.confirmPassword = "The passwords don't match.";
-    if (!errors.password && !errors.confirmPassword && !recoveryQuestionsComplete(form.security_questions)) errors.security = "Answer all three security questions (2+ characters each).";
+    if (!errors.password && !errors.confirmPassword && !recoveryQuestionsComplete(form.security_questions)) errors.security = "Answer the security question (2+ characters).";
     setFieldErrors(errors);
     if (!e.currentTarget.reportValidity() || Object.values(errors).some(Boolean)) return;
     goTo(2);
@@ -218,16 +219,19 @@ export default function Register() {
         </form>
       ) : step === 1 ? (
         <form onSubmit={finishSecurity} className="auth-form">
-          <div className="reg-two">
+          <section className="reg-section" aria-labelledby="reg-password-title">
+            <h2 id="reg-password-title" className="auth-section-title">Create your password</h2>
             <PasswordField
               id="reg-password" label="Password" autoComplete="new-password" placeholder="8+ characters" minLength={8} maxLength={100} required
               value={form.password} onChange={set("password")} show={showPass} onToggleShow={() => setShowPass(!showPass)}
               describedBy="reg-password-strength" invalid={Boolean(fieldErrors.password)}
             />
+            <PasswordStrength id="reg-password-strength" value={form.password} />
+            {fieldErrors.password && <p className="field-note is-error" role="alert">{fieldErrors.password}</p>}
             <div>
               <PasswordField
                 id="confirm" label="Confirm password" autoComplete="new-password" placeholder="Type it again" required
-                value={form.confirmPassword} onChange={set("confirmPassword")} show={showPass}
+                value={form.confirmPassword} onChange={set("confirmPassword")} show={showConfirm} onToggleShow={() => setShowConfirm(!showConfirm)}
                 describedBy="confirm-note" invalid={confirmState === "mismatch" || Boolean(fieldErrors.confirmPassword)}
               />
               <p id="confirm-note" className={`field-note ${confirmState === "match" ? "is-ok" : confirmState === "mismatch" ? "is-error" : ""}`} aria-live="polite">
@@ -235,9 +239,7 @@ export default function Register() {
                 {confirmState === "mismatch" && <><X aria-hidden="true" /> {fieldErrors.confirmPassword || "Doesn't match yet"}</>}
               </p>
             </div>
-          </div>
-          <PasswordStrength id="reg-password-strength" value={form.password} />
-          {fieldErrors.password && <p className="field-note is-error" role="alert">{fieldErrors.password}</p>}
+          </section>
 
           <RecoveryQuestions idPrefix="reg" value={form.security_questions} onChange={(security_questions) => setForm({ ...form, security_questions })} />
           {fieldErrors.security && <p className="field-note is-error" role="alert">{fieldErrors.security}</p>}

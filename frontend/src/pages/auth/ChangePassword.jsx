@@ -84,14 +84,16 @@ function PasswordForm({ onChanged }) {
   );
 }
 
-const QUESTION_STEPS = ["Question 1", "Question 2", "Question 3", "Confirm"];
-const startingQuestions = () => SECURITY_QUESTIONS.slice(0, 3).map((question) => ({ question, answer: "" }));
+const startingQuestions = (count) => SECURITY_QUESTIONS.slice(0, count).map((question) => ({ question, answer: "" }));
 
-/** Three questions, one per step, then the current password to confirm. */
+/** One question (three for administrators), one per step, then the current password to confirm. */
 function QuestionSteps({ user, onSaved }) {
+  const count = user.role === "admin" ? 3 : 1;
+  const steps = count === 1 ? ["Question", "Confirm"] : ["Question 1", "Question 2", "Question 3", "Confirm"];
+  const noun = count === 1 ? "security question" : "security questions";
   const [editing, setEditing] = useState(!user.has_recovery_questions);
   const [step, setStep] = useState(0);
-  const [items, setItems] = useState(startingQuestions);
+  const [items, setItems] = useState(() => startingQuestions(count));
   const [shown, setShown] = useState(false);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -102,11 +104,11 @@ function QuestionSteps({ user, onSaved }) {
     return (
       <div className="cp-panel cp-summary">
         <span className="cp-badge" aria-hidden="true"><ShieldCheck /></span>
-        <h2>Your security questions are set</h2>
-        <p className="reg-note">If you forget your password, an emailed code plus any two correct answers lets you choose a new one.</p>
-        {saved && <p role="status" className="auth-success"><Check aria-hidden="true" /> Security questions saved.</p>}
+        <h2>Your {noun} {count === 1 ? "is" : "are"} set</h2>
+        <p className="reg-note">If you forget your password, an emailed code plus {count === 1 ? "the correct answer" : "any two correct answers"} lets you choose a new one.</p>
+        {saved && <p role="status" className="auth-success"><Check aria-hidden="true" /> Your {noun} {count === 1 ? "was" : "were"} saved.</p>}
         <button type="button" className="btn btn-outline btn-lg" style={{ width: "100%" }} onClick={() => { setEditing(true); setStep(0); setSaved(false); }}>
-          <KeyRound aria-hidden="true" /> Change security questions
+          <KeyRound aria-hidden="true" /> Change {noun}
         </button>
       </div>
     );
@@ -118,7 +120,7 @@ function QuestionSteps({ user, onSaved }) {
 
   const next = (event) => {
     event.preventDefault();
-    if (step < 3) {
+    if (step < count) {
       if (item.answer.trim().length < 2) return setError("Your answer needs at least 2 characters.");
       setShown(false);
       return setStep(step + 1);
@@ -133,7 +135,7 @@ function QuestionSteps({ user, onSaved }) {
         current_password: password, security_questions: items.map((entry) => ({ question: entry.question, answer: entry.answer.trim() })),
       });
       onSaved(data);
-      setItems(startingQuestions());
+      setItems(startingQuestions(count));
       setPassword("");
       setSaved(true);
       setEditing(false);
@@ -147,7 +149,7 @@ function QuestionSteps({ user, onSaved }) {
   return (
     <form className="auth-form cp-panel" onSubmit={next}>
       <ol className="reg-progress" aria-label="Security question steps">
-        {QUESTION_STEPS.map((label, index) => (
+        {steps.map((label, index) => (
           <li key={label} className={index < step ? "is-done" : index === step ? "is-current" : ""} aria-current={index === step ? "step" : undefined}>
             <span>{index < step ? <Check aria-hidden="true" /> : index + 1}</span>
             <em className={index === step ? "" : "sr-only"}>{label}</em>
@@ -156,11 +158,11 @@ function QuestionSteps({ user, onSaved }) {
       </ol>
       {error && <p role="alert" className="auth-error">{error}</p>}
 
-      {step < 3 ? (
+      {step < count ? (
         <>
-          <p className="reg-note">{step === 0 && !user.has_recovery_questions ? "You haven't set security questions yet. " : ""}Pick a question only you can answer. Answers aren&apos;t case-sensitive.</p>
+          <p className="reg-note">{step === 0 && !user.has_recovery_questions ? `You haven't set ${count === 1 ? "a security question" : "security questions"} yet. ` : ""}Pick a question only you can answer. Answers aren&apos;t case-sensitive.</p>
           <div className="form-group">
-            <label className="form-label" htmlFor="cp-question">Question {step + 1}</label>
+            <label className="form-label" htmlFor="cp-question">{steps[step]}</label>
             <select id="cp-question" className="form-input form-select" value={item.question} onChange={(e) => update({ question: e.target.value })}>
               {SECURITY_QUESTIONS.map((question) => <option key={question} disabled={taken.includes(question)}>{question}</option>)}
             </select>
@@ -199,7 +201,7 @@ function QuestionSteps({ user, onSaved }) {
           </button>
         )}
         <button type="submit" className="btn btn-primary btn-lg" disabled={busy}>
-          {step < 3 ? <>Continue <ArrowRight aria-hidden="true" /></> : busy ? "Saving…" : "Save security questions"}
+          {step < count ? <>Continue <ArrowRight aria-hidden="true" /></> : busy ? "Saving…" : `Save ${noun}`}
         </button>
       </div>
     </form>

@@ -85,7 +85,7 @@ export default function Plans() {
             <h1>Plans & Premium</h1>
             <p>Grow your stall with more listings, analytics and the point of sale.</p>
           </div>
-          <button type="button" className="btn btn-outline btn-sm" onClick={load} disabled={loading}><RefreshCw aria-hidden="true" /> Refresh</button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={load} disabled={loading}><RefreshCw aria-hidden="true" /> <span className="cm-btn-label">Refresh</span></button>
         </header>
 
         <div className="dashboard-content pl-content">

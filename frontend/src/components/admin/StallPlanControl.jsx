@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { AlertTriangle, CalendarClock, Crown, Store } from "lucide-react";
+import { AlertTriangle, CalendarClock, CalendarPlus, ChevronDown, Crown, Store } from "lucide-react";
 import AdminDrawer from "./AdminDrawer.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { adminService } from "../../services/api.js";
@@ -95,6 +95,82 @@ function PlanDrawer({ stall, mode, onClose, onSaved }) {
   );
 }
 
+const MENU_HEIGHT = 125;
+
+/**
+ * "Options" button on a Premium stall: opens a small menu of plan changes.
+ * The menu is fixed to the viewport because the stall card would clip it.
+ */
+function PlanOptions({ stallName, onPick }) {
+  const [position, setPosition] = useState(null);
+  const open = Boolean(position);
+  const root = useRef(null);
+  const trigger = useRef(null);
+  const close = () => setPosition(null);
+
+  const toggle = () => {
+    if (open) return close();
+    const rect = trigger.current.getBoundingClientRect();
+    const opensUp = rect.bottom + MENU_HEIGHT > window.innerHeight;
+    setPosition({
+      right: Math.max(8, window.innerWidth - rect.right),
+      ...(opensUp ? { bottom: window.innerHeight - rect.top + 6 } : { top: rect.bottom + 6 }),
+    });
+  };
+
+  useEffect(() => {
+    if (!open) return undefined;
+    root.current.querySelector("[role=menuitem]")?.focus();
+    const onPointerDown = (event) => { if (!root.current?.contains(event.target)) close(); };
+    document.addEventListener("mousedown", onPointerDown);
+    // A fixed menu would drift away from its button.
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [open]);
+
+  const onKeyDown = (event) => {
+    if (!open) return;
+    if (event.key === "Escape") {
+      close();
+      trigger.current?.focus();
+    } else if (event.key === "Tab") {
+      close();
+    } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const items = [...root.current.querySelectorAll("[role=menuitem]")];
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      items[(items.indexOf(document.activeElement) + step + items.length) % items.length]?.focus();
+    }
+  };
+  const pick = (mode) => () => { close(); onPick(mode); };
+
+  return (
+    <div className="sp-menu" ref={root} onKeyDown={onKeyDown}>
+      <button type="button" ref={trigger} className={`btn btn-outline btn-sm sp-menu-trigger${open ? " is-open" : ""}`} onClick={toggle}
+        aria-haspopup="menu" aria-expanded={open} aria-label={`Plan options for ${stallName}`}>
+        Options <ChevronDown aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="sp-menu-list" role="menu" aria-label={`Plan options for ${stallName}`} style={position}>
+          <button type="button" role="menuitem" onClick={pick("extend")}>
+            <CalendarPlus aria-hidden="true" />
+            <span>Extend Premium<small>Choose a new end date</small></span>
+          </button>
+          <button type="button" role="menuitem" className="is-danger" onClick={pick("free")}>
+            <Store aria-hidden="true" />
+            <span>Move to Free<small>You&apos;ll confirm this next</small></span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Plan summary and actions on a stall card in Stores & Plans. */
 export default function StallPlanControl({ stall, onChanged }) {
   const { user } = useAuth();
@@ -111,23 +187,22 @@ export default function StallPlanControl({ stall, onChanged }) {
         <span className={`sp-chip${isPremium ? " is-premium" : ""}`}>{isPremium && <Crown aria-hidden="true" />}{isPremium ? "Premium" : "Free"}</span>
         <span className="sp-listings">{stall.product_count || 0} / {limit} listings</span>
       </div>
-      {isPremium && (
-        <p className={`sp-until${soon ? " is-soon" : ""}`}>
-          <CalendarClock aria-hidden="true" />
-          {stall.premium_until
-            ? <>Until {formatDay(stall.premium_until)}{soon && <b>{days === 0 ? "Ends today" : `Expiring in ${days} day${days === 1 ? "" : "s"}`}</b>}</>
-            : "No end date"}
-        </p>
-      )}
-      {manage && (
-        <div className="sp-actions">
-          {isPremium ? (
-            <>
-              <button type="button" className="btn btn-primary btn-sm" onClick={() => setMode("extend")}>Extend Premium</button>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setMode("free")}>Move to Free</button>
-            </>
-          ) : (
-            <button type="button" className="btn btn-outline btn-sm" onClick={() => setMode("premium")}><Crown aria-hidden="true" /> Make Premium</button>
+      {(isPremium || manage) && (
+        <div className="sp-plan-foot">
+          {isPremium && (
+            <p className={`sp-until${soon ? " is-soon" : ""}`}>
+              <CalendarClock aria-hidden="true" />
+              {stall.premium_until
+                ? <>Until {formatDay(stall.premium_until)}{soon && <b>{days === 0 ? "Ends today" : `Expiring in ${days} day${days === 1 ? "" : "s"}`}</b>}</>
+                : "No end date"}
+            </p>
+          )}
+          {manage && (
+            <div className="sp-actions">
+              {isPremium
+                ? <PlanOptions stallName={stall.name} onPick={setMode} />
+                : <button type="button" className="btn btn-outline btn-sm" onClick={() => setMode("premium")}><Crown aria-hidden="true" /> Make Premium</button>}
+            </div>
           )}
         </div>
       )}

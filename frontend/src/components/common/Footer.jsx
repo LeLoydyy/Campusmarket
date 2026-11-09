@@ -31,7 +31,6 @@ export default function Footer() {
       </div>
       <div className="site-footer-base">
         <span>© {new Date().getFullYear()} Campus Market · CSUCC</span>
-        <span>Made by and for the CSUCC community</span>
       </div>
     </footer>
   );

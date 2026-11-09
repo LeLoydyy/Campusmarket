@@ -75,3 +75,12 @@
   .aa-grid { grid-template-columns: 1fr; }
   .aa-actions .btn { flex: 1; min-width: 0; }
 }
+
+/* Phones: status tabs scroll sideways in one row; search gets its own full-width line. */
+@media (max-width: 600px) {
+  .aa-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .aa-tabs { display: flex; flex-wrap: nowrap; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .aa-tabs::-webkit-scrollbar { display: none; }
+  .aa-tabs button { flex: 0 0 auto; padding: 0 .7rem; }
+  .aa-search { width: 100%; }
+}

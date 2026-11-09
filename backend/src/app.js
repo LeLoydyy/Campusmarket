@@ -30,6 +30,11 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 
 // ── Security middleware ──────────────────────────────────────────────────────
+// Tokens and stored codes are signed with JWT_SECRET; refuse to run production on a guessable one.
+if (process.env.NODE_ENV === "production" && (process.env.JWT_SECRET || "").length < 32) {
+  console.error("[config] Set JWT_SECRET to a private random string of 32+ characters before running in production.");
+  process.exit(1);
+}
 app.use(helmet());
 app.use(
   cors({
@@ -41,10 +46,17 @@ app.use(express.json({ limit: "100kb" }));
 app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 
 // ── Rate limiting ────────────────────────────────────────────────────────────
+// Which proxies may tell us the client's real IP (X-Forwarded-For). The default,
+// "loopback", covers the Vite dev server and a reverse proxy on the same machine.
+// Hosts like Render put one proxy in front of the app: set TRUST_PROXY=1 there,
+// or every user shares one IP and one rate limit.
+const trustProxy = process.env.TRUST_PROXY?.trim() || "loopback";
+app.set("trust proxy", /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy === "true" ? true : trustProxy === "false" ? false : trustProxy);
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   // Campus Wi-Fi often puts many students behind one IP; raise RATE_LIMIT_MAX if needed.
-  max: Number(process.env.RATE_LIMIT_MAX) || 300,
+  // Development allows more, since testers reload pages constantly.
+  max: Number(process.env.RATE_LIMIT_MAX) || (process.env.NODE_ENV === "production" ? 300 : 1500),
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests, please try again later." },

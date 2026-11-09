@@ -1,5 +1,5 @@
 /* ── Admin dashboard ───────────────────────────────────────────────────────── */
-.ad-topbar { height: auto; min-height: var(--navbar-height); padding-top: .75rem; padding-bottom: .75rem; background: rgba(255, 251, 242, .92); border-bottom: 1px solid var(--line); }
+.ad-topbar { height: auto; min-height: var(--navbar-height); padding-top: .75rem; padding-bottom: .75rem; background: rgba(255, 250, 250, .92); border-bottom: 1px solid var(--line); }
 .ad-topbar h1 { font: 900 1.45rem/1.15 var(--font-display); }
 .ad-topbar p { color: var(--ink-600); font-size: var(--text-sm); }
 .ad-content { display: grid; gap: 1.25rem; max-width: 1400px; }
@@ -12,15 +12,15 @@
 .ad-action-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; list-style: none; }
 .ad-action { display: flex; align-items: center; gap: .8rem; min-height: 84px; padding: .9rem 1rem; color: var(--ink-900); background: var(--cream-50); border-radius: 18px; text-decoration: none; transition: transform var(--dur) var(--ease-out), box-shadow var(--dur); }
 .ad-action:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0, 0, 0, .2); }
-.ad-action.is-done { background: rgba(255, 251, 242, .9); }
+.ad-action.is-done { background: rgba(255, 250, 250, .9); }
 .ad-action-icon { flex: 0 0 auto; width: 46px; height: 46px; display: grid; place-items: center; color: var(--green-900); background: var(--gold-500); border-radius: 14px; }
 .ad-action.is-done .ad-action-icon { color: var(--green-700); background: var(--green-100); }
 .ad-action-icon svg { width: 22px; height: 22px; }
 .ad-action-text { flex: 1; min-width: 0; display: grid; }
 .ad-action-text strong { font-size: var(--text-sm); }
 .ad-action-text small { color: var(--ink-600); font-size: var(--text-xs); line-height: 1.35; }
-.ad-action-count { flex: 0 0 auto; min-width: 38px; height: 38px; display: grid; place-items: center; padding: 0 .5rem; color: #fff; background: var(--coral-700); border-radius: var(--radius-pill); font: 900 1rem var(--font-display); }
-.ad-action.is-done .ad-action-count { color: var(--green-700); background: var(--green-100); }
+/* The green check on a card with nothing waiting. */
+.ad-action-count { flex: 0 0 auto; width: 38px; height: 38px; display: grid; place-items: center; color: var(--green-700); background: var(--green-100); border-radius: 50%; }
 .ad-action-count svg { width: 18px; height: 18px; }
 .ad-action-arrow { flex: 0 0 auto; width: 18px; height: 18px; color: var(--ink-600); }
 .ad-clear { display: flex; align-items: center; gap: 1.25rem; padding: .6rem 1rem; background: rgba(255, 251, 242, .08); border-radius: 18px; }
@@ -80,7 +80,7 @@
   .ad-action-icon svg { width: 17px; height: 17px; }
   .ad-action-text strong { font-size: .8125rem; }
   .ad-action-text small { font-size: .6875rem; }
-  .ad-action-count { min-width: 30px; height: 30px; font-size: .875rem; }
+  .ad-action-count { width: 30px; height: 30px; }
   .ad-action-arrow { display: none; }
   .ad-clear { flex-direction: row; text-align: left; gap: .75rem; padding: .4rem .2rem; }
   .ad-clear .cm-illustration { width: 56px; height: 56px; }

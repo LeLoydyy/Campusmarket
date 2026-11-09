@@ -8,10 +8,12 @@
 .dashboard-main { min-width: 0; }
 .dashboard-content > * { min-width: 0; }
 
-/* Small heading above a group of dashboard cards (numbers, shortcuts) */
-.cm-section-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .15rem .6rem; margin-bottom: -.4rem; }
-.cm-section-head h2 { color: var(--ink-900); font: 900 1rem/1.2 var(--font-display); }
-.cm-section-head p { color: var(--ink-600); font-size: var(--text-xs); }
+/* Small heading above a group of dashboard cards (numbers, shortcuts). Scoped so
+   it doesn't shrink the buyer section headings, which use the same class. It
+   sets no display, because .cm-phone-only below has to be able to hide it. */
+.dashboard-layout .cm-section-head { flex-wrap: wrap; align-items: baseline; gap: .15rem .6rem; margin-bottom: -.4rem; }
+.dashboard-layout .cm-section-head h2 { color: var(--ink-900); font: 900 1rem/1.2 var(--font-display); }
+.dashboard-layout .cm-section-head p { color: var(--ink-600); font-size: var(--text-xs); }
 .cm-phone-only { display: none; }
 /* Matches when the shortcut tiles show (.cm-quick in ui.css) */
 @media (max-width: 760px) { .cm-phone-only { display: flex; } }
@@ -24,7 +26,7 @@
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 120;
     display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
     padding: .25rem .25rem calc(.25rem + env(safe-area-inset-bottom));
-    background: rgba(255, 251, 242, .96);
+    background: rgba(255, 250, 250, .96);
     -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
     border-top: 1px solid var(--line);
     box-shadow: 0 -6px 20px rgba(11, 61, 36, .08);
@@ -59,15 +61,17 @@
   /* Page descriptions repeat the title; the dashboard keeps its stall line. */
   .dashboard-layout .topbar:not(.sd-topbar) :is(.topbar-titles, .seller-messages-header > div) > p { display: none; }
   .dashboard-layout .topbar :is(.topbar-right, [class$="-topbar-actions"], .ma-top-actions) { flex: 0 0 auto; display: flex; align-items: center; gap: .35rem; }
-  .dashboard-layout .topbar :is(button, .btn) { min-height: 34px; height: 34px; padding: 0 .7rem; border-radius: 10px; font-size: .75rem; box-shadow: none; }
+  .dashboard-layout .topbar :is(button, .btn) { min-height: 34px; height: 34px; gap: .3rem; padding: 0 .7rem; border-radius: 10px; font-size: .75rem; white-space: nowrap; box-shadow: none; }
   /* Several pages set font-size: 0 on icon buttons to hide the label; fixed
      sizes keep the icon visible (1em-sized icons vanished with the text). */
   .dashboard-layout .topbar :is(button, .btn) svg { width: 16px; height: 16px; flex: 0 0 auto; }
-  .dashboard-layout .topbar :is(.seller-reviews-refresh, .seller-orders-refresh, .seller-reservations-refresh, .manage-products-add-top, .sd-refresh),
-  .dashboard-layout .my-stall-topbar .btn { width: 34px; padding: 0; justify-content: center; }
+  .dashboard-layout .topbar :is(.seller-reviews-refresh, .seller-orders-refresh, .seller-reservations-refresh, .sd-refresh) { width: 34px; padding: 0; justify-content: center; }
   /* Text buttons like "Refresh" become icon-only; the label stays for screen readers. */
   .dashboard-layout .topbar .cm-btn-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .dashboard-layout .topbar :is(button, .btn):has(> .cm-btn-label) { width: 34px; padding: 0; justify-content: center; }
+  /* Primary actions keep one short word ("Add", "Edit", "Apply"); the rest of
+     the label shows on wider screens and stays in aria-label for screen readers. */
+  .dashboard-layout .topbar .cm-btn-extra { display: none; }
   /* Live/updated stamps don't fit beside the actions. */
   .dashboard-layout .topbar .seller-orders-live { display: none; }
 
@@ -108,8 +112,8 @@
   .dashboard-layout .my-stall-info-grid article:nth-child(odd):last-child { grid-column: 1 / -1; }
 
   /* ── Dashboard section headings ── */
-  .cm-section-head { flex-direction: column; gap: .1rem; margin: .25rem 0 -.3rem; padding: 0 .15rem; }
-  .cm-section-head p { font-size: .6875rem; }
+  .dashboard-layout .cm-section-head { flex-direction: column; gap: .1rem; margin: .25rem 0 -.3rem; padding: 0 .15rem; }
+  .dashboard-layout .cm-section-head p { font-size: .6875rem; }
 
   /* ── Admin events: three totals in one compact row ── */
   .dashboard-layout .admin-event-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 1rem; padding: .7rem 0; border-radius: 14px; }
@@ -129,4 +133,11 @@
   .dashboard-layout .pos-stock { padding: 0 .35rem; font-size: .625rem; }
   .dashboard-layout .pos-product-add { top: .3rem; right: .3rem; width: 24px; height: 24px; }
   .dashboard-layout .pos-product-add svg { width: 14px; height: 14px; }
+}
+
+/* Tap feedback on touch screens: buttons and tabs give a small press. */
+@media (hover: none) and (prefers-reduced-motion: no-preference) {
+  .dashboard-layout :is(.btn, button, .cm-seller-tab, .my-stall-check-row) { transition: transform .12s ease, background-color .15s ease; }
+  .dashboard-layout :is(.btn, button, .my-stall-check-row):active:not(:disabled) { transform: scale(.97); }
+  .cm-seller-tab:active { transform: scale(.92); }
 }

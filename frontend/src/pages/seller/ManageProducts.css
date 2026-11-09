@@ -152,7 +152,6 @@
   .manage-products-toolbar > select:last-child { grid-column: 2 / -1; }
 }
 @media (max-width: 760px) {
-  .manage-products-add-top { width: 36px; height: 36px; justify-content: center; padding: 0; font-size: 0; }
   .manage-products-toolbar { grid-template-columns: 1fr 1fr; }
   .manage-products-search { grid-column: 1 / -1; }
   .manage-products-toolbar > select:last-child { grid-column: auto; }
@@ -355,4 +354,12 @@ svg.is-filled { color: var(--gold-500); fill: var(--gold-500); }
   .mp-price-grid > :last-child { grid-column: 1 / -1; }
   .mp-form-actions { flex-direction: row !important; padding: .75rem 1rem calc(.75rem + env(safe-area-inset-bottom)); }
   .mp-form-actions .btn { flex: 1; }
+}
+
+/* Phones: status tabs on one line, the two dropdowns share the line below. */
+@media (max-width: 600px) {
+  .mp-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; }
+  .mp-filters .mp-seg { grid-column: 1 / -1; display: flex; }
+  .mp-filters .mp-seg button { flex: 1; justify-content: center; }
+  .mp-filters select { width: 100%; min-width: 0; }
 }

@@ -29,12 +29,14 @@ const strongPassword = z.string().min(8, "Use at least 8 characters.").max(100)
   .regex(/[a-z]/i, "Password needs at least one letter.")
   .regex(/\d/, "Password needs at least one number.");
 
-// Three different questions, each with an answer (hashed before storage).
-const recoveryQuestions = z.array(z.object({
+// Each question has an answer (hashed before storage). Buyers and sellers set one; administrators set three different ones.
+const recoveryItems = z.array(z.object({
   question: z.string().trim().min(5).max(150),
   answer: z.string().trim().min(2, "Each answer needs at least 2 characters.").max(100),
-})).length(3, "Answer three security questions.")
-  .refine((items) => new Set(items.map((item) => item.question.toLowerCase())).size === 3, "Pick three different questions.");
+}));
+const allDifferent = (items) => new Set(items.map((item) => item.question.toLowerCase())).size === items.length;
+const oneRecoveryQuestion = recoveryItems.length(1, "Answer the security question.");
+const threeRecoveryQuestions = recoveryItems.length(3, "Answer three security questions.").refine(allDifferent, "Pick three different questions.");
 
 export const sendCodeSchema = z.object({ email: campusEmail });
 export const verifyEmailSchema = z.object({ email: campusEmail, code: otpCode });
@@ -45,7 +47,7 @@ export const registerSchema = z.object({
   // Checked in the register controller (it can be skipped locally with SKIP_EMAIL_OTP).
   email_token: z.string().optional(),
   password: strongPassword,
-  security_questions: recoveryQuestions,
+  security_questions: oneRecoveryQuestion,
   role: z.enum(["buyer", "seller"]).default("buyer"),
   campus_id: z.string().trim().min(3).max(50),
   affiliation: z.enum(["student", "faculty", "employee"]),
@@ -89,12 +91,13 @@ export const setupSchema = z.object({
   name: z.string().trim().min(2, "Enter your full name.").max(80),
   employee_id: employeeId,
   new_password: strongPassword,
-  security_questions: recoveryQuestions,
+  security_questions: threeRecoveryQuestions,
 });
 
+// The exact number depends on the account's role, so the controller checks it.
 export const recoveryQuestionsSchema = z.object({
   current_password: z.string().min(1).max(100),
-  security_questions: recoveryQuestions,
+  security_questions: recoveryItems.min(1).max(3).refine(allDifferent, "Pick different questions."),
 });
 
 const anyEmail = z.string().trim().email("Enter a valid email address.").toLowerCase();

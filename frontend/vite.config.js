@@ -9,7 +9,8 @@ export default defineConfig({
     host: '0.0.0.0',
     proxy: {
       // API_PROXY_TARGET lets a second copy of the app run against another backend.
-      '/api': { target: process.env.API_PROXY_TARGET || 'http://127.0.0.1:5001', changeOrigin: true },
+      // xfwd passes each device's address on, so the backend rate-limits phones separately.
+      '/api': { target: process.env.API_PROXY_TARGET || 'http://127.0.0.1:5001', changeOrigin: true, xfwd: true },
     },
   },
   resolve: {

@@ -11,7 +11,8 @@
   width: min(1320px, 100% - 2rem); margin: 1.25rem auto 0;
   display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: center; gap: 2.5rem;
   padding: clamp(1.75rem, 4vw, 3.5rem);
-  background: linear-gradient(135deg, #FFF7E3 0%, var(--cream-50) 55%, var(--green-100) 140%), var(--texture-leaf);
+  /* Cream banner, deliberately warmer than the snow-white page around it */
+  background: linear-gradient(135deg, #FFF1D0 0%, #FFF6E2 50%, #FCEFD2 100%), var(--texture-leaf);
   background-blend-mode: normal;
   border-radius: 32px;
   box-shadow: var(--shadow-2);
@@ -57,7 +58,8 @@
 @keyframes ticker { to { transform: translateX(-100%); } }
 
 /* Open now rail */
-.home-rail { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(250px, 1fr); gap: 1rem; overflow-x: auto; padding: .35rem .25rem 1rem; margin: 0 -.25rem; scroll-snap-type: x mandatory; scrollbar-width: thin; }
+/* Cards never grow past a third of the row, so one or two open stalls don't stretch into giant banners. */
+.home-rail { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(250px, calc((100% - 2rem) / 3)); justify-content: start; gap: 1rem; overflow-x: auto; padding: .35rem .25rem 1rem; margin: 0 -.25rem; scroll-snap-type: x mandatory; scrollbar-width: thin; }
 .home-rail-item { scroll-snap-align: start; }
 .home-rail-item .sc { height: 100%; }
 .home-rail-skel { border-radius: var(--radius-card); }
@@ -93,8 +95,6 @@
 .home-tile-text span { font-size: var(--text-sm); opacity: .9; }
 .home-tile-text small { justify-self: start; margin-top: .35rem; padding: .2rem .6rem; background: rgba(255, 255, 255, .72); border-radius: var(--radius-pill); color: var(--ink-900); font: 800 var(--text-xs)/1.3 var(--font-body); }
 .home-tile--food { background: linear-gradient(160deg, #FFE08A, var(--gold-500)); }
-.home-tile-photo { position: absolute; right: -6%; bottom: -6%; z-index: 0; width: min(62%, 300px); aspect-ratio: 1; object-fit: cover; border-radius: 50%; border: 6px solid rgba(255, 255, 255, .55); box-shadow: var(--shadow-3); pointer-events: none; }
-.home-tile--food .home-tile-text { max-width: 60%; }
 .home-tile--food .home-tile-icon { color: var(--gold-700); background: #FFF3D1; }
 .home-tile--clothing { color: #fff; background: linear-gradient(160deg, var(--green-500), var(--green-700)); }
 .home-tile--clothing .home-tile-icon { color: var(--green-700); background: var(--green-100); }
@@ -105,7 +105,7 @@
 .home-tile--accessories .home-tile-icon { color: var(--coral-700); background: var(--coral-100); }
 .home-tile--student-made { color: #fff; background: var(--green-900) var(--texture-leaf-light); }
 .home-tile--student-made .home-tile-icon { color: var(--green-900); background: var(--gold-500); }
-.home-tile--other { background: linear-gradient(160deg, #FFFDF8, var(--cream-100)); }
+.home-tile--other { background: linear-gradient(160deg, #FFF6E2, #F6E7C6); }
 .home-tile--other .home-tile-icon { color: var(--ink-600); background: #fff; }
 .home-tile-sticker { position: absolute; top: 1.1rem; right: 1.1rem; z-index: 1; padding: .35rem .75rem; color: var(--green-900); background: var(--gold-500); border: 3px solid #fff; border-radius: 14px; font: 900 var(--text-xs)/1.2 var(--font-display); letter-spacing: .02em; text-transform: uppercase; transform: rotate(6deg); box-shadow: var(--shadow-2); }
 
@@ -148,6 +148,8 @@
 
 @media (max-width: 1024px) {
   .home-bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Two columns leave "Everything else" alone on its row: let it span the width. */
+  .home-tile--other { grid-column: 1 / -1; min-height: 0; }
   .home-tile--lg { grid-row: span 1; }
 }
 @media (max-width: 860px) {
@@ -172,7 +174,6 @@
   .home-tile-text span { display: none; }
   .home-tile--lg .home-tile-icon { width: 52px; height: 52px; }
   .home-tile--lg .home-tile-icon svg { width: 24px; height: 24px; }
-  .home-tile-photo { width: 48%; right: -10%; bottom: -10%; border-width: 4px; }
   .home-rail { grid-auto-columns: 78%; }
   .home-countdown span { min-width: 58px; }
 }

@@ -33,8 +33,22 @@
 .sp-until { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin: 0; color: var(--ink-900); font-size: var(--text-xs); font-weight: 600; }
 .sp-until svg { width: 14px; height: 14px; color: var(--gold-700); }
 .sp-until b { padding: .1rem .5rem; border-radius: 999px; background: var(--coral-100); color: var(--coral-700); font-size: .75rem; }
-.sp-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
+/* Bottom row of the plan card: end date on the left, the plan action on the right. */
+.sp-plan-foot { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding-top: .55rem; border-top: 1px solid var(--line); }
+.sp-actions { flex: 0 0 auto; display: flex; margin-left: auto; }
 .sp-actions svg { width: 14px; height: 14px; }
+/* Options button and its menu */
+.sp-menu-trigger svg { transition: transform var(--dur-fast); }
+.sp-menu-trigger.is-open svg { transform: rotate(180deg); }
+.sp-menu-list { position: fixed; z-index: 400; display: grid; gap: .1rem; width: 230px; padding: .35rem; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-3); }
+.sp-menu-list button { width: 100%; min-height: 44px; display: flex; align-items: flex-start; gap: .6rem; padding: .5rem .6rem; color: var(--ink-900); background: transparent; border: 0; border-radius: 10px; font-size: var(--text-sm); font-weight: 650; text-align: left; cursor: pointer; }
+.sp-menu-list button:is(:hover, :focus) { background: var(--green-100); }
+.sp-menu-list button.is-danger { color: var(--coral-700); }
+.sp-menu-list button.is-danger:is(:hover, :focus) { background: var(--coral-100); }
+.sp-menu-list svg { flex: 0 0 auto; width: 17px; height: 17px; margin-top: .1rem; color: var(--green-700); }
+.sp-menu-list .is-danger svg { color: var(--coral-700); }
+.sp-menu-list span { display: grid; gap: .1rem; min-width: 0; }
+.sp-menu-list small { color: var(--ink-600); font-size: .75rem; font-weight: 500; }
 .sp-warning { display: flex; gap: .6rem; margin: 0; padding: .8rem .9rem; border-radius: 12px; background: var(--gold-100); color: var(--gold-700); font-size: var(--text-sm); line-height: 1.5; }
 .sp-warning svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: .1rem; }
 .sp-warning.is-calm { background: var(--cream-100); color: var(--ink-600); }

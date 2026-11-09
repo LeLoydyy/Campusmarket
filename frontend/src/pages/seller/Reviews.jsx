@@ -196,8 +196,8 @@ export default function Reviews() {
             onClick={() => loadReviews(true)}
             disabled={loading || refreshing}
           >
-            <FiRefreshCw className={refreshing ? "spinning" : ""} />
-            Refresh
+            <FiRefreshCw className={refreshing ? "spinning" : ""} aria-hidden="true" />
+            <span className="cm-btn-label">Refresh</span>
           </button>
         </header>
 

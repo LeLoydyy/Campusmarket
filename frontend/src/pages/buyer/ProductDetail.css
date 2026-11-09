@@ -83,14 +83,14 @@
   .detail-price-label { display: none; }
   .detail-price { font-size: 1.6rem; }
 
-  /* Pickup facts become a swipeable row of chips */
-  .pd-facts { display: flex; gap: .4rem; margin-top: .7rem; padding: 0; overflow-x: auto; background: none; scrollbar-width: none; }
-  .pd-facts::-webkit-scrollbar { display: none; }
-  .pd-facts li { flex: 0 0 auto; gap: .45rem; padding: .4rem .65rem .4rem .45rem; background: var(--cream-50); border-radius: 12px; }
-  .pd-facts li + li { border-top: 0; }
+  /* Pickup facts: two cards side by side, text wraps */
+  .pd-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; margin-top: .7rem; padding: 0; background: none; }
+  .pd-facts li { min-width: 0; align-items: flex-start; gap: .45rem; padding: .45rem .55rem .45rem .45rem; background: var(--cream-50); border: 1px solid var(--line); border-radius: 12px; }
+  .pd-facts li + li { border-top: 1px solid var(--line); }
+  .pd-facts li:last-child:nth-child(odd) { grid-column: 1 / -1; }
   .pd-facts svg { width: 26px; height: 26px; padding: 5px; border-radius: 8px; }
-  .pd-facts strong { font-size: .75rem; white-space: nowrap; }
-  .pd-facts small { font-size: .6875rem; white-space: nowrap; }
+  .pd-facts strong { font-size: .75rem; line-height: 1.25; }
+  .pd-facts small { font-size: .6875rem; line-height: 1.3; }
 
   .detail-description { padding: .8rem 0; }
   .detail-description h2 { font-size: var(--text-sm); }

@@ -13,7 +13,7 @@ const apiError = (err, fallback) =>
 /**
  * Forgot password, for buyers, sellers and administrators alike:
  * 1. the registered email gets a 6-digit code, 2. the code is checked,
- * 3. two of the three security answers (or the one older question) and a new password.
+ * 3. the answer to the account's security question (two of three if it has three) and a new password.
  */
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -66,19 +66,20 @@ export default function ForgotPassword() {
     if (!passwordMeetsRules(password.value)) return setError("Your new password needs 8+ characters, a letter and a number.");
     if (password.value !== password.confirm) return setError("The new passwords don't match.");
     const answered = answers.slice(0, questions.questions.length).filter((answer) => answer.trim()).length;
-    if (answered < questions.answers_needed) return setError(`Answer at least ${questions.answers_needed} of the questions.`);
+    if (answered < questions.answers_needed) return setError(singleQuestion ? "Answer your security question." : `Answer at least ${questions.answers_needed} of the questions.`);
     run(async () => {
       await authService.forgotComplete({ email: email.trim().toLowerCase(), code, answers: answers.slice(0, questions.questions.length), new_password: password.value });
       navigate("/login?reason=password_reset", { replace: true });
     });
   };
 
+  const singleQuestion = questions.questions.length === 1;
   const subtitle = {
     email: "Enter the email you registered with. We'll send a 6-digit code to it.",
     code: "Check your inbox for the code.",
-    answers: questions.questions.length
-      ? `Answer at least ${questions.answers_needed} of your security questions, then choose a new password.`
-      : "Choose a new password.",
+    answers: !questions.questions.length ? "Choose a new password."
+      : singleQuestion ? "Answer your security question, then choose a new password."
+      : `Answer at least ${questions.answers_needed} of your security questions, then choose a new password.`,
   }[step];
 
   return (
@@ -125,8 +126,8 @@ export default function ForgotPassword() {
         <form onSubmit={finish} className="auth-form">
           {questions.questions.length > 0 && (
             <fieldset className="reg-security">
-              <legend><KeyRound aria-hidden="true" /> Security questions</legend>
-              <p className="reg-note">Any {questions.answers_needed} correct answer{questions.answers_needed === 1 ? "" : "s"} will do. Not case-sensitive.</p>
+              <legend><KeyRound aria-hidden="true" /> {singleQuestion ? "Security question" : "Security questions"}</legend>
+              <p className="reg-note">{singleQuestion ? "Not case-sensitive." : `Any ${questions.answers_needed} correct answers will do. Not case-sensitive.`}</p>
               {questions.questions.map((question, index) => (
                 <div className="form-group" key={question}>
                   <label className="form-label" htmlFor={`fp-a${index}`}>{question}</label>

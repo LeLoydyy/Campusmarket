@@ -175,8 +175,8 @@
 .ec-date small { font: 800 .75rem/1.2 var(--font-body); text-transform: uppercase; letter-spacing: .06em; }
 .ec-state { position: absolute; top: .75rem; left: .75rem; z-index: 1; display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .7rem; border-radius: var(--radius-pill); font: 800 var(--text-xs)/1.2 var(--font-body); }
 .ec-state--ongoing { color: #fff; background: var(--coral-700); }
-.ec-state--upcoming { color: var(--green-900); background: rgba(255, 251, 242, .95); }
-.ec-state--past { color: var(--ink-600); background: rgba(255, 251, 242, .92); }
+.ec-state--upcoming { color: var(--green-900); background: rgba(255, 250, 250, .95); }
+.ec-state--past { color: var(--ink-600); background: rgba(255, 250, 250, .92); }
 .ec-live { width: 8px; height: 8px; background: #fff; border-radius: 50%; animation: live-ping-white 1.6s ease-out infinite; }
 @keyframes live-ping-white { 0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, .8); } 70% { box-shadow: 0 0 0 8px rgba(255, 255, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); } }
 .ec-body { display: flex; flex: 1; flex-direction: column; gap: .45rem; padding: 1rem 1.15rem 1.2rem; }
@@ -336,15 +336,16 @@
 .cm-shopfrom:hover .cm-shopfrom-text { color: var(--green-700); text-decoration: underline; }
 .cm-shopfrom > .cm-skel { flex: 1; border-radius: var(--radius-pill); }
 
-/* ── Seller CTA band (flush on the footer) ─────────────────────────────────── */
-.cm-sell { padding: clamp(2rem, 5vw, 3rem) 0; color: var(--green-900); background: var(--gold-500); }
+/* ── Seller CTA strip (flush on the footer) ────────────────────────────────── */
+.cm-sell { padding: .6rem 0; color: var(--green-900); background: var(--gold-500); }
 .cm-sell + .site-footer { margin-top: 0; }
-.cm-sell-inner { width: min(1320px, 100% - 2rem); margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.25rem 2rem; }
-.cm-sell h2 { color: var(--green-900); font: 900 clamp(1.6rem, 3.2vw, 2.4rem)/1.1 var(--font-display); letter-spacing: -.03em; }
-.cm-sell p { margin-top: .35rem; color: var(--green-900); font-size: 1rem; font-weight: 600; }
-.cm-sell .btn-primary { background: var(--green-900); box-shadow: 0 8px 18px rgba(11, 61, 36, .28); }
+.cm-sell-inner { width: min(1320px, 100% - 2rem); margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.cm-sell-copy { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .6rem; }
+.cm-sell h2 { color: var(--green-900); font: 900 1rem/1.25 var(--font-display); letter-spacing: -.01em; }
+.cm-sell p { color: var(--green-900); font-size: var(--text-sm); font-weight: 600; line-height: 1.3; }
+.cm-sell .btn { flex: 0 0 auto; white-space: nowrap; }
+.cm-sell .btn-primary { background: var(--green-900); box-shadow: none; }
 .cm-sell .btn-primary:hover:not(:disabled) { background: var(--green-700); }
-@media (max-width: 600px) { .cm-sell-inner .btn { flex: 1 1 100%; } }
 
 /* ── Workspace quick links (phones only; the sidebar covers larger screens) ── */
 .cm-quick { display: none; }

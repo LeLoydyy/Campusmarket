@@ -2794,31 +2794,7 @@ ul { list-style: none; }
 .browse-active-filters button:hover { background: var(--green-100); }
 .browse-active-filters svg { flex: 0 0 auto; }
 
-.browse-error {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.85rem 0.95rem;
-  margin-bottom: 1rem;
-  color: var(--coral-700);
-  background: var(--cm-danger-light);
-  border: 1px solid rgba(232, 96, 60, 0.18);
-  border-radius: 13px;
-}
-
-.browse-error > svg { font-size: 1.1rem; }
-.browse-error > div { min-width: 0; display: grid; }
-.browse-error strong { font-size: var(--text-xs); }
-.browse-error span { font-size: var(--text-xs); opacity: 0.8; }
-.browse-error button {
-  padding: 0.4rem 0.58rem;
-  color: var(--coral-700);
-  background: rgba(255,255,255,0.65);
-  border-radius: 8px;
-  font-size: var(--text-xs);
-  font-weight: 700;
-}
+/* .browse-error lives in pages/buyer/Browse.css */
 
 .browse-product-grid {
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
@@ -2965,8 +2941,6 @@ ul { list-style: none; }
   .browse-refresh-btn { width: 36px; height: 36px; padding: 0; justify-content: center; }
   .browse-refresh-btn:not(:hover) { font-size: 0; gap: 0; }
   .browse-refresh-btn svg { width: 15px; height: 15px; }
-  .browse-error { grid-template-columns: auto minmax(0, 1fr); }
-  .browse-error button { grid-column: 1 / -1; width: 100%; }
 }
 
 @media (max-width: 480px) {

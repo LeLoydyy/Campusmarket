@@ -63,15 +63,14 @@ export function PasswordStrength({ id, value }) {
         <div className="pw-meter" aria-hidden="true">{[0, 1, 2, 3].map((bar) => <span key={bar} className={value && bar < Math.max(1, level) ? "is-on" : ""} />)}</div>
         <p className="pw-level" aria-live="polite">{value ? <>Strength: <strong>{LEVELS[Math.max(0, level)]}</strong></> : "Strength"}</p>
       </div>
-      {/* Required rules first; the "+" extras only make the password stronger. */}
+      {/* Required rules in the left column; the optional ones, on the right, only make the password stronger. */}
       <ul className="pw-rules">
         {PASSWORD_RULES.map((rule) => {
           const ok = rule.test(value);
           return (
-            <li key={rule.label} className={`${ok ? "is-ok" : ""} ${rule.required ? "" : "is-extra"}`}>
-              {ok ? <Check aria-hidden="true" /> : <i aria-hidden="true">{rule.required ? "" : "+"}</i>}
-              {rule.label}
-              <span className="sr-only">{rule.required ? "" : " (optional, makes it stronger)"}{ok ? " — done" : " — not yet"}</span>
+            <li key={rule.label} className={ok ? "is-ok" : undefined}>
+              <span className="pw-rule-mark" aria-hidden="true">{ok && <Check />}</span>
+              <span>{rule.label}{!rule.required && " (optional)"}<span className="sr-only">{ok ? " — done" : " — not yet"}</span></span>
             </li>
           );
         })}
