@@ -13,7 +13,7 @@ const SHORT = {
   Notifications: "Alerts",
   "Registration & Users": "Users",
   "Stores & Plans": "Stores",
-  "Event Applications": "Applications",
+  "Event Applications": "Requests",
   Administrators: "Admins",
   "Login Logs": "Logs",
 };

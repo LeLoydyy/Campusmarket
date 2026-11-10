@@ -75,3 +75,14 @@
 .ll-buyer { min-height: 100vh; background: var(--cream-50); }
 .ll-buyer .mu-topbar { position: static; background: none; border: 0; padding-left: 0; padding-right: 0; }
 .ll-buyer .mu-content { padding-left: 0; padding-right: 0; }
+
+/* Phones: Month and Day side by side, label above each field; Clear on its own row. */
+@media (max-width: 600px) {
+  .ll-dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+  .ll-dates label { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: .2rem .35rem; min-width: 0; }
+  .ll-dates label > svg { width: 15px; height: 15px; }
+  .ll-dates label > span:not(.sr-only) { grid-column: auto; }
+  .ll-dates label:not(:has(svg)) > span { grid-column: 1 / -1; }
+  .ll-dates label .form-input { grid-column: 1 / -1; width: 100%; min-width: 0; height: 42px; padding-inline: .75rem; font-size: 16px; }
+  .ll-dates .btn { grid-column: 1 / -1; justify-self: start; }
+}

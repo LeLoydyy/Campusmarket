@@ -384,7 +384,7 @@ export default function Checkout() {
             <div className="checkout-summary-total">
               <div>
                 <strong>Total</strong>
-                <small>Delivery fee, if any, is paid separately</small>
+                <small>{fulfillment === "delivery" ? "Delivery fee, if any, is paid separately" : "No fees for campus pickup"}</small>
               </div>
               <strong>{formatPrice(total)}</strong>
             </div>

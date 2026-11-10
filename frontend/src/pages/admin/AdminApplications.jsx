@@ -69,8 +69,10 @@ function ApplicationCard({ application, busy, onReview }) {
 
       <dl className="aa-facts">
         <div><dt>Category</dt><dd>{CATEGORY_LABELS[application.product_category] || application.product_category}</dd></div>
-        <div><dt>Space</dt><dd>{application.preferred_stall_size} m²</dd></div>
-        <div><dt>Duration</dt><dd>{application.duration} {Number(application.duration) === 1 ? "day" : "days"}</dd></div>
+        <div><dt>Spot</dt><dd>{application.preferred_space_number
+          ? `Space ${application.preferred_space_number}${application.preferred_space_size ? ` · ${application.preferred_space_size}` : ""}`
+          : application.preferred_stall_size ? `${application.preferred_stall_size} m² requested` : "Not chosen (no map yet)"}</dd></div>
+        {Number(application.duration) > 0 && <div><dt>Duration</dt><dd>{application.duration} {Number(application.duration) === 1 ? "day" : "days"}</dd></div>}
       </dl>
 
       <div className="aa-section">

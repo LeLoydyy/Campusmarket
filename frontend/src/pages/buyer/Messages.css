@@ -80,6 +80,17 @@
 @media (max-width: 480px) {
   .seller-messages-layout { width: 100%; margin: 0; border-radius: 0; }
 }
+/* Phones: the inbox fills the screen under the header and stops above the bottom
+   bar; an open chat (bar hidden) runs to the bottom so the message box sits there. */
+@media (max-width: 768px) {
+  .dashboard-layout.seller-messages-shell, .dashboard-layout .seller-messages-main { min-height: 0; }
+  .seller-messages-layout { height: calc(100dvh - 76px); min-height: 360px; }
+  body.has-workspace-tabbar .seller-messages-layout { height: calc(100dvh - 76px - 60px - env(safe-area-inset-bottom)); }
+}
+@media (max-width: 600px) {
+  .seller-messages-layout { height: calc(100dvh - 56px); }
+  body.has-workspace-tabbar .seller-messages-layout { height: calc(100dvh - 56px - 60px - env(safe-area-inset-bottom)); }
+}
 
 /* ── Redesign: bubbles, pinned product, empty panes ────────────────────────── */
 .chat-bubble-row.is-own .chat-bubble { color: #fff; background: var(--green-700); border: 0; border-radius: 18px 18px 6px 18px; box-shadow: 0 4px 12px rgba(19, 112, 60, .2); }

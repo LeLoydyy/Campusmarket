@@ -11,7 +11,7 @@ test("admins review event applications once; password changes are verified", asy
   await ready();
 
   await query("INSERT INTO users (id, name, email, password_hash, role, status) VALUES ('seller', 'Seller Name', 's@test.invalid', 'x', 'seller', 'approved')");
-  await query("INSERT INTO events (id, name, date, location) VALUES ('fair', 'Fair', '2026-10-01', 'Grounds')");
+  await query("INSERT INTO events (id, name, date, location) VALUES ('fair', 'Fair', '2099-10-01', 'Grounds')");
   const payload = { eventId: "fair", stallName: "Snacks", businessName: "Biz", productCategory: "food", productList: "Chips", contactInfo: "0917", preferredStallSize: 9, duration: 2 };
   const application = await eventStore.submitApplication("seller", payload);
   await assert.rejects(eventStore.submitApplication("seller", payload), { status: 409 });

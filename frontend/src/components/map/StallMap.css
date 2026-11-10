@@ -80,3 +80,11 @@
   .smap-space, .smap-board { transition: none; }
 }
 .smap-landmark span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Pick mode (seller applying): a smaller board so most of the map fits a phone,
+   open spaces are tappable, taken ones are faded and can't be chosen. */
+.smap--pick .smap-board { min-width: calc(480px * var(--zoom)); background-image: linear-gradient(rgba(236, 228, 210, .55) 1px, transparent 1px), linear-gradient(90deg, rgba(236, 228, 210, .55) 1px, transparent 1px); touch-action: pan-x pan-y; }
+.smap--pick .smap-space { cursor: pointer; }
+.smap--pick .smap-space.is-unavailable { cursor: not-allowed; opacity: .45; filter: saturate(.6); }
+.smap--pick .smap-space.is-unavailable:hover { box-shadow: none; transform: none; }
+.smap--pick .smap-space.is-selected { opacity: 1; transform: translateY(-1px); }

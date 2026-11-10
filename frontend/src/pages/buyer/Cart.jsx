@@ -34,8 +34,9 @@ const Cart = () => {
       </div>
 
       <style>{`
-        .cart-page { max-width: 900px; margin: 0 auto; padding: 1.75rem 1.5rem 4rem; }
-        .cart-page h1 { font-size: 1.5rem; font-weight: 800; color: var(--gray-900); margin-bottom: 1.5rem; }
+        .cart-page { max-width: 1040px; margin: 0 auto; padding: 1.75rem 1.5rem 4rem; }
+        .cart-page h1 { margin-bottom: 1.25rem; color: var(--ink-900); font: 900 clamp(1.4rem, 4vw, 1.9rem)/1.15 var(--font-display); letter-spacing: -.02em; }
+        @media (max-width: 600px) { .cart-page { padding: 1rem .9rem 2rem; } .cart-page h1 { margin-bottom: .85rem; } }
         .cart-empty {
           display: flex; flex-direction: column; align-items: center; text-align: center;
           padding: 4rem 1.5rem; border: 1px dashed var(--gray-200); border-radius: var(--radius-xl);

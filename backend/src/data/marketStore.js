@@ -1775,10 +1775,31 @@ const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h
 
 // Event spaces with the placed seller's display details (map tiles show the stall logo).
 const EVENT_STALL_SELECT = `SELECT es.*, coalesce(u.name, '') AS "sellerName", s.id AS "sellerStallId", s.name AS "sellerStallName", s.logo_url AS "sellerLogo",
+    EXISTS (SELECT 1 FROM seller_applications ra WHERE ra.preferred_space_id = es.id AND lower(ra.status) IN ('pending', 'approved')) AS requested,
     coalesce((SELECT json_agg(p.name ORDER BY p.created_at) FROM products p WHERE p.stall_id = s.id), '[]'::json) AS "productsAvailable"
   FROM event_stalls es
   LEFT JOIN stalls s ON s.owner_id = es.seller_id
   LEFT JOIN users u ON u.id = s.owner_id`;
+
+// An event is over once its last day (end date, else start date) is before today in campus time.
+const EVENT_ENDED = "coalesce((e.end_date AT TIME ZONE 'Asia/Manila')::date, e.date) < (now() AT TIME ZONE 'Asia/Manila')::date";
+
+/** Puts an approved application's seller on a space, freeing any other space they held at this event, and tells them. */
+const placeApplication = async (run, space, application, event, actorId) => {
+  await run(
+    "UPDATE event_stalls SET seller_id = NULL, stall_id = NULL, name = NULL, status = 'available' WHERE event_id = $1 AND seller_id = $2 AND id <> $3",
+    [space.event_id, application.seller_id, space.id]);
+  const [sellerStall] = await run("SELECT id FROM stalls WHERE owner_id = $1", [application.seller_id]);
+  await run(
+    "UPDATE event_stalls SET seller_id = $2, stall_id = $3, name = $4, status = 'occupied' WHERE id = $1",
+    [space.id, application.seller_id, sellerStall?.id || null, application.stall_name]);
+  // The application's chosen spot follows the placement, so the map's "requested" mark stays accurate.
+  await run("UPDATE seller_applications SET preferred_space_id = $1 WHERE id = $2", [space.id, application.id]);
+  await audit(run, actorId, "event.space_assigned", space.id, `${application.stall_name} → Space ${space.stall_number}`);
+  await run("INSERT INTO notifications (user_id, type, status, title, body, link) VALUES ($1, 'event', 'assigned', $2, $3, $4)",
+    [application.seller_id, `You're at Space ${space.stall_number} 🎉`,
+      `${application.stall_name} has a spot at ${event.name}. Open the stall map to see where you'll be.`, `/events/${space.event_id}/stalls`]);
+};
 
 export const eventStore = {
   async saveEvent(payload, actorId) {
@@ -1870,6 +1891,7 @@ export const eventStore = {
       if (!applicationId) {
         if (!space.seller_id) return (await run(`${EVENT_STALL_SELECT} WHERE es.id = $1`, [space.id]))[0];
         await run("UPDATE event_stalls SET seller_id = NULL, stall_id = NULL, name = NULL, status = 'available' WHERE id = $1", [space.id]);
+        await run("UPDATE seller_applications SET preferred_space_id = NULL WHERE preferred_space_id = $1 AND seller_id = $2", [space.id, space.seller_id]);
         await audit(run, actorId, "event.space_unassigned", space.id, `Space ${space.stall_number}`);
         await run("INSERT INTO notifications (user_id, type, status, title, body, link) VALUES ($1, 'event', 'unassigned', $2, $3, '/events')",
           [space.seller_id, `Your space at ${event.name} changed`, `You're no longer placed at Space ${space.stall_number}. The event team will be in touch.`]);
@@ -1882,24 +1904,15 @@ export const eventStore = {
       if (space.seller_id && space.seller_id !== application.seller_id) fail(`Space ${space.stall_number} already has a seller. Remove them first.`, 409);
 
       // Moving a seller who already has a space here frees the old one.
-      await run(
-        "UPDATE event_stalls SET seller_id = NULL, stall_id = NULL, name = NULL, status = 'available' WHERE event_id = $1 AND seller_id = $2 AND id <> $3",
-        [space.event_id, application.seller_id, space.id]);
-      const [sellerStall] = await run("SELECT id FROM stalls WHERE owner_id = $1", [application.seller_id]);
-      await run(
-        "UPDATE event_stalls SET seller_id = $2, stall_id = $3, name = $4, status = 'occupied' WHERE id = $1",
-        [space.id, application.seller_id, sellerStall?.id || null, application.stall_name]);
-      await audit(run, actorId, "event.space_assigned", space.id, `${application.stall_name} → Space ${space.stall_number}`);
-      await run("INSERT INTO notifications (user_id, type, status, title, body, link) VALUES ($1, 'event', 'assigned', $2, $3, $4)",
-        [application.seller_id, `You're at Space ${space.stall_number} 🎉`,
-          `${application.stall_name} has a spot at ${event.name}. Open the stall map to see where you'll be.`, `/events/${space.event_id}/stalls`]);
+      await placeApplication(run, space, application, event, actorId);
       return (await run(`${EVENT_STALL_SELECT} WHERE es.id = $1`, [space.id]))[0];
     });
   },
 
-  async listEvents() {
+  /** All events, or with `upcoming` only those whose last day is today or later (campus time). */
+  async listEvents({ upcoming = false } = {}) {
     return q(`SELECT e.*, (SELECT count(*) FROM event_stalls es WHERE es.event_id = e.id) AS stall_count
-              FROM events e ORDER BY e.date, e.created_at`);
+              FROM events e ${upcoming ? `WHERE NOT (${EVENT_ENDED})` : ""} ORDER BY e.date, e.created_at`);
   },
 
   async getById(eventId) {
@@ -1923,25 +1936,46 @@ export const eventStore = {
       product_list: cleanText(payload.productList),
       contact_info: cleanText(payload.contactInfo),
     };
-    if (!(await q1("SELECT 1 FROM events WHERE id = $1", [eventId]))) fail("Event not found", 404);
+    const event = await q1(`SELECT e.id, ${EVENT_ENDED} AS ended FROM events e WHERE e.id = $1`, [eventId]);
+    if (!event) fail("Event not found", 404);
+    if (event.ended) fail("This event has already ended. Pick an upcoming one.", 409);
     if (Object.values(fields).some((value) => !value)) fail("Please complete all required application fields");
     if (Object.values(fields).some((value) => value.length > 2000)) fail("Application fields must be 2000 characters or fewer.");
-    const stallSize = Number(payload.preferredStallSize);
-    const duration = Number(payload.duration);
-    if (!Number.isFinite(stallSize) || stallSize <= 0) fail("Preferred stall size must be greater than zero");
-    if (!Number.isInteger(duration) || duration <= 0) fail("Duration must be a whole number of days");
+    // Size and duration are optional now (the chosen space sets the size); validate them only when sent.
+    const optionalNumber = (value) => (value === undefined || value === null || value === "" ? null : Number(value));
+    const stallSize = optionalNumber(payload.preferredStallSize);
+    const duration = optionalNumber(payload.duration);
+    if (stallSize !== null && (!Number.isFinite(stallSize) || stallSize <= 0)) fail("Preferred stall size must be greater than zero");
+    if (duration !== null && (!Number.isInteger(duration) || duration <= 0)) fail("Duration must be a whole number of days");
+    const spaceId = cleanText(payload.preferredSpaceId) || null;
 
-    const duplicate = await q1(
-      "SELECT 1 FROM seller_applications WHERE seller_id = $1 AND event_id = $2 AND lower(status) IN ('pending', 'approved', 'reserved')",
-      [sellerId, eventId],
-    );
-    if (duplicate) fail("You already have an active application for this event", 409);
-    return q1(
-      `INSERT INTO seller_applications (seller_id, event_id, stall_name, business_name, product_category, product_list,
-         preferred_stall_size, duration, contact_info)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [sellerId, eventId, fields.stall_name, fields.business_name, fields.product_category, fields.product_list, stallSize, duration, fields.contact_info],
-    );
+    return tx(async (run) => {
+      const duplicate = await run(
+        "SELECT 1 FROM seller_applications WHERE seller_id = $1 AND event_id = $2 AND lower(status) IN ('pending', 'approved', 'reserved')",
+        [sellerId, eventId],
+      );
+      if (duplicate.length) fail("You already have an active application for this event", 409);
+
+      // Events with a stall map: the seller picks an open space nobody else has asked for.
+      // The row lock makes two sellers picking the same space at once queue up; the second is told to pick again.
+      const [{ count }] = await run("SELECT count(*)::int AS count FROM event_stalls WHERE event_id = $1", [eventId]);
+      if (count > 0 && !spaceId) fail("Pick your spot on the stall map.");
+      if (spaceId) {
+        const [space] = await run("SELECT * FROM event_stalls WHERE id = $1 AND event_id = $2 FOR UPDATE", [spaceId, eventId]);
+        if (!space) fail("That spot isn't on this event's map. Pick another one.", 404);
+        if (space.seller_id || space.status !== "available") fail(`Space ${space.stall_number} isn't open. Pick another spot.`, 409);
+        const [taken] = await run(
+          "SELECT 1 FROM seller_applications WHERE preferred_space_id = $1 AND lower(status) IN ('pending', 'approved')", [space.id]);
+        if (taken) fail(`Another seller already asked for Space ${space.stall_number}. Pick another spot.`, 409);
+      }
+      const [application] = await run(
+        `INSERT INTO seller_applications (seller_id, event_id, stall_name, business_name, product_category, product_list,
+           preferred_stall_size, duration, contact_info, preferred_space_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+        [sellerId, eventId, fields.stall_name, fields.business_name, fields.product_category, fields.product_list, stallSize, duration, fields.contact_info, spaceId],
+      );
+      return application;
+    });
   },
 
   async reviewApplication(applicationId, actorId, { status, note }) {
@@ -1955,6 +1989,14 @@ export const eventStore = {
         [applicationId, status, note, actorId],
       );
       await audit(run, actorId, `application.${status}`, applicationId, note);
+      // Approved with a chosen spot: place the seller there now, unless an admin already gave it to someone else.
+      if (status === "approved" && updated.preferred_space_id) {
+        const [space] = await run("SELECT * FROM event_stalls WHERE id = $1 AND event_id = $2 FOR UPDATE", [updated.preferred_space_id, updated.event_id]);
+        if (space && (!space.seller_id || space.seller_id === updated.seller_id)) {
+          const [event] = await run("SELECT id, name, date FROM events WHERE id = $1", [updated.event_id]);
+          await placeApplication(run, space, updated, event, actorId);
+        }
+      }
       return updated;
     });
   },
@@ -1964,7 +2006,9 @@ export const eventStore = {
       `SELECT a.*, u.name AS seller_name, CASE WHEN e.id IS NULL THEN NULL ELSE json_build_object(
                 'id', e.id, 'name', e.name, 'date', e.date, 'end_date', e.end_date,
                 'location', coalesce(e.location, ''), 'description', coalesce(e.description, '')) END AS event
+         , sp.stall_number AS preferred_space_number, sp.category AS preferred_space_category, sp.size AS preferred_space_size
        FROM seller_applications a LEFT JOIN events e ON e.id = a.event_id LEFT JOIN users u ON u.id = a.seller_id
+         LEFT JOIN event_stalls sp ON sp.id = a.preferred_space_id
        WHERE ($1::text IS NULL OR a.event_id = $1) AND ($2::text IS NULL OR lower(a.status) = lower($2))
          AND ($3::text IS NULL OR a.seller_id = $3)
        ORDER BY a.created_at DESC`,

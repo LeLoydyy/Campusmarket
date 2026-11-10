@@ -49,7 +49,8 @@ export const isFree = (box, items, ignoreId) => fits(box) && !items.some((item) 
 
 /**
  * The stall map. `mode="view"` for buyers (spaces link to sellers),
- * `mode="edit"` for admins (drag to move, corner handle to resize, arrows to nudge).
+ * `mode="edit"` for admins (drag to move, corner handle to resize, arrows to nudge),
+ * `mode="pick"` for sellers applying: open spaces are buttons, everything else is greyed out.
  */
 export default function StallMap({ stalls, landmarks = [], mode = "view", zoom = 1, selectedId, onSelect, onMove, label = "Stall map" }) {
   const board = useRef(null);
@@ -145,6 +146,9 @@ export default function StallMap({ stalls, landmarks = [], mode = "view", zoom =
             const box = geometry(item);
             const occupied = item.status === "occupied" || item.seller_id;
             const status = occupied ? "occupied" : item.status === "reserved" ? "reserved" : "available";
+            // Picking: an open space another seller already asked for is shown (and blocked) as reserved.
+            const requested = mode === "pick" && status === "available" && item.requested;
+            const shown = requested ? "reserved" : status;
             const seller = item.sellerStallName || item.name || item.sellerName;
             const text = `Space ${item.stall_number}, ${SPACE_CATEGORIES[item.category] || "Mixed"}, ${SPACE_STATUSES[status]}${seller ? `, ${seller}` : ""}`;
             const content = (
@@ -156,7 +160,19 @@ export default function StallMap({ stalls, landmarks = [], mode = "view", zoom =
                 {mode === "edit" && <span className="smap-handle" aria-hidden="true" onPointerDown={(event) => startDrag(event, { ...item, kind: "space" }, "resize")} />}
               </>
             );
-            const className = `smap-space smap-cat--${item.category || "mixed"} smap-status--${status} ${selectedId === item.id ? "is-selected" : ""} ${drag?.id === item.id && !drag.valid ? "is-blocked" : ""}`;
+            const className = `smap-space smap-cat--${item.category || "mixed"} smap-status--${shown} ${selectedId === item.id ? "is-selected" : ""} ${drag?.id === item.id && !drag.valid ? "is-blocked" : ""}`;
+            if (mode === "pick") {
+              const open = shown === "available";
+              const pickText = open
+                ? `Space ${item.stall_number}, ${SPACE_CATEGORIES[item.category] || "Mixed"}, ${item.size || ""}, open. Choose this spot`
+                : `Space ${item.stall_number}, ${requested ? "already requested by another seller" : SPACE_STATUSES[status].toLowerCase()}`;
+              return (
+                <button key={item.id} type="button" className={`${className} ${open ? "" : "is-unavailable"}`} style={style(box)}
+                  disabled={!open} aria-pressed={selectedId === item.id} aria-label={pickText} title={pickText} onClick={() => onSelect?.(item.id, "space")}>
+                  {content}
+                </button>
+              );
+            }
             if (mode === "view") {
               return item.sellerStallId
                 ? <Link key={item.id} to={`/stalls/${item.sellerStallId}`} className={className} style={style(box)} aria-label={`${text}. Visit stall`} title={text}>{content}</Link>

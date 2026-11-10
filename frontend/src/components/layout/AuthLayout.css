@@ -334,10 +334,12 @@
   /* The form only scrolls if it can't fit at all (e.g. a code panel open on a small phone). */
   .auth2-form { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
   .auth2-form::-webkit-scrollbar { display: none; }
-  /* Spare height splits 1:2 above/below the form, so it sits nearer the header.
-     The spacers shrink to nothing when the form needs the room. */
+  /* A short gap under the header (capped, so tall phones don't open a blank band
+     above the form); the rest of the spare height goes below. Both spacers
+     shrink to nothing when the form needs the room. */
   .auth2-form { flex-direction: column; align-items: stretch; justify-content: flex-start; }
   .auth2-form::before, .auth2-form::after { content: ""; flex: 1 1 0; }
+  .auth2-form::before { max-height: 1.75rem; }
   .auth2-form::after { flex-grow: 2; }
   .auth2-form-inner { flex: 0 0 auto; width: min(480px, 100%); margin-inline: auto; }
 }

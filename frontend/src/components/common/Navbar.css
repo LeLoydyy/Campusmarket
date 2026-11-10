@@ -144,4 +144,22 @@
 .site-footer-place svg { flex: 0 0 auto; width: 18px; height: 18px; margin-top: .15rem; color: var(--gold-500); }
 .site-footer-base { width: min(1320px, 100% - 2rem); margin: 0 auto; text-align: center; padding: 1.1rem 0 1.5rem; border-top: 1px solid rgba(255, 251, 242, .14); font-size: var(--text-xs); }
 @media (max-width: 900px) { .site-footer-inner { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 560px) { .site-footer-inner { grid-template-columns: 1fr; gap: 1.5rem; padding-top: 2.5rem; } }
+/* Phones: one compact block. Logo + tagline on a row, the two link groups side
+   by side, the campus on one line; the long blurb and campus heading are hidden. */
+@media (max-width: 560px) {
+  .site-footer { margin-top: 2rem; }
+  .site-footer-inner { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem .75rem; padding: 1.4rem 0 1rem; }
+  .site-footer-brand { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+  .site-footer-brand > p:not(.site-footer-tagline) { display: none; }
+  .site-footer-logo { margin: 0; padding: .4rem .6rem; border-radius: 11px; }
+  .site-footer-logo img { height: 24px; }
+  .site-footer-tagline { margin: 0; font-size: .875rem !important; text-align: right; }
+  .site-footer h2 { margin-bottom: .3rem; font-size: .6875rem; }
+  .site-footer nav { gap: 0; }
+  .site-footer a { min-height: 32px; font-size: .8125rem; }
+  .site-footer-inner > div:last-child { grid-column: 1 / -1; padding-top: .75rem; border-top: 1px solid rgba(255, 251, 242, .14); }
+  .site-footer-inner > div:last-child > h2, .site-footer-inner > div:last-child > p:not(.site-footer-place) { display: none; }
+  .site-footer-place { font-size: .8125rem !important; line-height: 1.4 !important; }
+  .site-footer-place svg { width: 16px; height: 16px; margin-top: .05rem; }
+  .site-footer-base { padding: .7rem 0 .9rem; font-size: .6875rem; }
+}

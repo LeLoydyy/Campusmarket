@@ -56,6 +56,7 @@ const normalizeApplication = (application) => {
         application.preferred_stall_size ?? application.preferredStallSize,
       ) || 0,
     duration: Number(application.duration) || 0,
+    spot: application.preferred_space_number ? `Space ${application.preferred_space_number}` : "",
     contact: application.contact_info || application.contactInfo || "",
     status: String(application.status || "pending").toLowerCase(),
     createdAt: application.created_at || application.createdAt || null,
@@ -395,14 +396,15 @@ export default function SellerReservations() {
                             </span>
                             <span>
                               <FiShoppingBag />{" "}
-                              {application.size
-                                ? `${application.size} sqm`
-                                : "Size not specified"}
+                              {application.spot ||
+                                (application.size ? `${application.size} sqm` : "Spot set by the event team")}
                             </span>
-                            <span>
-                              <FiClock /> {application.duration} day
-                              {application.duration === 1 ? "" : "s"}
-                            </span>
+                            {application.duration > 0 && (
+                              <span>
+                                <FiClock /> {application.duration} day
+                                {application.duration === 1 ? "" : "s"}
+                              </span>
+                            )}
                           </div>
                           {application.reviewNote && (
                             <p className="seller-reservation-business">

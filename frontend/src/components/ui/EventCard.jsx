@@ -33,9 +33,9 @@ export default function EventCard({ event, variant = "default" }) {
         <p className="ec-meta"><CalendarPlus aria-hidden="true" /> {formatEventDate(event)}</p>
         <p className="ec-meta"><MapPin aria-hidden="true" /> {event.location || "CSU Cabadbaran Campus"}</p>
         {event.description && <p className="ec-desc">{event.description}</p>}
-        <p className="ec-meta ec-stalls"><Store aria-hidden="true" /> {stalls ? plural(stalls, "stall space") : "Stall map coming soon"}</p>
+        <p className="ec-meta ec-stalls"><Store aria-hidden="true" /> {stalls ? plural(stalls, "stall space") : status === "past" ? "No stall map was posted" : "Stall map coming soon"}</p>
         <div className="ec-actions">
-          <Link className="btn btn-primary btn-sm" to={`/events/${event.id}/stalls`}><MapIcon aria-hidden="true" /> View stall map</Link>
+          <Link className="btn btn-primary btn-sm" to={`/events/${event.id}/stalls`}><MapIcon aria-hidden="true" /> {stalls ? "View stall map" : "Event details"}</Link>
           {calendar && <a className="btn btn-outline btn-sm" href={calendar} target="_blank" rel="noreferrer"><CalendarPlus aria-hidden="true" /> Add to calendar</a>}
         </div>
       </div>

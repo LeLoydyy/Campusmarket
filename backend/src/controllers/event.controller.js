@@ -1,9 +1,10 @@
 import { eventStore } from "../data/marketStore.js";
 
 // GET /api/events
-export const getEvents = async (_req, res, next) => {
+export const getEvents = async (req, res, next) => {
   try {
-    const events = await eventStore.listEvents();
+    // ?status=upcoming leaves out events that have already ended (the seller application form uses it).
+    const events = await eventStore.listEvents({ upcoming: req.query.status === "upcoming" });
 
     res.json(events);
   } catch (error) {

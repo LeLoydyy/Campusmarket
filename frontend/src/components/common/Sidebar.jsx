@@ -61,7 +61,7 @@ const getInitials = (value) =>
     .join("")
     .toUpperCase();
 
-export default function Sidebar({ open, isOpen: legacyOpen, onClose }) {
+export default function Sidebar({ open, isOpen: legacyOpen, onClose, hideTabbar = false }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -88,9 +88,9 @@ export default function Sidebar({ open, isOpen: legacyOpen, onClose }) {
     closeSidebar();
   }, [location.pathname]);
 
-  // The chat page needs the bottom of the screen for its message box, so it keeps the menu button instead.
+  // An open chat needs the bottom of the screen for its message box, so it hides the bar (and shows the menu button).
   const tabs = TABS[role];
-  const showTabbar = Boolean(tabs) && !location.pathname.startsWith("/seller/messages");
+  const showTabbar = Boolean(tabs) && !hideTabbar;
   useEffect(() => {
     if (!showTabbar) return undefined;
     document.body.classList.add("has-workspace-tabbar");

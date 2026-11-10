@@ -305,7 +305,7 @@ export default function Messages({ sellerMode = false }) {
         isSeller ? "dashboard-layout seller-messages-shell" : "messages-shell"
       }
     >
-      {isSeller ? <Sidebar /> : <Navbar />}
+      {isSeller ? <Sidebar hideTabbar={Boolean(selectedConversation)} /> : <Navbar />}
 
       <main
         className={
@@ -337,7 +337,7 @@ export default function Messages({ sellerMode = false }) {
             disabled={conversationLoading || refreshing}
           >
             <RefreshCw className={refreshing ? "is-spinning" : ""} size={15} />
-            {refreshing ? "Refreshing…" : "Refresh"}
+            <span className="cm-btn-label">{refreshing ? "Refreshing…" : "Refresh"}</span>
           </button>
         </header>
 

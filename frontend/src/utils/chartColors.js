@@ -8,6 +8,7 @@ export const CHART = {
   teal: "#1E6B6B",    // --teal-700
   coral: "#E8603C",   // --coral-500
   grid: "#ECE4D2",    // --line
+  track: "#F9F5EC",   // empty day slot behind columns (one step off the white card)
   ink: "#4A5A50",     // --ink-600 (axis labels)
   surface: "#FFFFFF",
 };

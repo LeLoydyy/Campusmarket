@@ -199,6 +199,11 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS landmarks JSONB NOT NULL DEFAULT '[]
 ALTER TABLE seller_applications ADD COLUMN IF NOT EXISTS review_note TEXT;
 ALTER TABLE seller_applications ADD COLUMN IF NOT EXISTS reviewed_by TEXT;
 ALTER TABLE seller_applications ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+-- Sellers pick their spot on the event's stall map when they apply; size and
+-- duration became optional (older applications keep their values).
+ALTER TABLE seller_applications ADD COLUMN IF NOT EXISTS preferred_space_id TEXT;
+ALTER TABLE seller_applications ALTER COLUMN preferred_stall_size DROP NOT NULL;
+ALTER TABLE seller_applications ALTER COLUMN duration DROP NOT NULL;
 -- Sign-in security: account recovery question, lockout after repeated wrong passwords.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS security_question TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS security_answer_hash TEXT;

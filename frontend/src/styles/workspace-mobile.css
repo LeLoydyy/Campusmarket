@@ -41,6 +41,8 @@
   body.has-workspace-tabbar { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
   /* No floating menu button on these pages, so titles can start at the edge. */
   body.has-workspace-tabbar .dashboard-layout .topbar { padding-left: 1rem; }
+  /* The closed side menu sits just off-screen; its shadow left a grey band on the left edge. */
+  body .cm-sidebar:not(.cm-sidebar--open) { box-shadow: none; }
 }
 
 @media (max-width: 600px) {
@@ -65,7 +67,7 @@
   /* Several pages set font-size: 0 on icon buttons to hide the label; fixed
      sizes keep the icon visible (1em-sized icons vanished with the text). */
   .dashboard-layout .topbar :is(button, .btn) svg { width: 16px; height: 16px; flex: 0 0 auto; }
-  .dashboard-layout .topbar :is(.seller-reviews-refresh, .seller-orders-refresh, .seller-reservations-refresh, .sd-refresh) { width: 34px; padding: 0; justify-content: center; }
+  .dashboard-layout .topbar :is(.seller-reviews-refresh, .seller-orders-refresh, .seller-reservations-refresh, .sd-refresh, .messages-refresh-btn) { width: 34px; min-width: 34px; padding: 0; justify-content: center; }
   /* Text buttons like "Refresh" become icon-only; the label stays for screen readers. */
   .dashboard-layout .topbar .cm-btn-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .dashboard-layout .topbar :is(button, .btn):has(> .cm-btn-label) { width: 34px; padding: 0; justify-content: center; }
@@ -140,4 +142,51 @@
   .dashboard-layout :is(.btn, button, .cm-seller-tab, .my-stall-check-row) { transition: transform .12s ease, background-color .15s ease; }
   .dashboard-layout :is(.btn, button, .my-stall-check-row):active:not(:disabled) { transform: scale(.97); }
   .cm-seller-tab:active { transform: scale(.92); }
+}
+
+/* ── Seller and admin dashboards on phones: denser, smaller icons ───────────
+   Shortcuts become one flat grid, six across (seller: two rows, admin: one),
+   number cards and panels are slimmer, and empty states use a small picture. */
+@media (max-width: 600px) {
+  .dashboard-layout .cm-quick { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); row-gap: .35rem; padding: .5rem .25rem; border-radius: 16px; }
+  .dashboard-layout .cm-quick :is(.cm-quick-group, ul) { display: contents; }
+  .dashboard-layout .cm-quick-title { display: none; }
+  .dashboard-layout .cm-quick li { min-width: 0; }
+  .dashboard-layout .cm-quick a { gap: .25rem; padding: .3rem .1rem; border-radius: 10px; }
+  .dashboard-layout .cm-quick-icon { width: 34px; height: 34px; border-radius: 11px; }
+  .dashboard-layout .cm-quick-icon svg { width: 17px; height: 17px; }
+  .dashboard-layout .cm-quick-icon b { top: -5px; right: -7px; min-width: 16px; height: 16px; font-size: .5625rem; }
+  .dashboard-layout .cm-quick-label { font-size: .625rem; letter-spacing: -.01em; }
+
+  /* Number cards */
+  .dashboard-layout :is(.sd-kpis, .ad-kpis) { gap: .4rem; }
+  .dashboard-layout :is(.sd-kpis, .ad-kpis) .cm-stat { padding: .5rem .6rem; border-radius: 12px; }
+  .dashboard-layout :is(.sd-kpis, .ad-kpis) .cm-stat-icon { top: .45rem; right: .45rem; width: 22px; height: 22px; border-radius: 7px; }
+  .dashboard-layout :is(.sd-kpis, .ad-kpis) .cm-stat-icon svg { width: 12px; height: 12px; }
+  .dashboard-layout :is(.sd-kpis, .ad-kpis) .cm-stat-label { padding-right: 1.6rem; font-size: .6875rem; }
+  .dashboard-layout :is(.sd-kpis, .ad-kpis) .cm-stat-value { margin-top: .1rem; font-size: 1.05rem; }
+  .dashboard-layout :is(.sd-kpis, .ad-kpis) :is(.cm-stat-delta, .cm-stat-scope) { overflow: hidden; font-size: .625rem; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Panels */
+  .dashboard-layout :is(.sd-card, .ad-card) { padding: .75rem; border-radius: 14px; }
+  .dashboard-layout :is(.sd-card-head, .ad-card-head) { margin-bottom: .5rem; }
+  .dashboard-layout :is(.sd-card-head, .ad-card-head) h2 { font-size: .95rem; }
+  .dashboard-layout .ad-card-head .ad-scope { font-size: .6875rem; line-height: 1.35; }
+  .dashboard-layout .sd-empty { gap: .5rem; padding: .55rem .65rem; font-size: .75rem; }
+  .dashboard-layout .sd-empty > svg { width: 16px; height: 16px; }
+
+  /* Empty states inside dashboard panels: small picture, short text */
+  .dashboard-layout :is(.sd-card, .ad-card) .cm-empty { gap: .3rem; padding: .5rem .25rem .25rem; }
+  .dashboard-layout :is(.sd-card, .ad-card) .cm-empty .cm-illustration { width: 64px; height: 51px; }
+  .dashboard-layout :is(.sd-card, .ad-card) .cm-empty h2 { font-size: .875rem; }
+  .dashboard-layout :is(.sd-card, .ad-card) .cm-empty p { font-size: .75rem; line-height: 1.4; }
+
+  /* Admin charts: shorter; the donut sits beside its legend */
+  .dashboard-layout .ad-card .recharts-responsive-container { height: 170px !important; }
+  .dashboard-layout .ad-donut { grid-template-columns: 120px minmax(0, 1fr); gap: .75rem; }
+  .dashboard-layout .ad-donut .recharts-responsive-container { height: 120px !important; }
+  .dashboard-layout .ad-legend { gap: .35rem; }
+  .dashboard-layout .ad-legend li { grid-template-columns: 10px 1fr auto auto; gap: .4rem; font-size: .75rem; }
+  .dashboard-layout .ad-legend i { width: 10px; height: 10px; border-radius: 3px; }
+  .dashboard-layout .ad-legend b { font-size: .875rem; }
 }

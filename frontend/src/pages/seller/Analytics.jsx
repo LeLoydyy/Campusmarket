@@ -15,7 +15,7 @@ import {
   FiShoppingBag,
   FiTrendingUp,
 } from "react-icons/fi";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { format } from "date-fns";
 import { CHART } from "../../utils/chartColors.js";
 import EmptyState from "../../components/ui/EmptyState.jsx";
@@ -98,6 +98,26 @@ function Metric({ icon, label, value, children, tone = "green", loading }) {
       {loading ? <i className="analytics-shimmer" /> : <strong>{value}</strong>}
       {!loading && children}
     </article>
+  );
+}
+
+/**
+ * Dot for the trend line: only days with sales get one (zero days stay a quiet
+ * line), with a 2px white ring so it reads where it sits on the line. The best
+ * day also gets its value written above it, in ink, not the series colour.
+ */
+function TrendDot({ cx, cy, payload, dataKey, bestKey, format }) {
+  if (cx == null || cy == null || !payload?.[dataKey]) return null;
+  const best = payload.key === bestKey;
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={best ? 5 : 4} fill={CHART.green} stroke={CHART.surface} strokeWidth={2} />
+      {best && (
+        <text x={cx} y={cy - 12} textAnchor="middle" fill="#14201A" fontSize={11} fontWeight={800} fontFamily="Plus Jakarta Sans, sans-serif">
+          {format(payload[dataKey])}
+        </text>
+      )}
+    </g>
   );
 }
 
@@ -203,6 +223,10 @@ export default function Analytics() {
   const previous = sales?.previous || {};
   const activeDays = series.filter((day) => day.orders > 0);
   const bestDay = activeDays.reduce((best, day) => (!best || day[measure] > best[measure] ? day : best), null);
+  // Sales on most days read best as a continuous area; occasional sales as columns
+  // in faint day slots, so quiet days show as empty slots rather than a flat line.
+  const trendAsArea = days > 30 || activeDays.length >= days / 2;
+  const formatTrendValue = measure === "revenue" ? formatCompactCurrency : (value) => String(value);
   const bestProduct = topProducts[0];
   const categoryTotal = categories.reduce((sum, category) => sum + category.revenue, 0);
   const rangeLabel = series.length ? `${dayLabel(series[0].key)} – ${dayLabel(series[series.length - 1].key)}` : "";
@@ -305,14 +329,43 @@ export default function Analytics() {
                 <PanelEmpty title="No sales in this period" description="Daily sales appear here once orders are completed or you record counter sales." />
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={series} margin={{ top: 12, right: 8, left: 4, bottom: 0 }} barCategoryGap={days > 30 ? 1 : "20%"}>
+                  {trendAsArea ? (
+                  <AreaChart data={series} margin={{ top: 22, right: 14, left: 4, bottom: 0 }}>
+                    <defs>
+                      {/* A light wash under the line: ~18% at the top fading out, never a solid block. */}
+                      <linearGradient id="analytics-trend-fill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={CHART.green} stopOpacity={0.18} />
+                        <stop offset="100%" stopColor={CHART.green} stopOpacity={0.01} />
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid vertical={false} stroke={CHART.grid} />
                     <XAxis dataKey="label" tick={{ fontSize: 12, fill: CHART.ink }} tickLine={false} axisLine={{ stroke: CHART.grid }} minTickGap={24} interval="preserveStartEnd" />
                     <YAxis width={measure === "revenue" ? 64 : 36} allowDecimals={false} tick={{ fontSize: 12, fill: CHART.ink }} tickLine={false} axisLine={false}
                       tickFormatter={measure === "revenue" ? formatCompactCurrency : undefined} />
-                    <Tooltip content={<TrendTooltip />} cursor={{ fill: "rgba(19, 112, 60, .08)" }} />
-                    <Bar dataKey={measure} name={measureLabel} fill={CHART.green} radius={[4, 4, 0, 0]} maxBarSize={28} isAnimationActive={false} />
+                    <Tooltip content={<TrendTooltip />} cursor={{ stroke: CHART.green, strokeOpacity: 0.35, strokeWidth: 1 }} />
+                    <Area type="monotone" dataKey={measure} name={measureLabel} stroke={CHART.green} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
+                      fill="url(#analytics-trend-fill)" isAnimationActive={false}
+                      dot={(props) => <TrendDot key={props.payload?.key} {...props} dataKey={measure} bestKey={bestDay?.key}
+                        format={formatTrendValue} />}
+                      activeDot={{ r: 6, fill: CHART.green, stroke: CHART.surface, strokeWidth: 2 }} />
+                  </AreaChart>
+                  ) : (
+                  <BarChart data={series} margin={{ top: 22, right: 8, left: 4, bottom: 0 }} barCategoryGap="22%">
+                    <CartesianGrid vertical={false} stroke={CHART.grid} />
+                    <XAxis dataKey="label" tick={{ fontSize: 12, fill: CHART.ink }} tickLine={false} axisLine={{ stroke: CHART.grid }} minTickGap={24} interval="preserveStartEnd" />
+                    <YAxis width={measure === "revenue" ? 64 : 36} allowDecimals={false} tick={{ fontSize: 12, fill: CHART.ink }} tickLine={false} axisLine={false}
+                      tickFormatter={measure === "revenue" ? formatCompactCurrency : undefined} />
+                    <Tooltip content={<TrendTooltip />} cursor={{ fill: "rgba(19, 112, 60, .06)" }} />
+                    {/* Each day gets a faint full-height slot; the sale rises inside it. */}
+                    <Bar dataKey={measure} name={measureLabel} fill={CHART.green} radius={[4, 4, 0, 0]} maxBarSize={18} isAnimationActive={false}
+                      background={{ fill: CHART.track, radius: [4, 4, 0, 0] }}>
+                      <LabelList dataKey={measure} position="top" offset={6}
+                        content={({ x, y, width, value, index }) => (series[index]?.key === bestDay?.key && value ? (
+                          <text x={x + width / 2} y={y - 6} textAnchor="middle" fill="#14201A" fontSize={11} fontWeight={800} fontFamily="Plus Jakarta Sans, sans-serif">{formatTrendValue(value)}</text>
+                        ) : null)} />
+                    </Bar>
                   </BarChart>
+                  )}
                 </ResponsiveContainer>
               )}
             </div>

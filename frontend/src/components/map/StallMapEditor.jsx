@@ -224,7 +224,7 @@ export default function StallMapEditor({ event: initialEvent, stalls: initialSta
                         const mismatch = APP_TO_SPACE[app.product_category] && APP_TO_SPACE[app.product_category] !== space.category;
                         return (
                           <li key={app.id}>
-                            <span><strong>{app.stall_name}</strong><small>{app.seller_name || "Campus seller"} · {app.preferred_stall_size} m²{mismatch ? ` · ${app.product_category} seller` : ""}</small></span>
+                            <span><strong>{app.stall_name}</strong><small>{app.seller_name || "Campus seller"} · {app.preferred_space_number ? `asked for Space ${app.preferred_space_number}` : app.preferred_stall_size ? `${app.preferred_stall_size} m²` : "no spot chosen"}{mismatch ? ` · ${app.product_category} seller` : ""}</small></span>
                             <button type="button" className="btn btn-primary btn-sm" onClick={() => assign(app)} disabled={assigning}>Place here</button>
                           </li>
                         );
@@ -277,7 +277,7 @@ export default function StallMapEditor({ event: initialEvent, stalls: initialSta
                   <div className="sme-waiting-box">
                     <h4><Users aria-hidden="true" /> Waiting for a space</h4>
                     <ul>
-                      {waiting.map((app) => <li key={app.id}><strong>{app.stall_name}</strong> <small>{app.preferred_stall_size} m² · {app.product_category}</small></li>)}
+                      {waiting.map((app) => <li key={app.id}><strong>{app.stall_name}</strong> <small>{app.preferred_space_number ? `asked for Space ${app.preferred_space_number}` : app.preferred_stall_size ? `${app.preferred_stall_size} m²` : "no spot chosen"} · {app.product_category}</small></li>)}
                     </ul>
                     <p>Select an open space on the map, then choose <b>Place here</b>.</p>
                   </div>

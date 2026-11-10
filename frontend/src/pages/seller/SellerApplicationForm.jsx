@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Sidebar from "../../components/common/Sidebar.jsx";
 import eventService from "../../services/eventService.js";
+import StallMap, { placeSpaces, SPACE_CATEGORIES } from "../../components/map/StallMap.jsx";
 import { stallService } from "../../services/api.js";
 import toast from "react-hot-toast";
 import {
   FiAlertCircle,
   FiCalendar,
   FiCheckCircle,
-  FiClock,
   FiInfo,
   FiMapPin,
   FiRefreshCw,
@@ -23,8 +23,6 @@ const CATEGORY_LABELS = {
   "mixed-use": "Mixed-Use",
 };
 
-const SIZE_PRESETS = [4, 9, 16];
-const DURATION_PRESETS = [1, 2, 3];
 // Your stall's category, as an event-stall category.
 const toStallCategory = (value) => {
   const raw = String(value || "").toLowerCase();
@@ -32,14 +30,9 @@ const toStallCategory = (value) => {
   if (raw.includes("mixed")) return "mixed-use";
   return raw ? "merchandise" : "food";
 };
-// Days an event runs, counting both ends; null when it can't be told.
-const eventDays = (event) => {
-  if (!event?.date) return null;
-  const start = new Date(event.date);
-  const end = event.endDate ? new Date(event.endDate) : start;
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-  return Math.max(1, Math.round((end - start) / 86400000) + 1);
-};
+// Seller category -> the event map's space category.
+const toSpaceCategory = (value) => (value === "mixed-use" ? "mixed" : value);
+const formatFee = (price) => (Number(price) > 0 ? `₱${Number(price).toLocaleString("en-PH")} fee` : "No fee");
 
 const EMPTY_FORM = {
   eventId: "",
@@ -47,8 +40,7 @@ const EMPTY_FORM = {
   businessName: "",
   productCategory: "food",
   productList: "",
-  preferredStallSize: "",
-  duration: "",
+  preferredSpaceId: "",
   contactInfo: "",
 };
 
@@ -80,9 +72,9 @@ const formatEventDate = (start, end) => {
   if (!end) return formatter.format(startDate);
 
   const endDate = new Date(end);
-  return Number.isNaN(endDate.getTime())
-    ? formatter.format(startDate)
-    : `${formatter.format(startDate)} – ${formatter.format(endDate)}`;
+  // One-day events show a single date, not "Sep 1, 2026 – Sep 1, 2026".
+  if (Number.isNaN(endDate.getTime()) || formatter.format(endDate) === formatter.format(startDate)) return formatter.format(startDate);
+  return `${formatter.format(startDate)} – ${formatter.format(endDate)}`;
 };
 
 export default function SellerApplicationForm() {
@@ -165,14 +157,13 @@ export default function SellerApplicationForm() {
       formData.businessName,
       formData.productCategory,
       formData.productList,
-      formData.preferredStallSize,
-      formData.duration,
+      formData.preferredSpaceId,
       formData.contactInfo,
     ];
     return required.filter((value) => String(value).trim()).length;
   }, [formData]);
 
-  const progress = Math.round((completedFields / 8) * 100);
+  const progress = Math.round((completedFields / 7) * 100);
 
   const handleChange = ({ target: { name, value } }) => {
     setFormData((previous) => ({ ...previous, [name]: value }));
@@ -181,17 +172,45 @@ export default function SellerApplicationForm() {
 
   const setField = (name, value) => handleChange({ target: { name, value: String(value) } });
 
-  // Picking an event fills in how many days it runs, unless the seller already typed one.
+  // Picking an event clears any spot chosen on another event's map.
   const pickEvent = (eventItem) => {
-    setField("eventId", eventItem.id);
-    const days = eventDays(eventItem);
-    if (days) setFormData((previous) => ({ ...previous, duration: previous.duration || String(days) }));
+    if (String(eventItem.id) === String(formData.eventId)) return;
+    setFormData((previous) => ({ ...previous, eventId: String(eventItem.id), preferredSpaceId: "" }));
+    setErrors((previous) => ({ ...previous, eventId: "", preferredSpaceId: "" }));
   };
+  const pickSpace = (spaceId) => setField("preferredSpaceId", spaceId);
+
+  // The chosen event's stall map: spaces plus landmarks (stage, entrance...).
+  const [spaces, setSpaces] = useState([]);
+  const [landmarks, setLandmarks] = useState([]);
+  const [spacesLoading, setSpacesLoading] = useState(false);
+  const [spacesError, setSpacesError] = useState("");
+  const loadSpaces = useCallback(async () => {
+    if (!formData.eventId) { setSpaces([]); setLandmarks([]); return; }
+    setSpacesLoading(true);
+    setSpacesError("");
+    try {
+      const [eventResponse, stallsResponse] = await Promise.all([eventService.getOne(formData.eventId), eventService.getStalls(formData.eventId)]);
+      setLandmarks(eventResponse.data?.landmarks || []);
+      setSpaces(Array.isArray(stallsResponse.data) ? stallsResponse.data : []);
+    } catch {
+      setSpaces([]);
+      setSpacesError("We couldn't load this event's stall map. Try again.");
+    } finally {
+      setSpacesLoading(false);
+    }
+  }, [formData.eventId]);
+  useEffect(() => { loadSpaces(); }, [loadSpaces]);
+
+  const placedSpaces = useMemo(() => placeSpaces(spaces, landmarks), [spaces, landmarks]);
+  const isOpenSpace = (space) => !space.seller_id && space.status === "available" && !space.requested;
+  const openCount = spaces.filter(isOpenSpace).length;
+  const selectedSpace = spaces.find((space) => space.id === formData.preferredSpaceId);
+  const categoryMismatch = selectedSpace && selectedSpace.category !== "mixed" && toSpaceCategory(formData.productCategory) !== "mixed"
+    && selectedSpace.category !== toSpaceCategory(formData.productCategory);
 
   const validate = () => {
     const nextErrors = {};
-    const size = Number(formData.preferredStallSize);
-    const duration = Number(formData.duration);
 
     if (!formData.eventId) nextErrors.eventId = "Select an event.";
     if (formData.stallName.trim().length < 2) {
@@ -206,11 +225,8 @@ export default function SellerApplicationForm() {
     if (formData.productList.trim().length < 3) {
       nextErrors.productList = "List at least one product.";
     }
-    if (!Number.isFinite(size) || size <= 0) {
-      nextErrors.preferredStallSize = "Enter a stall size greater than zero.";
-    }
-    if (!Number.isInteger(duration) || duration <= 0) {
-      nextErrors.duration = "Enter a whole number of days.";
+    if (spaces.length > 0 && !formData.preferredSpaceId) {
+      nextErrors.preferredSpaceId = "Tap an open space on the map to choose your spot.";
     }
     if (formData.contactInfo.trim().length < 5) {
       nextErrors.contactInfo = "Enter a valid phone number or email.";
@@ -233,8 +249,7 @@ export default function SellerApplicationForm() {
       stallName: formData.stallName.trim(),
       businessName: formData.businessName.trim(),
       productList: formData.productList.trim(),
-      preferredStallSize: Number(formData.preferredStallSize),
-      duration: Number(formData.duration),
+      preferredSpaceId: formData.preferredSpaceId || undefined,
       contactInfo: formData.contactInfo.trim(),
     };
 
@@ -249,6 +264,10 @@ export default function SellerApplicationForm() {
           requestError.response?.data?.message ||
           "Failed to submit your application",
       );
+      if (requestError.response?.status === 409 && formData.preferredSpaceId) {
+        setFormData((previous) => ({ ...previous, preferredSpaceId: "" }));
+        loadSpaces();
+      }
     } finally {
       setSubmitting(false);
     }
@@ -428,73 +447,51 @@ export default function SellerApplicationForm() {
                 <div className="seller-application-section-heading">
                   <span>03</span>
                   <div>
-                    <h3>Space requirements</h3>
-                    <p>
-                      Give the organizers enough information to plan the layout.
-                    </p>
+                    <h3>Choose your spot</h3>
+                    <p>Tap an open space on the event's stall map. If you're approved, that's where your stall goes.</p>
                   </div>
                 </div>
 
-                <div className="seller-application-fields">
-                  <div className="seller-application-field">
-                    <label htmlFor="application-size">
-                      Preferred stall size <em>*</em>
-                    </label>
-                    <div
-                      className={`seller-application-unit ${errors.preferredStallSize ? "invalid" : ""}`}
-                    >
-                      <input
-                        id="application-size"
-                        type="number"
-                        name="preferredStallSize"
-                        min="1"
-                        step="1"
-                        value={formData.preferredStallSize}
-                        onChange={handleChange}
-                        placeholder="9"
-                      />
-                      <span>sqm</span>
-                    </div>
-                    <div className="sa-presets" role="group" aria-label="Common stall sizes">
-                      {SIZE_PRESETS.map((size) => (
-                        <button key={size} type="button" className={formData.preferredStallSize === String(size) ? "is-selected" : ""} onClick={() => setField("preferredStallSize", size)}>
-                          {size} sqm
-                        </button>
+                {!formData.eventId ? (
+                  <p className="sa-spot-note"><FiMapPin aria-hidden="true" /> Pick an event above to see its stall map.</p>
+                ) : spacesLoading ? (
+                  <div className="sa-spot-skel" aria-label="Loading the stall map" />
+                ) : spacesError ? (
+                  <div className="seller-application-alert" role="alert">
+                    <FiAlertCircle />
+                    <span>{spacesError}</span>
+                    <button type="button" onClick={loadSpaces}><FiRefreshCw /> Retry</button>
+                  </div>
+                ) : !spaces.length ? (
+                  <p className="sa-spot-note"><FiInfo aria-hidden="true" /> This event's stall map isn't posted yet. Apply now and the event team will place you after approval.</p>
+                ) : (
+                  <div className={`sa-spot${errors.preferredSpaceId ? " invalid" : ""}`}>
+                    <div className="sa-spot-legend">
+                      {Object.entries(SPACE_CATEGORIES).map(([key, name]) => (
+                        <span key={key}><i className={`smap-swatch smap-cat--${key} smap-status--available`} aria-hidden="true" /> {name}</span>
                       ))}
+                      <span><i className="smap-swatch smap-cat--mixed smap-status--reserved is-taken" aria-hidden="true" /> Taken</span>
+                      <small>{openCount} of {spaces.length} open</small>
                     </div>
-                    {errors.preferredStallSize && (
-                      <small>{errors.preferredStallSize}</small>
+                    <StallMap stalls={placedSpaces} landmarks={landmarks} mode="pick" selectedId={formData.preferredSpaceId}
+                      onSelect={(id) => id && pickSpace(id)} label={`Stall map for ${selectedEvent?.name || "this event"}. Choose an open space.`} />
+                    {selectedSpace ? (
+                      <div className="sa-spot-picked" role="status">
+                        <FiCheckCircle aria-hidden="true" />
+                        <div>
+                          <strong>Space {selectedSpace.stall_number}</strong>
+                          <span>{SPACE_CATEGORIES[selectedSpace.category] || "Mixed"} space{selectedSpace.size ? ` · ${selectedSpace.size}` : ""} · {formatFee(selectedSpace.price)}</span>
+                          {categoryMismatch && <small>This space is set aside for {SPACE_CATEGORIES[selectedSpace.category]?.toLowerCase()} sellers. The team may move you.</small>}
+                        </div>
+                      </div>
+                    ) : openCount === 0 ? (
+                      <p className="sa-spot-hint">Every space is taken or requested. Check back later or pick another event.</p>
+                    ) : (
+                      <p className="sa-spot-hint">Swipe the map to see all of it, then tap a solid space. Your pick gets a gold ring.</p>
                     )}
+                    {errors.preferredSpaceId && <small className="sa-error">{errors.preferredSpaceId}</small>}
                   </div>
-                  <div className="seller-application-field">
-                    <label htmlFor="application-duration">
-                      Duration <em>*</em>
-                    </label>
-                    <div
-                      className={`seller-application-unit ${errors.duration ? "invalid" : ""}`}
-                    >
-                      <input
-                        id="application-duration"
-                        type="number"
-                        name="duration"
-                        min="1"
-                        step="1"
-                        value={formData.duration}
-                        onChange={handleChange}
-                        placeholder="3"
-                      />
-                      <span>days</span>
-                    </div>
-                    <div className="sa-presets" role="group" aria-label="Common durations">
-                      {DURATION_PRESETS.map((days) => (
-                        <button key={days} type="button" className={formData.duration === String(days) ? "is-selected" : ""} onClick={() => setField("duration", days)}>
-                          {days} {days === 1 ? "day" : "days"}
-                        </button>
-                      ))}
-                    </div>
-                    {errors.duration && <small>{errors.duration}</small>}
-                  </div>
-                </div>
+                )}
               </section>
 
               <div className="seller-application-actions">
@@ -535,22 +532,12 @@ export default function SellerApplicationForm() {
                   </div>
                   <div>
                     <dt>
-                      <FiMapPin /> Space
+                      <FiMapPin /> Spot
                     </dt>
                     <dd>
-                      {formData.preferredStallSize
-                        ? `${formData.preferredStallSize} sqm`
-                        : "Not specified"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>
-                      <FiClock /> Duration
-                    </dt>
-                    <dd>
-                      {formData.duration
-                        ? `${formData.duration} day${formData.duration === "1" ? "" : "s"}`
-                        : "Not specified"}
+                      {selectedSpace
+                        ? `Space ${selectedSpace.stall_number}${selectedSpace.size ? ` · ${selectedSpace.size}` : ""}`
+                        : formData.eventId && !spacesLoading && !spaces.length ? "Placed by the event team" : "Not chosen"}
                     </dd>
                   </div>
                 </dl>
