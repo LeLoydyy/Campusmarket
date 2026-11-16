@@ -5,10 +5,28 @@ Hybrid: user-based collaborative filtering + content-based filtering
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 
 from data_loader import get_popular_product_ids, load_active_products, load_behavior_scores
+
+
+# ── Maths helpers (plain numpy, so the service stays small enough for Vercel) ──
+
+def cosine_similarity(a, b=None) -> np.ndarray:
+    """Cosine similarity between the rows of a and the rows of b (or of a with itself).
+    Same result as sklearn.metrics.pairwise.cosine_similarity: all-zero rows score 0."""
+    a = np.asarray(a, dtype=float)
+    b = a if b is None else np.asarray(b, dtype=float)
+    a_norm = np.linalg.norm(a, axis=1, keepdims=True)
+    b_norm = np.linalg.norm(b, axis=1, keepdims=True)
+    a_norm[a_norm == 0] = 1
+    b_norm[b_norm == 0] = 1
+    return (a / a_norm) @ (b / b_norm).T
+
+
+def min_max_scale(values: pd.Series) -> pd.Series:
+    """Scale to 0–1 like sklearn's MinMaxScaler; a column with one value becomes all 0."""
+    low, high = values.min(), values.max()
+    return (values - low) / (high - low) if high > low else values * 0.0
 
 
 def build_user_item_matrix(df: pd.DataFrame) -> pd.DataFrame:
@@ -72,15 +90,11 @@ def content_based_filter(product_id: str, products_df: pd.DataFrame, n: int = 8)
         return []
 
     df = products_df.copy()
-    le = LabelEncoder()
-    df["cat_enc"] = le.fit_transform(df["category"])
-
-    scaler = MinMaxScaler()
-    df["price_norm"] = scaler.fit_transform(df[["price"]])
+    df["price_norm"] = min_max_scale(df["price"].astype(float))
 
     # One-hot encode category for better distance measurement
     cat_dummies = pd.get_dummies(df["category"], prefix="cat")
-    features = pd.concat([cat_dummies, df[["price_norm"]]], axis=1).values
+    features = pd.concat([cat_dummies, df[["price_norm"]]], axis=1).astype(float).values
 
     sim_matrix = cosine_similarity(features)
     product_idx = df[df["id"] == product_id].index[0]

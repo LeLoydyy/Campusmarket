@@ -1,14 +1,18 @@
 # Deploying Campus Market to Vercel
 
-Campus Market runs as **two Vercel projects** from the same GitHub repository, with
+Campus Market runs as **three Vercel projects** from the same GitHub repository, with
 **Supabase** holding the database and photos:
 
 | Part | Where | Folder |
 | --- | --- | --- |
 | Website (React/Vite) | Vercel project 1 | `frontend/` |
 | API (Express) | Vercel project 2, as a serverless function | `backend/` |
+| AI recommendations (Python/Flask) | Vercel project 3, as a serverless function (optional, see step 6) | `ai-service/` |
 | Database and photos | Supabase (Postgres + Storage) | — |
-| AI recommendations | Not deployed yet. The API falls back to "most viewed" and "same category" rules. | `ai-service/` |
+
+The API and AI functions run in Vercel's Singapore region (`"regions": ["sin1"]` in their
+`vercel.json`), next to a Supabase project in ap-southeast-1. If your Supabase project is in
+another region, change `sin1` to the Vercel region closest to it.
 
 Vercel deploys the repository's production branch (`main` by default) every time it changes.
 
@@ -94,6 +98,36 @@ is always required, and the API refuses to run if `JWT_SECRET` is shorter than 3
    upload a product photo (it should load from `…supabase.co/storage/…`), place an order
    and send a message.
 
+## 6. AI recommendation service (optional)
+
+Without it, "Recommended for you" and "Similar products" use simple rules (most viewed,
+same category). With it, they come from the recommender in `ai-service/`: user-based
+collaborative filtering on views, carts, favorites and purchases, and content-based
+similarity on category and price.
+
+1. Make one shared secret: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+2. **Create New → Project → Campusmarket → Import single project** next to **ai-service** (Flask).
+   Project Name `campusmarket-ai`, Root Directory `ai-service`.
+3. Environment Variables:
+
+| Name | Value |
+| --- | --- |
+| `DATABASE_URL` | The same transaction pooler URI as the API |
+| `AI_SERVICE_SECRET` | The secret from step 1 |
+
+4. **Deploy**, then open `https://<ai-project>.vercel.app/health`. It should show `{"status":"ok"}`.
+   Every other address answers `401 Unauthorised` unless the secret is sent, which is expected.
+5. In the **API project**, add these and redeploy:
+
+| Name | Value |
+| --- | --- |
+| `AI_SERVICE_URL` | `https://<ai-project>.vercel.app` (no trailing slash) |
+| `AI_SERVICE_SECRET` | The same secret from step 1 |
+| `AI_TIMEOUT_MS` | `8000` (gives a cold-started Python function time to answer) |
+
+If the AI service is slow or down, the API falls back to the simple rules after `AI_TIMEOUT_MS`,
+so the site keeps working either way.
+
 ## How the API behaves on Vercel
 
 - **No long-running server.** `backend/api/index.js` hands each request to the Express app.
@@ -117,5 +151,5 @@ admins set up the real stalls and listings on the live site.
   marketplace for the school may need Vercel Pro.
 - **Supabase Free** pauses a project after a week without activity, and has a 500 MB database.
   Open the site regularly during the pilot, or upgrade.
-- The **AI recommendation service** (`ai-service/`) isn't deployed yet. Recommendations still
-  work with the built-in rules.
+- The **AI service** uses numpy and pandas only (no scikit-learn), which keeps the Python
+  function well under Vercel's size limit.

@@ -46,7 +46,8 @@ def _query(sql: str, params: tuple = ()) -> list[dict]:
     url = os.environ.get("DATABASE_URL")
     if not url:
         raise RuntimeError("DATABASE_URL is not set")
-    with psycopg.connect(url, row_factory=dict_row, connect_timeout=5) as conn:
+    # prepare_threshold=None: Supabase's transaction pooler (used on Vercel) can't keep prepared statements.
+    with psycopg.connect(url, row_factory=dict_row, connect_timeout=5, prepare_threshold=None) as conn:
         return conn.execute(sql, params).fetchall()
 
 
