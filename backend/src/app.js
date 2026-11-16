@@ -36,9 +36,11 @@ if (process.env.NODE_ENV === "production" && (process.env.JWT_SECRET || "").leng
   process.exit(1);
 }
 app.use(helmet());
+// FRONTEND_URL may list several sites, comma-separated (e.g. the vercel.app address and a custom domain).
+const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:5173").split(",").map((origin) => origin.trim().replace(/\/+$/, "")).filter(Boolean);
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins,
     credentials: true,
   }),
 );
@@ -50,7 +52,8 @@ app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 // "loopback", covers the Vite dev server and a reverse proxy on the same machine.
 // Hosts like Render put one proxy in front of the app: set TRUST_PROXY=1 there,
 // or every user shares one IP and one rate limit.
-const trustProxy = process.env.TRUST_PROXY?.trim() || "loopback";
+// On Vercel, one proxy (Vercel's edge) sits in front of the app.
+const trustProxy = process.env.TRUST_PROXY?.trim() || (process.env.VERCEL ? "1" : "loopback");
 app.set("trust proxy", /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy === "true" ? true : trustProxy === "false" ? false : trustProxy);
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -77,6 +80,25 @@ const authLimiter = rateLimit({
 // Prefix match: also covers /login/verify, /login/resend and /email/* (code guessing and email spam).
 app.use(["/api/auth/login", "/api/auth/register", "/api/auth/password", "/api/auth/email", "/api/auth/forgot"], authLimiter);
 app.use("/api/product-images", express.static(productPhotoDirectory, { dotfiles: "deny", index: false, maxAge: "1d" }));
+
+// ── Premium expiry ───────────────────────────────────────────────────────────
+// Premium with an end date drops back to Free on its own. A normal server checks
+// every 10 minutes on a timer (below); serverless hosts like Vercel have no
+// long-running timer, so there incoming requests start the check instead, at
+// most once every 10 minutes per running instance.
+const EXPIRY_INTERVAL = 10 * 60 * 1000;
+const expirePremium = () => planStore.expireDue().catch((error) => console.error("[plans] Expiry check failed:", error.message));
+const serverless = Boolean(process.env.VERCEL);
+let lastExpiryCheck = 0;
+if (serverless) {
+  app.use((_req, _res, next) => {
+    if (Date.now() - lastExpiryCheck > EXPIRY_INTERVAL) {
+      lastExpiryCheck = Date.now();
+      expirePremium();
+    }
+    next();
+  });
+}
 
 // ── Health check ─────────────────────────────────────────────────────────────
 app.get("/api/health", (_req, res) => {
@@ -122,24 +144,28 @@ app.use((err, _req, res, _next) => {
   res.status(status).json({ error: message, ...(err.code && typeof err.code === "string" && status < 500 ? { code: err.code } : {}) });
 });
 
-// Connect and apply the schema before accepting requests.
-ready()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT} (database: ${databaseLabel()}, photos: ${usingSupabaseStorage() ? "Supabase Storage" : "local disk"})`);
-      checkEmailConfig();
-      // Premium with an end date drops back to Free on its own; check every 10 minutes.
-      const expirePremium = () => planStore.expireDue().catch((error) => console.error("[plans] Expiry check failed:", error.message));
-      expirePremium();
-      setInterval(expirePremium, 10 * 60 * 1000).unref();
-      if (process.env.NODE_ENV === "production" && !usingSupabaseStorage()) {
-        console.warn("[photos] Product photos are stored on local disk and will be lost if this host's disk is reset. Set PHOTO_STORAGE=supabase.");
-      }
+if (serverless) {
+  // Vercel runs the exported app per request (see api/index.js); there is no server to start.
+  // The database connects on the first query, and the schema is applied then.
+  if (!usingSupabaseStorage()) console.warn("[photos] PHOTO_STORAGE is not supabase: uploaded photos would be lost. Set PHOTO_STORAGE=supabase.");
+} else {
+  // Connect and apply the schema before accepting requests.
+  ready()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT} (database: ${databaseLabel()}, photos: ${usingSupabaseStorage() ? "Supabase Storage" : "local disk"})`);
+        checkEmailConfig();
+        expirePremium();
+        setInterval(expirePremium, EXPIRY_INTERVAL).unref();
+        if (process.env.NODE_ENV === "production" && !usingSupabaseStorage()) {
+          console.warn("[photos] Product photos are stored on local disk and will be lost if this host's disk is reset. Set PHOTO_STORAGE=supabase.");
+        }
+      });
+    })
+    .catch((error) => {
+      console.error("[db] Unable to start:", error.message);
+      process.exit(1);
     });
-  })
-  .catch((error) => {
-    console.error("[db] Unable to start:", error.message);
-    process.exit(1);
-  });
+}
 
 export default app;

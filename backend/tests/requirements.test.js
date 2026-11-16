@@ -85,7 +85,7 @@ test("CSUCC registration, store plans, ownership, public visibility, messaging a
   assert.equal((await uploadPhoto(bt)).status, 403);
   assert.equal((await uploadPhoto(st, Buffer.from("not a photo"))).status, 400);
   assert.equal((await uploadPhoto(st, Buffer.from("<svg></svg>"), "image/svg+xml")).status, 400);
-  assert.equal((await uploadPhoto(st, Buffer.alloc(5 * 1024 * 1024 + 1))).status, 400);
+  assert.equal((await uploadPhoto(st, Buffer.alloc(4 * 1024 * 1024 + 1))).status, 400);
   const uploadedPhoto = await uploadPhoto(st);
   assert.equal(uploadedPhoto.status, 201);
   assert.match(uploadedPhoto.data.image_url, /^\/api\/product-images\/[a-f0-9-]+\.png$/);

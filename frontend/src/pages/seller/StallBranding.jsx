@@ -9,7 +9,7 @@ import "../buyer/Stalls.css";
 import "./Mystall.css";
 import "./StallBranding.css";
 
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_BYTES = 4 * 1024 * 1024;
 const ACCEPTED = ["image/png", "image/jpeg", "image/webp"];
 
 const SLOTS = {
@@ -92,7 +92,7 @@ function BrandingSlot({ kind, stall, pending, busy, onPick, onSave, onCancel, on
           </>
         )}
       </div>
-      <small className="stall-branding-note">JPG, PNG or WebP, up to 5 MB. You can also drag an image onto the box.</small>
+      <small className="stall-branding-note">JPG, PNG or WebP, up to 4 MB. You can also drag an image onto the box.</small>
       {kind === "cover" && <small className="stall-branding-note">Use your own photos. No cartoon characters or brand logos.</small>}
     </section>
   );
@@ -133,7 +133,7 @@ export default function StallBranding() {
 
   const handlePick = (kind, file) => {
     if (!ACCEPTED.includes(file.type)) return toast.error("Choose a JPG, PNG or WebP image.");
-    if (file.size > MAX_BYTES) return toast.error("Choose an image smaller than 5 MB.");
+    if (file.size > MAX_BYTES) return toast.error("Choose an image smaller than 4 MB.");
     clearPending(kind);
     setPending((previous) => ({ ...previous, [kind]: { file, url: URL.createObjectURL(file) } }));
   };

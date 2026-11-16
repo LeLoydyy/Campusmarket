@@ -307,8 +307,8 @@ export default function ManageProducts() {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) {
-      setErrors((current) => ({ ...current, image_url: "Choose a JPG, PNG, or WebP photo up to 5 MB." }));
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 4 * 1024 * 1024) {
+      setErrors((current) => ({ ...current, image_url: "Choose a JPG, PNG, or WebP photo up to 4 MB." }));
       return;
     }
     setPhoto(file);
@@ -641,8 +641,8 @@ export default function ManageProducts() {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) {
-      toast.error("Choose a JPG, PNG, or WebP photo up to 5 MB.");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 4 * 1024 * 1024) {
+      toast.error("Choose a JPG, PNG, or WebP photo up to 4 MB.");
       return;
     }
     try {
@@ -990,7 +990,7 @@ export default function ManageProducts() {
               )}
             </div>
             <p id="product-photo-help" className="manage-product-photo-help">
-              JPG, PNG or WebP up to 5 MB, plus up to {MAX_EXTRA_PHOTOS} more. Use your own photos. No cartoon characters or brand logos.
+              JPG, PNG or WebP up to 4 MB, plus up to {MAX_EXTRA_PHOTOS} more. Use your own photos. No cartoon characters or brand logos.
             </p>
             {errors.image_url && <small id="product-photo-error" className="mp-error" role="alert">{errors.image_url}</small>}
             {(photoPreview || form.image_url) && (

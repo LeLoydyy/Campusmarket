@@ -85,7 +85,7 @@ test("sellers upload, replace and remove their stall logo and cover photo", asyn
   assert.equal((await upload("logo", buyer.data.accessToken)).status, 403);
   assert.equal((await upload("avatar", st)).status, 404);
   assert.equal((await upload("logo", st, Buffer.from("<svg></svg>"), "image/svg+xml")).status, 400);
-  assert.equal((await upload("cover", st, Buffer.alloc(5 * 1024 * 1024 + 1))).status, 400);
+  assert.equal((await upload("cover", st, Buffer.alloc(4 * 1024 * 1024 + 1))).status, 400);
   assert.deepEqual(files(), [], "Rejected uploads store nothing");
 
   // A pending stall can already be branded before approval.

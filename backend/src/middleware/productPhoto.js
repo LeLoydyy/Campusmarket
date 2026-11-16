@@ -3,7 +3,7 @@ import { stallStore } from "../data/marketStore.js";
 import { savePhoto } from "../services/photoStorage.js";
 
 export { productPhotoDirectory } from "../services/photoStorage.js";
-const parsePhoto = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 0 } }).single("image");
+const parsePhoto = multer({ storage: multer.memoryStorage(), limits: { fileSize: 4 * 1024 * 1024, files: 1, fields: 0 } }).single("image");
 
 // Identify the format from the file's own bytes, not the client-supplied type.
 const detectImage = (buffer, mimetype) => {
@@ -14,13 +14,13 @@ const detectImage = (buffer, mimetype) => {
 };
 
 /**
- * Read one image from the multipart field "image" (max 5 MB; JPG, PNG or WebP).
+ * Read one image from the multipart field "image" (max 4 MB, which stays under Vercel's 4.5 MB request limit; JPG, PNG or WebP).
  * Resolves { buffer, type }, or null after already sending a 400 response.
  */
 export const readImageUpload = (req, res) => new Promise((resolve) => {
   parsePhoto(req, res, (error) => {
     const reject = (message) => { res.status(400).json({ error: message }); resolve(null); };
-    if (error) return reject(error.code === "LIMIT_FILE_SIZE" ? "Choose a photo smaller than 5 MB." : "Upload one photo at a time.");
+    if (error) return reject(error.code === "LIMIT_FILE_SIZE" ? "Choose a photo smaller than 4 MB." : "Upload one photo at a time.");
     if (!req.file) return reject("Choose a photo.");
     const type = detectImage(req.file.buffer, req.file.mimetype);
     if (!type) return reject("Choose a JPG, PNG, or WebP photo.");
