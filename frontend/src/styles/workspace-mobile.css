@@ -86,17 +86,23 @@
   .dashboard-layout :is(.seller-reviews-metrics, .seller-reservations-summary) strong { font-size: 1.15rem; }
   .dashboard-layout .seller-reviews-metrics article p, .dashboard-layout .seller-reviews-metrics article > div > span { font-size: .6875rem; }
 
-  .dashboard-layout .analytics-metric { position: relative; gap: .15rem; padding: .65rem .75rem; border-radius: 14px; }
-  .dashboard-layout .analytics-metric-head { padding-right: 1.9rem; }
-  .dashboard-layout .analytics-metric-head > span { position: absolute; top: .55rem; right: .55rem; width: 26px; height: 26px; border-radius: 8px; }
-  .dashboard-layout .analytics-metric-head > span svg { width: 14px; height: 14px; }
-  .dashboard-layout .analytics-metric small { font-size: .75rem; }
-  .dashboard-layout .analytics-metric strong { font-size: 1.15rem; }
-  .dashboard-layout .analytics-metric.tone-coral strong { font-size: .95rem; }
-  .dashboard-layout .analytics-metric p { font-size: .6875rem; line-height: 1.35; }
-  .dashboard-layout .analytics-overview { padding: .85rem 1rem; border-radius: 14px; }
-  .dashboard-layout .analytics-overview h2 { font-size: 1.05rem; }
-  .dashboard-layout .analytics-overview p { font-size: .75rem; }
+  .dashboard-layout .analytics-metric { position: relative; gap: .1rem; padding: .6rem .65rem; border-radius: 12px; }
+  .dashboard-layout .analytics-metric-head { padding-right: 1.7rem; }
+  .dashboard-layout .analytics-metric-head > span { position: absolute; top: .5rem; right: .5rem; width: 22px; height: 22px; border-radius: 7px; }
+  .dashboard-layout .analytics-metric-head > span svg { width: 12px; height: 12px; }
+  .dashboard-layout .analytics-metric small { font-size: .6875rem; }
+  .dashboard-layout .analytics-metric strong { font-size: 1.05rem; }
+  .dashboard-layout .analytics-metric.tone-coral strong { font-size: .875rem; }
+  .dashboard-layout .analytics-metric p { font-size: .625rem; line-height: 1.35; }
+  /* The change line flows as one sentence, so the arrow never sits alone on a row. */
+  .dashboard-layout .analytics-metric .analytics-change { display: block; font-size: .6875rem; }
+  .dashboard-layout .analytics-change svg { display: inline; width: 12px; height: 12px; margin-right: .15rem; vertical-align: -2px; }
+  .dashboard-layout .analytics-change span { font-size: .625rem; }
+  .dashboard-layout .analytics-overview { padding: .7rem .85rem; border-radius: 12px; }
+  .dashboard-layout .analytics-overview .analytics-eyebrow { font-size: .625rem; }
+  .dashboard-layout .analytics-overview h2 { margin-top: .1rem; font-size: .95rem; }
+  .dashboard-layout .analytics-overview p { display: block; margin-top: .2rem; font-size: .6875rem; line-height: 1.4; }
+  .dashboard-layout .analytics-overview p svg { width: 12px; height: 12px; margin-right: .25rem; vertical-align: -2px; }
 
   .dashboard-layout .mp-stats dd { font-size: 1rem; }
 
@@ -176,10 +182,11 @@
   .dashboard-layout .sd-empty > svg { width: 16px; height: 16px; }
 
   /* Empty states inside dashboard panels: small picture, short text */
-  .dashboard-layout :is(.sd-card, .ad-card) .cm-empty { gap: .3rem; padding: .5rem .25rem .25rem; }
-  .dashboard-layout :is(.sd-card, .ad-card) .cm-empty .cm-illustration { width: 64px; height: 51px; }
-  .dashboard-layout :is(.sd-card, .ad-card) .cm-empty h2 { font-size: .875rem; }
-  .dashboard-layout :is(.sd-card, .ad-card) .cm-empty p { font-size: .75rem; line-height: 1.4; }
+  .dashboard-layout :is(.sd-card, .ad-card, .pos-panel, .analytics-panel, .seller-reservations-panel) .cm-empty { gap: .3rem; padding: .5rem .25rem .25rem; }
+  .dashboard-layout :is(.sd-card, .ad-card, .pos-panel, .analytics-panel, .seller-reservations-panel) .cm-empty .cm-illustration { width: 64px; height: 51px; }
+  .dashboard-layout :is(.sd-card, .ad-card, .pos-panel, .analytics-panel, .seller-reservations-panel) .cm-empty h2 { font-size: .875rem; }
+  .dashboard-layout :is(.sd-card, .ad-card, .pos-panel, .analytics-panel, .seller-reservations-panel) .cm-empty p { font-size: .75rem; line-height: 1.4; }
+  .dashboard-layout :is(.pos-panel, .analytics-panel, .seller-reservations-panel) .cm-empty .btn { min-height: 34px; padding: .35rem .9rem; font-size: .75rem; }
 
   /* Admin charts: shorter; the donut sits beside its legend */
   .dashboard-layout .ad-card .recharts-responsive-container { height: 170px !important; }
@@ -189,4 +196,139 @@
   .dashboard-layout .ad-legend li { grid-template-columns: 10px 1fr auto auto; gap: .4rem; font-size: .75rem; }
   .dashboard-layout .ad-legend i { width: 10px; height: 10px; border-radius: 3px; }
   .dashboard-layout .ad-legend b { font-size: .875rem; }
+}
+
+/* ── Seller pages on phones: Analytics, Events, Branding, Point of sale ─────
+   Narrow phones (~360px) showed big banners, tall cards and wide gaps here.
+   These rules tighten spacing and type and rearrange a few blocks so more of
+   each page fits on screen without anything getting hard to tap. */
+@media (max-width: 600px) {
+  /* ── Analytics ── */
+  .dashboard-layout .seller-analytics-content { gap: .75rem; }
+  .dashboard-layout .analytics-metrics-grid { margin-bottom: 0; }
+  .dashboard-layout .topbar .analytics-segmented { padding: .15rem; }
+  .dashboard-layout .topbar .analytics-segmented button { min-height: 28px; height: 28px; padding: 0 .55rem; border-radius: 999px; font-size: .6875rem; }
+  .dashboard-layout .topbar .analytics-refresh-button { width: 32px; min-width: 32px; height: 32px; min-height: 32px; padding: 0; border-radius: 10px; }
+  .dashboard-layout .analytics-panel { border-radius: 12px; }
+  .dashboard-layout .analytics-panel-header { gap: .5rem; padding: .7rem .8rem .3rem; }
+  .dashboard-layout .analytics-panel-body { padding: .15rem .8rem .8rem; }
+  .dashboard-layout .analytics-eyebrow { font-size: .625rem; letter-spacing: .08em; }
+  .dashboard-layout .analytics-panel-header h2 { font-size: .95rem; }
+  .dashboard-layout .analytics-panel-sub { margin-top: .2rem; font-size: .6875rem; line-height: 1.4; }
+  .dashboard-layout .analytics-panel-header > .analytics-segmented.is-small { top: .6rem; right: .7rem; padding: .15rem; }
+  .dashboard-layout .analytics-segmented.is-small button { min-height: 26px; padding: .15rem .6rem; font-size: .6875rem; }
+  .dashboard-layout .analytics-panel-header:has(> .analytics-segmented.is-small) > div:first-child > :is(span, h2) { padding-right: 8rem; }
+  .dashboard-layout .analytics-wide-chart { height: 200px; padding: .25rem .5rem .6rem 0; }
+  .dashboard-layout .analytics-table-toggle { margin: 0 .8rem .8rem; padding-top: .55rem; }
+  .dashboard-layout .analytics-table-toggle summary { font-size: .75rem; }
+  .dashboard-layout .analytics-lower-grid { gap: .75rem; }
+  .dashboard-layout .analytics-ranked li { grid-template-columns: 24px minmax(0, 1fr); gap: .55rem; padding: .45rem .25rem; }
+  .dashboard-layout .analytics-rank { width: 24px; height: 24px; font-size: .6875rem; }
+  .dashboard-layout .analytics-ranked-line :is(strong, span) { font-size: .8125rem; }
+  .dashboard-layout .analytics-ranked-track { height: 6px; }
+  .dashboard-layout .analytics-single-category { padding: .65rem .75rem; font-size: .75rem; }
+
+  /* ── Events & Reservations: four totals in one row, number on top ── */
+  .dashboard-layout .seller-reservations-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .4rem; }
+  .dashboard-layout .seller-reservations-summary article { padding: .5rem .3rem; border-radius: 12px; text-align: center; }
+  .dashboard-layout .seller-reservations-summary article > span { display: none; }
+  .dashboard-layout .seller-reservations-summary article > div { display: flex; flex-direction: column-reverse; }
+  .dashboard-layout .seller-reservations-summary small { padding-right: 0; font-size: .625rem; line-height: 1.2; }
+  .dashboard-layout .seller-reservations-summary strong { margin: 0 0 .1rem; font-size: 1.1rem; line-height: 1.15; }
+  /* The icons are hidden, so the numbers carry their colour */
+  .dashboard-layout .seller-reservations-summary article:nth-child(2) strong { color: var(--gold-700); }
+  .dashboard-layout .seller-reservations-summary article:nth-child(3) strong { color: var(--green-700); }
+  .dashboard-layout .seller-reservations-summary article:nth-child(4) strong { color: var(--coral-700); }
+  .dashboard-layout :is(.seller-reservations-panel, .seller-events-panel) { border-radius: 12px; }
+  .dashboard-layout :is(.seller-reservations-panel-heading, .seller-events-heading) { padding: .65rem .8rem .5rem; }
+  .dashboard-layout :is(.seller-reservations-panel-heading, .seller-events-heading) small { font-size: .625rem; }
+  .dashboard-layout :is(.seller-reservations-panel-heading, .seller-events-heading) h2 { font-size: .95rem; }
+  .dashboard-layout .seller-reservations-tabs { padding: .4rem .5rem; }
+  .dashboard-layout .seller-reservations-tabs button { padding: .3rem .55rem; font-size: .6875rem; }
+  .dashboard-layout .seller-reservations-tabs button span { min-width: 16px; font-size: .625rem; }
+  .dashboard-layout .seller-reservations-filter-row { padding: .45rem .5rem; }
+  /* Application card: small date tile on the left instead of a full-width bar */
+  .dashboard-layout .seller-reservation-card { grid-template-columns: 44px minmax(0, 1fr); gap: .65rem; padding: .75rem .8rem; }
+  .dashboard-layout .seller-reservation-date { width: 44px; height: 48px; flex-direction: column; gap: 0; border-radius: 10px; }
+  .dashboard-layout .seller-reservation-date strong { font-size: .95rem; line-height: 1.1; }
+  .dashboard-layout .seller-reservation-date span { font-size: .5625rem; }
+  .dashboard-layout .seller-reservation-title-row { flex-direction: row; align-items: flex-start; gap: .5rem; }
+  .dashboard-layout .seller-reservation-title-row h3 { font-size: .8125rem; }
+  .dashboard-layout .seller-reservation-title-row small { font-size: .6875rem; }
+  .dashboard-layout .seller-reservation-status { padding: .15rem .4rem; font-size: .625rem; }
+  .dashboard-layout .seller-reservation-business { font-size: .6875rem; line-height: 1.45; }
+  .dashboard-layout .seller-reservation-meta { gap: .3rem .6rem; margin-top: .4rem; }
+  .dashboard-layout .seller-reservation-meta span { font-size: .6875rem; }
+  .dashboard-layout .seller-reservation-meta svg { width: 12px; height: 12px; }
+  .dashboard-layout .seller-reservation-card footer { flex-direction: row; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; margin-top: .45rem; padding-top: .45rem; }
+  .dashboard-layout .seller-reservation-card footer > span,
+  .dashboard-layout .seller-reservation-card footer a { font-size: .6875rem; }
+
+  /* ── Stall Branding ── */
+  .dashboard-layout :is(.stall-branding-layout, .stall-branding-slots) { gap: .75rem; }
+  .dashboard-layout .stall-branding-slot { padding: .8rem .85rem .85rem; border-radius: 12px; }
+  .dashboard-layout .stall-branding-slot header { gap: .5rem; margin-bottom: .6rem; }
+  .dashboard-layout .stall-branding-slot h2 { font-size: .95rem; }
+  .dashboard-layout .stall-branding-slot header p { margin-top: .15rem; font-size: .6875rem; line-height: 1.45; }
+  .dashboard-layout .stall-branding-unsaved { padding: .15rem .45rem; font-size: .625rem; }
+  .dashboard-layout .stall-branding-drop { border-radius: 12px; }
+  .dashboard-layout .stall-branding-actions { gap: .4rem; margin-top: .6rem; }
+  .dashboard-layout .stall-branding-actions .btn { min-height: 32px; padding: .3rem .75rem; font-size: .75rem; }
+  .dashboard-layout .stall-branding-actions .btn svg { width: 14px; height: 14px; }
+  .dashboard-layout .stall-branding-note { margin-top: .4rem; font-size: .625rem; line-height: 1.4; }
+  /* Logo: the picture on the left, its buttons and note beside it */
+  .dashboard-layout .stall-branding-slot:has(.stall-branding-drop-logo) { display: grid; grid-template-columns: 88px minmax(0, 1fr); column-gap: .8rem; align-items: start; }
+  .dashboard-layout .stall-branding-slot:has(.stall-branding-drop-logo) > header { grid-column: 1 / -1; }
+  .dashboard-layout .stall-branding-drop-logo { grid-column: 1; grid-row: 2 / span 2; width: 88px; height: 88px; border-radius: 20px; }
+  .dashboard-layout .stall-branding-slot:has(.stall-branding-drop-logo) > .stall-branding-actions { grid-column: 2; grid-row: 2; margin-top: 0; }
+  .dashboard-layout .stall-branding-slot:has(.stall-branding-drop-logo) > .stall-branding-note { grid-column: 2; grid-row: 3; }
+  .dashboard-layout .stall-branding-preview { padding: .85rem; border-radius: 12px; }
+  .dashboard-layout .stall-branding-preview > small { margin-bottom: .55rem; font-size: .625rem; }
+  .dashboard-layout .stall-branding-preview > p { margin-top: .6rem; font-size: .6875rem; }
+
+  /* ── Point of sale ── */
+  .dashboard-layout .pos-page { gap: .75rem; }
+  /* Store banner: name and plan on top, today's numbers in a slim row below */
+  .dashboard-layout .pos-summary { display: grid; gap: .55rem; padding: .7rem .85rem; border-radius: 12px; }
+  .dashboard-layout .pos-summary-store { gap: .6rem; }
+  .dashboard-layout .pos-summary-icon { width: 34px; height: 34px; border-radius: 10px; }
+  .dashboard-layout .pos-summary-icon svg { width: 17px; height: 17px; }
+  .dashboard-layout .pos-summary-store > div { gap: .2rem; }
+  .dashboard-layout .pos-summary-store strong { font-size: .95rem; line-height: 1.2; }
+  .dashboard-layout .pos-chip { padding: .05rem .45rem; font-size: .625rem; }
+  .dashboard-layout .pos-summary-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; padding-top: .5rem; border-top: 1px solid rgba(255, 255, 255, .14); }
+  .dashboard-layout .pos-summary-stats dt { font-size: .625rem; }
+  .dashboard-layout .pos-summary-stats dd { font-size: 1rem; }
+  .dashboard-layout .pos-panel { padding: .8rem .85rem; border-radius: 12px; }
+  .dashboard-layout .pos-panel-head { margin-bottom: .6rem; }
+  .dashboard-layout .pos-panel-head h2 { font-size: .95rem; }
+  .dashboard-layout .pos-panel-head > span { font-size: .6875rem; }
+  .dashboard-layout .pos-input-icon svg { left: .7rem; width: 16px; height: 16px; }
+  .dashboard-layout .pos-input-icon .form-input { padding: .45rem .75rem .45rem 2.2rem; }
+  .dashboard-layout .pos-products { margin-top: .65rem; }
+  .dashboard-layout .pos-empty { padding: 1.1rem .75rem; font-size: .75rem; }
+  .dashboard-layout .pos-step { padding: .7rem 0; }
+  .dashboard-layout .pos-step h3 { margin-bottom: .5rem; font-size: .8125rem; }
+  .dashboard-layout .pos-step-num { width: 20px; height: 20px; font-size: .6875rem; }
+  .dashboard-layout .pos-buyer-search { gap: .4rem; }
+  .dashboard-layout .pos-buyer-search .btn { min-height: 36px; padding: .35rem .9rem; font-size: .8125rem; }
+  .dashboard-layout .pos-buyer-card { gap: .6rem; padding: .55rem .7rem; border-radius: 10px; }
+  .dashboard-layout .pos-cart-empty { gap: .55rem; padding: .6rem .75rem; border-radius: 10px; font-size: .75rem; }
+  .dashboard-layout .pos-cart-empty svg { width: 18px; height: 18px; }
+  .dashboard-layout .pos-line { gap: .5rem; padding: .5rem .6rem; border-radius: 10px; }
+  .dashboard-layout .pos-qty button { width: 28px; height: 28px; }
+  .dashboard-layout .pos-total { margin-bottom: .7rem; padding: .55rem .8rem; border-radius: 10px; }
+  .dashboard-layout .pos-total span { font-size: .8125rem; }
+  .dashboard-layout .pos-total strong { font-size: 1.25rem; }
+  .dashboard-layout .pos-field-label { margin-bottom: .3rem; font-size: .8125rem; }
+  .dashboard-layout .pos-pay .pos-input-icon .form-input { font-size: 16px; } /* 16px stops iOS zooming in */
+  .dashboard-layout .pos-quick-cash { gap: .3rem; margin-top: .45rem; }
+  .dashboard-layout .pos-quick-cash button { padding: .25rem .65rem; font-size: .6875rem; }
+  .dashboard-layout .pos-change { margin: .6rem 0 .7rem; font-size: .875rem; }
+  .dashboard-layout .pos-record { min-height: 42px; padding: .55rem 1rem; font-size: .875rem; }
+  .dashboard-layout .pos-hint { margin-top: .4rem; font-size: .6875rem; }
+  .dashboard-layout .pos-history-row { gap: .65rem; padding: .6rem .25rem; }
+  .dashboard-layout .pos-history-icon { width: 32px; height: 32px; border-radius: 9px; }
+  .dashboard-layout .pos-history-icon svg { width: 16px; height: 16px; }
+  .dashboard-layout .pos-history-tools { gap: .4rem; font-size: .6875rem; }
 }

@@ -163,3 +163,16 @@
   .site-footer-place svg { width: 16px; height: 16px; margin-top: .05rem; }
   .site-footer-base { padding: .7rem 0 .9rem; font-size: .6875rem; }
 }
+
+/* Phones, compact pass: slimmer header and bottom bar leave more room for products. */
+@media (max-width: 600px) {
+  .nb-inner { min-height: 44px; row-gap: .3rem; padding: .3rem 0 .4rem; }
+  .nb-brand img { height: 30px; }
+  .nb-inner .btn { min-height: 30px; padding: .3rem .8rem; }
+  .nb-search { height: 36px; }
+  .nb-search-go { height: 28px; padding: 0 .7rem; }
+  .tabbar { padding: .2rem .25rem calc(.2rem + env(safe-area-inset-bottom)); }
+  .tabbar-item { min-height: 42px; gap: .1rem; font-size: .625rem; }
+  .tabbar-icon svg { width: 18px; height: 18px; }
+  body.has-tabbar { padding-bottom: calc(54px + env(safe-area-inset-bottom)); }
+}

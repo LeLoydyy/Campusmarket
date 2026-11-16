@@ -44,3 +44,20 @@
   .cart-item { grid-template-columns: 64px minmax(0, 1fr) auto; column-gap: .7rem; }
   .cart-item-thumb { width: 64px; height: 64px; }
 }
+
+/* Phones, compact pass: smaller item rows so the whole cart fits on screen. */
+@media (max-width: 600px) {
+  .cart-drawer { gap: .6rem; }
+  .cart-items { gap: .45rem; }
+  .cart-item { grid-template-columns: 52px minmax(0, 1fr) auto; column-gap: .6rem; row-gap: .3rem; padding: .5rem; border-radius: 12px; }
+  .cart-item-thumb { width: 52px; height: 52px; border-radius: 10px; }
+  .cart-item-name { font-size: .8125rem; }
+  .cart-item-price { font-size: .6875rem; }
+  .cart-item-remove { width: 30px; height: 30px; }
+  .cart-item-qty button { width: 26px; height: 26px; }
+  .cart-item-qty span { min-width: 26px; font-size: .75rem; }
+  .cart-item-line-total { font-size: .9375rem; }
+  .cart-summary { padding: .75rem; border-radius: 14px; }
+  .cart-summary-row strong { font-size: 1.15rem; }
+  .cart-summary-note { margin: .5rem 0 .65rem; padding: .45rem .55rem; font-size: .6875rem; }
+}

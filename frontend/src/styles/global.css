@@ -4996,7 +4996,7 @@ ul { list-style: none; }
 .message-skeleton span { width: 44%; height: 44px; border-radius: 14px; }
 .message-skeleton span:nth-child(even) { align-self: flex-end; width: 54%; }
 
-.chat-composer { position: relative; display: grid; grid-template-columns: minmax(0,1fr) 42px; gap: 0.55rem; padding: 0.75rem 1rem 1.35rem; background: #fff; border-top: 1px solid var(--cm-border); }
+.chat-composer { position: relative; display: grid; grid-template-columns: minmax(0,1fr) 42px; gap: 0.55rem; padding: 0.75rem 1rem 0.65rem; background: #fff; border-top: 1px solid var(--cm-border); }
 .chat-compose-field { position: relative; min-width: 0; }
 .chat-compose-field textarea { width: 100%; min-height: 42px; max-height: 110px; display: block; padding: 0.65rem 3.5rem 0.55rem 0.75rem; color: var(--cm-text); background: var(--gray-50); border: 1px solid var(--cm-border); border-radius: 13px; outline: 0; resize: none; font-family: inherit; font-size: var(--text-xs); line-height: 1.45; }
 .chat-compose-field textarea:focus { background: #fff; border-color: var(--cm-primary); box-shadow: 0 0 0 3px rgba(11, 61, 36, 0.09); }
@@ -5006,7 +5006,7 @@ ul { list-style: none; }
 .chat-send-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 .chat-send-btn svg { width: 17px; height: 17px; }
 .chat-send-spinner { width: 14px; height: 14px; border-width: 2px; }
-.chat-composer > small { position: absolute; bottom: 0.25rem; left: 1rem; color: var(--ink-600); font-size: var(--text-xs); }
+.chat-composer > small { grid-column: 1 / -1; margin-top: 0.15rem; line-height: 1.3; color: var(--ink-600); font-size: var(--text-xs); }
 
 @media (max-width: 720px) {
   .messages-page { width: min(100% - 2rem,1180px); padding-top: 1.1rem; }
@@ -5658,3 +5658,25 @@ a.market-stall-card:hover .market-stall-title-row > svg { transform: translateX(
 .pc-price-was { margin-left: .35rem; color: var(--ink-600); font-size: .8em; font-weight: 600; }
 .pc-sale-tag { padding: .1rem .45rem; border-radius: 999px; background: var(--coral-700); color: #fff; font-size: .6875rem; font-weight: 800; }
 .cart-item-option { display: inline-block; margin: .15rem 0; padding: .05rem .5rem; border-radius: 999px; background: var(--cream-100); color: var(--ink-900); font-size: .75rem; font-weight: 700; }
+
+/* ── Buyer pages on phones, compact pass: slimmer page headers and cards.
+   Shell-prefixed so these win over the page stylesheets that load later. ── */
+@media (max-width: 600px) {
+  .favorites-shell .favorites-page, .notifications-shell .notifications-page, .buyer-events-shell .buyer-events-page { width: calc(100% - 1rem); padding: .6rem 0 2rem; }
+  .favorites-shell .favorites-header, .notifications-shell .notifications-header, .buyer-events-shell .events-page-header { gap: .5rem; margin-bottom: .6rem; }
+  .favorites-shell .favorites-heading-icon, .notifications-shell .notifications-title-icon { width: 34px; height: 34px; border-radius: 10px; }
+  .favorites-shell .favorites-heading-icon svg, .notifications-shell .notifications-title-icon svg { width: 16px; height: 16px; }
+  .notifications-shell .notifications-title-icon i { top: 5px; right: 5px; }
+  .favorites-shell .favorites-header h1, .notifications-shell .notifications-title-wrap h1, .buyer-events-shell .events-page-header h1 { font-size: 1.3rem; }
+  .buyer-events-shell .featured-event { min-height: 170px; border-radius: 14px; }
+
+  .checkout-shell .checkout-page { width: calc(100% - 1rem); padding: .5rem 0 2rem; }
+  .checkout-shell .checkout-breadcrumb { margin-bottom: .4rem; }
+  .checkout-shell .checkout-page-header { gap: .5rem; margin-bottom: .75rem; }
+  .checkout-shell .checkout-page-header h1 { font-size: 1.3rem; }
+  .checkout-shell .checkout-layout, .checkout-shell .checkout-main { gap: .6rem; }
+  .checkout-shell .checkout-card { padding: .7rem; border-radius: 12px; }
+  .checkout-shell .fulfillment-option { padding: .55rem .65rem; }
+  .checkout-shell .checkout-item { grid-template-columns: 44px minmax(0, 1fr); gap: .5rem; padding: .45rem 0; }
+  .checkout-shell .checkout-item-thumb { width: 44px; }
+}

@@ -131,3 +131,14 @@
 }
 .browse-sheet .bf-head { padding-right: 3.25rem; }
 .browse-sheet .bf-toggle, .browse-sheet .bf-cat, .browse-sheet .bf-peso, .browse-sheet .bf-select { background: var(--surface); }
+
+/* Phones, compact pass: a slimmer page header. */
+@media (max-width: 600px) {
+  .browse-hero { margin-top: .35rem; padding: .7rem .8rem; border-radius: 12px; }
+  .browse-hero h1 { font-size: 1.2rem; }
+  .browse-hero-lede { font-size: .75rem; }
+  .browse-layout { margin-top: .5rem; }
+  .browse-grid { gap: .45rem; }
+  .browse-sort select, .browse-toolbar .browse-filter-btn { height: 32px; min-height: 32px; font-size: .75rem; }
+  .browse-chip { min-height: 26px; font-size: .6875rem; }
+}

@@ -75,6 +75,22 @@ export default function BuyerHome() {
     return () => { active = false; };
   }, []);
 
+  // Recommended for you: the AI service's picks from this buyer's views, carts, favorites and
+  // purchases (popular products until there's enough history). Signed-in buyers only.
+  const isBuyer = user?.role === "buyer";
+  const [forYou, setForYou] = useState([]);
+  const [forYouLoading, setForYouLoading] = useState(false);
+  useEffect(() => {
+    if (!isBuyer || !user?.id) { setForYou([]); return undefined; }
+    let active = true;
+    setForYouLoading(true);
+    productService.getRecommendations(user.id)
+      .then(({ data }) => { if (active) setForYou(list(data)); })
+      .catch(() => { if (active) setForYou([]); })
+      .finally(() => { if (active) setForYouLoading(false); });
+    return () => { active = false; };
+  }, [isBuyer, user?.id]);
+
   // Open stalls first, then by number of listings.
   const openStalls = useMemo(() => [...stalls].sort((a, b) =>
     Number(stallOpenStatus(b).open) - Number(stallOpenStatus(a).open) || Number(b.product_count || 0) - Number(a.product_count || 0)), [stalls]);
@@ -198,6 +214,22 @@ export default function BuyerHome() {
         )}
 
         <div className="home-wrap">
+          {/* ── Recommended for you (AI) — signed-in buyers, hidden when there's nothing to show ── */}
+          {isBuyer && (forYouLoading || forYou.length > 0) && (
+            <section className="home-section" aria-labelledby="for-you-title">
+              <div className="cm-section-head">
+                <div>
+                  <p className="cm-eyebrow">Based on what you view, save and buy</p>
+                  <h2 id="for-you-title">Recommended for you</h2>
+                </div>
+                <Link to="/browse" className="cm-link">Browse all products <ArrowRight aria-hidden="true" /></Link>
+              </div>
+              {forYouLoading ? <SkeletonGrid count={4} /> : (
+                <div className="pc-grid home-trending">{forYou.map((product) => <ProductCard key={product.id} product={product} />)}</div>
+              )}
+            </section>
+          )}
+
           {/* ── Open now ───────────────────────────────────────────────── */}
           <section className="home-section" aria-labelledby="open-now-title">
             <div className="cm-section-head">

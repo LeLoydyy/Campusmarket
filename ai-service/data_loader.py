@@ -17,6 +17,23 @@ load_dotenv()
 
 ACTION_WEIGHTS = {"view": 1, "cart_add": 3, "wishlist": 2, "purchase": 5}
 
+# Every buyer-product interaction the recommender learns from, from three sources:
+#   - user_behavior: views and add-to-cart clicks logged by the site
+#   - orders:        sales data, one "purchase" per product in a completed or delivered order
+#   - favorites:     one "wishlist" per product the buyer currently has saved
+# Purchases and wishlist come from their own tables (not user_behavior) so past orders
+# count too, and un-saving a favorite stops it counting.
+INTERACTIONS = """
+    SELECT user_id, product_id, action, created_at FROM user_behavior
+    WHERE product_id IS NOT NULL AND action IN ('view', 'cart_add')
+    UNION ALL
+    SELECT o.buyer_id, i.product_id, 'purchase', o.created_at
+    FROM order_items i JOIN orders o ON o.id = i.order_id
+    WHERE o.status IN ('completed', 'delivered')
+    UNION ALL
+    SELECT user_id, product_id, 'wishlist', created_at FROM favorites
+"""
+
 # Products a buyer can actually see: active, in an approved and active stall
 # whose owner is approved and not banned (mirrors the backend's rule).
 PUBLIC_PRODUCT = """
@@ -42,10 +59,8 @@ def _with_scores(rows: list[dict], columns: list[str]) -> pd.DataFrame:
 
 
 def load_all_behavior() -> pd.DataFrame:
-    """Full behaviour log: user_id, product_id, action, created_at, score."""
-    rows = _query(
-        "SELECT user_id, product_id, action, created_at FROM user_behavior WHERE product_id IS NOT NULL"
-    )
+    """All interactions (views, carts, purchases, favorites): user_id, product_id, action, created_at, score."""
+    rows = _query(f"SELECT user_id, product_id, action, created_at FROM ({INTERACTIONS}) interactions")
     return _with_scores(rows, ["user_id", "product_id", "action", "created_at"])
 
 
@@ -72,14 +87,14 @@ def load_active_products() -> pd.DataFrame:
 
 
 def get_popular_product_ids(n: int = 12) -> list:
-    """Top-N most interacted-with visible products; newest products if there is no history."""
+    """Top-N visible products by interaction score (sales count most); newest products if there is no history."""
     rows = _query(
         f"""
         SELECT p.id
         FROM products p
         JOIN stalls s ON s.id = p.stall_id
         JOIN users u ON u.id = s.owner_id
-        LEFT JOIN user_behavior b ON b.product_id = p.id
+        LEFT JOIN ({INTERACTIONS}) b ON b.product_id = p.id
         WHERE {PUBLIC_PRODUCT}
         GROUP BY p.id, p.created_at
         ORDER BY coalesce(sum(CASE b.action

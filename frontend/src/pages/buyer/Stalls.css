@@ -72,3 +72,41 @@
 @media (prefers-reduced-motion: reduce) {
   .stl-open-pill i, .stl-chip-dot { animation: none; }
 }
+
+/* ── Phones, compact pass: slimmer header and toolbar, stalls two per row. ── */
+@media (max-width: 600px) {
+  .stl-page { padding: .4rem 0 2rem; }
+  .stl-hero { gap: .6rem; padding: .75rem .85rem; border-radius: 14px; }
+  .stl-hero h1 { margin-top: .2rem; font-size: 1.3rem; }
+  .stl-hero h1 span { display: inline; }
+  .stl-hero-lede { margin-top: .3rem; font-size: .75rem; line-height: 1.45; }
+  .stl-hero-side { gap: .4rem; min-width: 0; width: 100%; }
+  .stl-open-pill { padding: .2rem .55rem; font-size: .6875rem; }
+  .stl-stats { width: 100%; gap: .4rem; }
+  .stl-stats > div { padding: .4rem .55rem; border-radius: 10px; }
+  .stl-stats dt { font-size: .625rem; }
+  .stl-stats dd { font-size: 1.05rem; }
+
+  .stl-toolbar { gap: .4rem; margin-top: .6rem; }
+  .stl-toolbar-row { flex-wrap: nowrap; gap: .4rem; }
+  .stl-search, .stl-sort { height: 36px; }
+  .stl-sort { flex: 0 1 auto; padding-left: .55rem; }
+  .stl-sort select { font-size: .75rem; }
+  .stl-chips { gap: .35rem; }
+  .stl-chips .cm-chip--filter { min-height: 28px; padding: .25rem .6rem; font-size: .6875rem; }
+
+  .stl-results { margin-top: .9rem; }
+  .stl-results-head { margin-bottom: .5rem; }
+  .stl-results-head h2 { font-size: 1rem; }
+  .stl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; }
+  .stl-grid .sc-cover { aspect-ratio: 16 / 9; }
+  .stl-grid .sc-head { margin-top: -18px; padding: 0 .4rem 0 .5rem; }
+  .stl-grid .sc-logo { width: 34px; height: 34px; border-width: 2px; border-radius: 9px; }
+  .stl-grid .sc-top { gap: .2rem; }
+  .stl-grid .sc-status { padding: .1rem .35rem; font-size: .5625rem; }
+  .stl-grid .sc-body { gap: .15rem; padding: .3rem .5rem .5rem; }
+  .stl-grid .sc-name { font-size: .8125rem; }
+  .stl-grid .sc-seller, .stl-grid .sc-meta { font-size: .625rem; }
+  .stl-grid .sc-desc { display: none; }
+  .stl-grid .sc-meta svg { width: 11px; height: 11px; }
+}

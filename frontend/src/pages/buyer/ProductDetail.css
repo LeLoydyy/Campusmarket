@@ -119,3 +119,43 @@
 
   .detail-section { margin-top: 1.5rem; }
 }
+
+/* ── Phones, compact pass: shorter photo and tighter card so the price, pickup
+   facts and description fit on the first screen. ── */
+@media (max-width: 600px) {
+  .product-detail-page { padding-top: .35rem; }
+  .detail-image-wrap { aspect-ratio: 16 / 10; max-height: 28vh; border-radius: 14px; }
+  .pd-media-tags .cm-chip { font-size: .6875rem; padding: .15rem .45rem; }
+  .detail-thumbs button { flex-basis: 40px; height: 40px; border-radius: 8px; }
+
+  .detail-info-card { margin-top: -.8rem; padding: .75rem .8rem; border-radius: 16px; }
+  .detail-heading { padding-bottom: .5rem; }
+  .pd-stall { margin-bottom: .3rem; }
+  .pd-stall-logo { width: 22px; height: 22px; border-radius: 7px; font-size: .7rem; }
+  .pd-verified { width: 13px; height: 13px; }
+  .detail-title { font-size: 1.2rem; }
+  .detail-rating { margin-top: .3rem; font-size: .75rem; }
+  .detail-price-block { padding: .45rem 0; }
+  .detail-price { gap: .3rem .55rem; font-size: 1.35rem; }
+  .pd-stock { padding: .15rem .5rem; font-size: .6875rem; }
+
+  .pd-facts { gap: .3rem; margin-top: .45rem; }
+  .pd-facts li { gap: .35rem; padding: .35rem .45rem .35rem .35rem; border-radius: 10px; }
+  .pd-facts svg { width: 22px; height: 22px; padding: 4px; border-radius: 7px; }
+  .pd-facts strong { font-size: .6875rem; }
+  .pd-facts small { font-size: .625rem; }
+
+  .detail-description { padding: .55rem 0; }
+  .detail-description p { font-size: .8125rem; line-height: 1.45; }
+  .detail-seller-card { margin-top: .5rem; padding: .5rem; border-radius: 12px; }
+  .detail-seller-card .seller-avatar { width: 34px; height: 34px; border-radius: 10px; }
+  .detail-section { margin-top: 1rem; }
+
+  .product-detail-page { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
+  .pd-buybar { bottom: calc(54px + env(safe-area-inset-bottom)); gap: .4rem; padding: .35rem .35rem .35rem .7rem; border-radius: 14px; }
+  .pd-buybar-price strong { font-size: 1rem; }
+  .pd-buybar-price small { font-size: .6875rem; }
+  .pd-buybar-msg { width: 38px; height: 38px; border-radius: 10px; }
+  .pd-buybar-msg svg { width: 18px; height: 18px; }
+  .pd-buybar-cart { min-height: 38px; padding: 0 .9rem; border-radius: 10px; }
+}
