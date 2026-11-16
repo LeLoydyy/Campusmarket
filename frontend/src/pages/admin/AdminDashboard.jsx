@@ -105,7 +105,10 @@ export default function AdminDashboard() {
                       <span className="ad-action-icon" aria-hidden="true"><Icon /></span>
                       <span className="ad-action-text"><strong>{label}</strong><small>{Number(count) > 0 ? hint : "Nothing waiting"}</small></span>
                       {Number(count) > 0
-                        ? <span className="sr-only">{count} waiting</span>
+                        ? <>
+                            <span className="sr-only">{count} waiting</span>
+                            <span className="ad-action-badge" aria-hidden="true">{Number(count) > 99 ? "99+" : count}<small>waiting</small></span>
+                          </>
                         : <span className="ad-action-count"><Check aria-hidden="true" /></span>}
                       <ArrowRight className="ad-action-arrow" aria-hidden="true" />
                     </Link>

@@ -33,7 +33,14 @@
 .mu-role--seller { color: var(--gold-700); background: var(--gold-100); }
 .mu-role--admin { color: #fff; background: var(--green-900); }
 .mu-id-cell { font-family: var(--font-mono); font-size: var(--text-sm) !important; }
-.mu-actions { display: flex; justify-content: flex-end; gap: .4rem; }
+.mu-actions { display: flex; align-items: center; justify-content: flex-end; gap: .4rem; }
+/* Phones: the table scrolls sideways, so the actions column stays pinned to the
+   right edge and the options button is always in reach. */
+@media (max-width: 600px) {
+  .mu-table :is(th, td):last-child { position: sticky; right: 0; z-index: 1; padding-left: .55rem; padding-right: .55rem; }
+  .mu-table td:last-child { background: var(--surface); box-shadow: -10px 0 12px -10px rgba(11, 61, 36, .25); }
+  .mu-table tbody tr:hover td:last-child { background: #FFFDF8; }
+}
 .mu-ban { color: var(--coral-700); }
 .mu-ban:hover:not(:disabled) { color: var(--coral-700); background: var(--coral-100); }
 .mu-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; padding: .75rem 1rem .5rem; color: var(--ink-600); font-size: var(--text-sm); }

@@ -96,7 +96,36 @@
 .acct-steps li.is-current span { color: var(--green-900); background: var(--gold-500); box-shadow: 0 0 0 5px rgba(245, 184, 46, .3); }
 .acct-steps li.is-blocked { color: var(--coral-700); }
 .acct-steps li.is-blocked span { color: #fff; background: var(--coral-700); }
-.acct-lead { color: var(--ink-600); font-size: var(--text-sm); line-height: 1.6; }
+.acct-lead { margin-bottom: 1rem; color: var(--ink-600); font-size: var(--text-sm); line-height: 1.6; }
+
+/* Administrator feedback: coral when something must be fixed, gold for a plain note */
+.acct-note { display: flex; align-items: flex-start; gap: .7rem; margin-bottom: 1rem; padding: .85rem 1rem; color: var(--ink-900); background: var(--coral-100); border: 1px solid var(--coral-300); border-left: 4px solid var(--coral-700); border-radius: 14px; }
+.acct-note > svg { flex: 0 0 auto; width: 20px; height: 20px; margin-top: .1rem; color: var(--coral-700); }
+.acct-note > div { min-width: 0; }
+.acct-note strong { display: block; color: var(--coral-700); font: 800 .75rem/1.3 var(--font-body); letter-spacing: .05em; text-transform: uppercase; }
+.acct-note p { margin-top: .2rem; font-size: var(--text-sm); line-height: 1.5; overflow-wrap: anywhere; white-space: pre-line; }
+.acct-note.is-info { background: var(--gold-100); border-color: var(--gold-500); border-left-color: var(--gold-700); }
+.acct-note.is-info > svg, .acct-note.is-info strong { color: var(--gold-700); }
+.auth2 .acct-error { margin-bottom: 1rem; }
+
+/* The correction form sits in its own card, with one clear submit button */
+.auth2 .acct-form { gap: .9rem; padding: 1.1rem 1.15rem 1.2rem; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow-1); }
+.acct-form-head h2 { color: var(--ink-900); font: 800 1.05rem/1.25 var(--font-body); }
+.acct-form-head p { margin-top: .2rem; color: var(--ink-600); font-size: var(--text-xs); line-height: 1.45; }
+.acct-form .form-group { gap: .4rem; }
+.auth2 .acct-submit { width: 100%; min-height: 48px; margin-top: .15rem; border-radius: 14px; }
+
+/* Secondary actions: check status and browse side by side, log out underneath */
+.acct-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+.acct-actions .btn { flex: 1 1 170px; min-height: 44px; border-radius: 14px; }
+.acct-actions .acct-logout { flex-basis: 100%; min-height: 38px; color: var(--ink-600); border-color: transparent; }
+.acct-actions .acct-logout svg { width: 16px; height: 16px; }
+
+@media (max-width: 520px) {
+  .acct { gap: .55rem; padding: 1rem .9rem; border-radius: 18px; }
+  .acct-note { padding: .75rem .85rem; }
+  .auth2 .acct-form { gap: .75rem; padding: .95rem .9rem 1rem; border-radius: 16px; }
+}
 
 /* ── Sign-in security: campus email, one-time codes, passwords, recovery ───── */
 .field-note { display: flex; align-items: center; gap: .3rem; margin-top: .35rem; color: var(--ink-600); font-size: var(--text-xs); line-height: 1.4; }

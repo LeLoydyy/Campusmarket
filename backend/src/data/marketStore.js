@@ -2199,7 +2199,7 @@ export const behaviorStore = {
 export const adminStore = {
   async getStats() {
     const [stats] = await q(`
-      SELECT (SELECT count(*) FROM users) AS total_users,
+      SELECT (SELECT count(*) FROM users WHERE deleted_at IS NULL) AS total_users,
              (SELECT count(*) FROM stalls WHERE status = 'approved') AS active_stalls,
              (SELECT count(*) FROM orders) AS total_orders,
              (SELECT coalesce(sum(total), 0) FROM orders WHERE status IN ('completed', 'delivered')) AS total_revenue,
@@ -2208,11 +2208,12 @@ export const adminStore = {
              (SELECT count(*) FROM events) AS total_events,
              (SELECT coalesce(sum(total), 0) FROM pos_sales) AS pos_revenue,
              (SELECT count(*) FROM pos_sales) AS pos_sales,
-             (SELECT count(*) FROM users WHERE status = 'pending' AND role <> 'admin') AS pending_registrations,
+             -- Removed accounts keep their old status but are hidden everywhere else, so they don't count.
+             (SELECT count(*) FROM users WHERE status = 'pending' AND role <> 'admin' AND deleted_at IS NULL) AS pending_registrations,
              (SELECT count(*) FROM stalls WHERE status = 'pending') AS pending_stalls,
              (SELECT count(*) FROM seller_applications WHERE lower(status) = 'pending') AS pending_event_applications,
              (SELECT count(*) FROM plan_requests WHERE status = 'pending') AS pending_plan_requests`);
-    const roles = await q("SELECT role, count(*) AS value FROM users GROUP BY role");
+    const roles = await q("SELECT role, count(*) AS value FROM users WHERE deleted_at IS NULL GROUP BY role");
     const monthly = await q(`
       SELECT to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM') AS month, sum(total) AS sales
       FROM orders WHERE status IN ('completed', 'delivered') GROUP BY 1`);

@@ -7,6 +7,7 @@ import { BadgeCheck, IdCard, Pencil, RefreshCw, RotateCcw, Search, ShieldCheck, 
 import Sidebar from "../../components/common/Sidebar.jsx";
 import AdminDrawer, { DateFilters, Pager, RemoveAccountDrawer } from "../../components/admin/AdminDrawer.jsx";
 import EmptyState from "../../components/ui/EmptyState.jsx";
+import OptionsMenu from "../../components/ui/OptionsMenu.jsx";
 import { FilterChip, StatusChip } from "../../components/ui/Chip.jsx";
 import { SkeletonBlock } from "../../components/ui/Skeleton.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
@@ -321,15 +322,26 @@ export default function ManageUsers() {
                                 )}
                                 {isAdmin ? (
                                   can(me, "admins") && <Link to="/admin/admins" className="btn btn-ghost btn-sm">Manage admin</Link>
-                                ) : <>
-                                  {can(me, "edit") && <button type="button" className="btn btn-ghost btn-sm ma-icon" onClick={() => setEditing(user)} title="Edit" aria-label={`Edit ${user.name}`}><Pencil aria-hidden="true" /></button>}
-                                  {can(me, "block") && (
-                                    <button type="button" className={`btn btn-sm ${user.is_banned ? "btn-outline" : "btn-ghost mu-ban"}`} onClick={() => toggleBan(user)} disabled={banningId === user.id} aria-label={`${user.is_banned ? "Unblock" : "Block"} ${user.name}`}>
-                                      {user.is_banned ? <><UserCheck aria-hidden="true" /> Unblock</> : <><UserX aria-hidden="true" /> Block</>}
-                                    </button>
-                                  )}
-                                  {can(me, "delete") && <button type="button" className="btn btn-ghost btn-sm ma-icon mu-ban" onClick={() => setRemoving(user)} title="Remove" aria-label={`Remove ${user.name}`}><Trash2 aria-hidden="true" /></button>}
-                                </>}
+                                ) : (
+                                  <OptionsMenu
+                                    label={`Options for ${user.name}`}
+                                    title={user.name}
+                                    disabled={banningId === user.id}
+                                    items={[
+                                      can(me, "edit") && {
+                                        key: "edit", icon: <Pencil aria-hidden="true" />, label: "Edit details",
+                                        hint: "Name, email, ID number and college", onSelect: () => setEditing(user),
+                                      },
+                                      can(me, "block") && (user.is_banned
+                                        ? { key: "block", icon: <UserCheck aria-hidden="true" />, label: "Unblock", hint: "They can sign in again", onSelect: () => toggleBan(user) }
+                                        : { key: "block", icon: <UserX aria-hidden="true" />, label: "Block", hint: "Signs them out until unblocked", danger: true, onSelect: () => toggleBan(user) }),
+                                      can(me, "delete") && {
+                                        key: "remove", icon: <Trash2 aria-hidden="true" />, label: "Remove account",
+                                        hint: "Kept under Removed and can be restored", danger: true, onSelect: () => setRemoving(user),
+                                      },
+                                    ]}
+                                  />
+                                )}
                               </>}
                             </div>
                           </td>

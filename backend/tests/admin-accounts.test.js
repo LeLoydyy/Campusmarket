@@ -121,11 +121,15 @@ test("admins: create with starter password, first-login setup, privileges, block
   await request(`/admin/users/${maria}/ban`, root, { ban: false }, "PUT");
   assert.equal((await request(`/admin/users/${maria}`, root, { reason: "short" }, "DELETE")).status, 400, "A reason is required");
   assert.equal((await request(`/admin/users/${maria}`, evening, { reason: "Duplicate account created by mistake" }, "DELETE")).status, 403, "Needs the delete privilege");
+  const pendingCount = async () => (await request("/admin/stats", root)).data.pending_registrations;
+  const pendingBefore = await pendingCount();
   const removed = await request(`/admin/users/${maria}`, root, { reason: "Duplicate account created by mistake" }, "DELETE");
   assert.equal(removed.status, 200);
+  assert.equal(await pendingCount(), pendingBefore - 1, "A removed sign-up no longer counts as waiting on the dashboard");
   assert.equal((await request("/admin/users?status=removed", root)).data.data[0].delete_reason, "Duplicate account created by mistake");
   assert.equal((await request("/auth/login", null, { email: "maria@test.invalid", password: "campus-pass-1" })).data.error, "This account was removed by an administrator.");
   assert.equal((await request(`/admin/users/${maria}/restore`, root, {})).status, 200);
+  assert.equal(await pendingCount(), pendingBefore, "Restoring brings it back");
 
   // The last admin who can manage admins can't be blocked or removed, and nobody can block themselves.
   const rootId = rootLogin.data.user.id;
