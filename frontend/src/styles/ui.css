@@ -49,6 +49,7 @@
 .cm-chip--clothing { color: var(--cat-clothing-fg); background: var(--cat-clothing-bg); }
 .cm-chip--electronics { color: var(--cat-electronics-fg); background: var(--cat-electronics-bg); }
 .cm-chip--accessories { color: var(--cat-accessories-fg); background: var(--cat-accessories-bg); }
+.cm-chip--drinks { color: var(--cat-drinks-fg); background: var(--cat-drinks-bg); }
 .cm-chip--other { color: var(--cat-other-fg); background: var(--cat-other-bg); }
 /* Student Made: a little die-cut sticker */
 .cm-chip--student-made {

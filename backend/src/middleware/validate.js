@@ -186,6 +186,7 @@ export const productSchema = z.object({
   stock: z.coerce.number().int().nonnegative(),
   category: z.enum([
     "food",
+    "drinks",
     "clothing",
     "electronics",
     "accessories",

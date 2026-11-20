@@ -16,6 +16,7 @@
 .bf-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--cat-other-solid); }
 .bf-dot--all { background: conic-gradient(var(--gold-500) 0 25%, var(--green-700) 0 50%, var(--teal-700) 0 75%, var(--coral-300) 0); }
 .bf-dot--food { background: var(--cat-food-solid); }
+.bf-dot--drinks { background: var(--cat-drinks-solid); }
 .bf-dot--clothing { background: var(--cat-clothing-solid); }
 .bf-dot--electronics { background: var(--cat-electronics-solid); }
 .bf-dot--accessories { background: var(--cat-accessories-solid); }
@@ -38,6 +39,7 @@
 .bf-cat i { width: 10px; height: 10px; border-radius: 50%; background: var(--cat-other-solid); }
 .bf-cat--all i { background: conic-gradient(var(--gold-500) 0 25%, var(--green-700) 0 50%, var(--teal-700) 0 75%, var(--coral-300) 0); }
 .bf-cat--food i { background: var(--cat-food-solid); }
+.bf-cat--drinks i { background: var(--cat-drinks-solid); }
 .bf-cat--clothing i { background: var(--cat-clothing-solid); }
 .bf-cat--electronics i { background: var(--cat-electronics-solid); }
 .bf-cat--accessories i { background: var(--cat-accessories-solid); }

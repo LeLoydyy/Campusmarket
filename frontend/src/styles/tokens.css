@@ -39,6 +39,7 @@
   --cat-clothing-bg: var(--green-100);   --cat-clothing-fg: var(--green-700);   --cat-clothing-solid: var(--green-700);
   --cat-electronics-bg: var(--teal-100); --cat-electronics-fg: var(--teal-700); --cat-electronics-solid: var(--teal-700);
   --cat-accessories-bg: var(--coral-100);--cat-accessories-fg: var(--coral-700);--cat-accessories-solid: var(--coral-300);
+  --cat-drinks-bg: #E2F1F8;             --cat-drinks-fg: #1D6A89;              --cat-drinks-solid: #3D9CC2;
   --cat-student-bg: var(--gold-500);     --cat-student-fg: var(--green-900);    --cat-student-solid: var(--gold-500);
   --cat-other-bg: var(--cream-100);      --cat-other-fg: var(--ink-600);        --cat-other-solid: #9AA59E;
 

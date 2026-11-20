@@ -5,6 +5,7 @@
 
 const CATEGORY_LABELS = {
   food: "Food",
+  drinks: "Drinks",
   clothing: "Clothing",
   electronics: "Electronics",
   accessories: "Accessories",
@@ -18,7 +19,8 @@ const CATEGORY_LABELS = {
 export const categoryKey = (value) => {
   const key = String(value || "other").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   if (key === "student-made" || key === "studentmade") return "student-made";
-  return ["food", "clothing", "electronics", "accessories"].includes(key) ? key : key === "merchandise" ? "clothing" : "other";
+  if (key === "drink" || key === "beverages") return "drinks";
+  return ["food", "drinks", "clothing", "electronics", "accessories"].includes(key) ? key : key === "merchandise" ? "clothing" : "other";
 };
 
 export const categoryLabel = (value) => {

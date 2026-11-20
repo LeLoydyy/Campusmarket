@@ -14,6 +14,7 @@ import "./Browse.css";
 
 const CATEGORIES = [
   { id: "food", name: "Food" },
+  { id: "drinks", name: "Drinks" },
   { id: "clothing", name: "Clothing" },
   { id: "electronics", name: "Electronics" },
   { id: "accessories", name: "Accessories" },

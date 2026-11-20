@@ -32,3 +32,10 @@ test("products keep a size type with their sizes, and drop it when the sizes go"
   assert.equal((await productStore.update(created.id, {}, seller)).option_type, null);
   assert.ok(!productSchema.safeParse({ ...payload, option_type: "x".repeat(21) }).success, "Size types stay short");
 });
+
+test("drinks are their own product category", async () => {
+  const { productSchema } = await import("../src/middleware/validate.js");
+  const base = { name: "Iced Spanish Latte", price: 95, stock: 10, stall_id: "11111111-1111-4111-8111-111111111111" };
+  assert.equal(productSchema.parse({ ...base, category: "drinks", option_type: "Cup size", options: [{ label: "16 oz", stock: 5 }] }).category, "drinks");
+  assert.ok(!productSchema.safeParse({ ...base, category: "beverage-ish" }).success, "Only known categories");
+});

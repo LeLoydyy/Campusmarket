@@ -25,6 +25,7 @@ import { discountLabel, effectivePrice, isOnSale, productOptions } from "../../u
 
 const CATEGORIES = [
   "food",
+  "drinks",
   "clothing",
   "electronics",
   "accessories",
@@ -49,7 +50,8 @@ const MAX_EXTRA_PHOTOS = 4;
 const MAX_OPTIONS = 12;
 // Ready-made sizes per category: [size type buyers see, the sizes]. Sellers can still add their own.
 const SIZE_PRESETS = {
-  food: [["Serving", ["Small", "Medium", "Large"]], ["Cup size", ["12 oz", "16 oz", "22 oz"]], ["Pack", ["Solo", "Pack of 3", "Pack of 6"]]],
+  food: [["Serving", ["Small", "Medium", "Large"]], ["Pack", ["Solo", "Pack of 3", "Pack of 6"]], ["Serving", ["Solo", "Good for 2", "Family"]]],
+  drinks: [["Cup size", ["12 oz", "16 oz", "22 oz"]], ["Size", ["Small", "Medium", "Large"]], ["Bottle", ["350 ml", "500 ml", "1 L"]]],
   clothing: [["Size", ["S", "M", "L", "XL"]], ["Size", ["XS", "S", "M", "L", "XL", "2XL"]]],
   accessories: [["Bag size", ["Small", "Medium", "Large"]], ["Bag size", ["Mini", "Regular", "Tote"]], ["Size", ["S", "M", "L"]]],
   electronics: [["Cable length", ["1 m", "2 m", "3 m"]], ["Storage", ["32 GB", "64 GB", "128 GB"]], ["Power", ["10W", "20W", "30W"]]],
@@ -57,7 +59,7 @@ const SIZE_PRESETS = {
   other: [["Size", ["Small", "Medium", "Large"]], ["Paper size", ["A4", "Short", "Long"]]],
 };
 // Suggestions for the size type box (any short name works).
-const SIZE_TYPES = ["Size", "Serving", "Cup size", "Pack", "Bag size", "Cable length", "Storage", "Power", "Paper size", "Flavour", "Color"];
+const SIZE_TYPES = ["Size", "Serving", "Cup size", "Bottle", "Pack", "Bag size", "Cable length", "Storage", "Power", "Paper size", "Flavour", "Color"];
 
 const extractStall = (payload) => {
   const value =

@@ -101,6 +101,8 @@
 .home-tile--clothing .home-tile-text span { opacity: 1; }
 .home-tile--electronics { color: #fff; background: linear-gradient(160deg, #2A8585, var(--teal-700)); }
 .home-tile--electronics .home-tile-icon { color: var(--teal-700); background: var(--teal-100); }
+.home-tile--drinks { background: linear-gradient(160deg, #D5EEF8, #8FCDE6); }
+.home-tile--drinks .home-tile-icon { color: var(--cat-drinks-fg); background: #F1F9FC; }
 .home-tile--accessories { background: linear-gradient(160deg, #FBC8B6, var(--coral-300)); }
 .home-tile--accessories .home-tile-icon { color: var(--coral-700); background: var(--coral-100); }
 .home-tile--student-made { color: #fff; background: var(--green-900) var(--texture-leaf-light); }
