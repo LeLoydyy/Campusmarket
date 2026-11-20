@@ -61,3 +61,6 @@
   .cart-summary-row strong { font-size: 1.15rem; }
   .cart-summary-note { margin: .5rem 0 .65rem; padding: .45rem .55rem; font-size: .6875rem; }
 }
+
+/* "Only 2 left" note under a cart line, beside the picture column */
+.cart-item-stock { grid-column: 2 / -1; margin-top: .35rem; padding: .4rem .6rem; }

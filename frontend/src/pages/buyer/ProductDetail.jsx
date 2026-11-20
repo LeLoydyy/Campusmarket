@@ -25,6 +25,7 @@ import { BadgeCheck, Banknote, Clock3, MapPin } from "lucide-react";
 import Navbar from "../../components/common/Navbar.jsx";
 import Footer from "../../components/common/Footer.jsx";
 import ProductCard from "../../components/ui/ProductCard.jsx";
+import StockNote from "../../components/ui/StockNote.jsx";
 import { CategoryChip, categoryKey, categoryLabel } from "../../components/ui/Chip.jsx";
 import { SkeletonGrid } from "../../components/ui/Skeleton.jsx";
 import { stallOpenStatus } from "../../utils/marketplace.js";
@@ -95,7 +96,7 @@ function ProductDetailSkeleton() {
 export default function ProductDetail() {
   const { id } = useParams();
   const { user } = useAuth();
-  const { addItem } = useCart();
+  const { addItem, items: cartItems } = useCart();
 
   const [product, setProduct] = useState(null);
   const [similar, setSimilar] = useState([]);
@@ -103,6 +104,7 @@ export default function ProductDetail() {
   const [similarLoading, setSimilarLoading] = useState(true);
   const [error, setError] = useState("");
   const [qty, setQty] = useState(1);
+  const [nudge, setNudge] = useState(0); // + pressed at the limit
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
@@ -217,6 +219,17 @@ export default function ProductDetail() {
   const reviewCount = Number(product?.review_count || reviews.length);
   const longDescription = String(product?.description || "").length > 140;
   const stockLabel = isOutOfStock ? "Out of stock" : isLowStock ? `Only ${stock} left` : `${stock} in stock`;
+  // The cart can't hold more than the stock, so what's already there lowers how many can be added.
+  const inCart = (cartItems || [])
+    .filter((item) => item.product_id === product?.id && (item.option_id || null) === (selectedOption?.id || null))
+    .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+  const canAdd = Math.max(0, stock - inCart);
+  const atLimit = qty >= canAdd;
+
+  // Keep the picked quantity within what can still be added (e.g. right after adding some).
+  useEffect(() => {
+    if (canAdd > 0 && qty > canAdd) setQty(canAdd);
+  }, [canAdd, qty]);
 
   const handleAddToCart = async () => {
     if (!user) {
@@ -239,9 +252,15 @@ export default function ProductDetail() {
       return;
     }
 
+    if (canAdd < 1) {
+      setNudge((n) => n + 1);
+      toast.error(`You already have all ${stock} in your cart`);
+      return;
+    }
+
     try {
       setAdding(true);
-      await addItem(product, Math.min(qty, stock), selectedOption?.id);
+      await addItem(product, Math.min(qty, canAdd), selectedOption?.id);
       behaviorService.log(id, "cart_add").catch(() => {});
       setAdded(true);
       toast.success("Added to cart");
@@ -496,11 +515,11 @@ export default function ProductDetail() {
                 </fieldset>
               )}
 
-              {user?.role === "buyer" && !isOutOfStock && !needsOption && (
+              {user?.role === "buyer" && !isOutOfStock && !needsOption && canAdd > 0 && (
                 <div className="detail-quantity-row">
                   <div>
                     <span>Quantity</span>
-                    <small>Maximum {stock}</small>
+                    <small>{inCart > 0 ? `You can add ${canAdd} more` : `Maximum ${stock}`}</small>
                   </div>
                   <div className="qty-control" aria-label="Product quantity">
                     <button
@@ -520,16 +539,21 @@ export default function ProductDetail() {
                     <button
                       type="button"
                       className="qty-btn"
-                      onClick={() =>
-                        setQty((current) => Math.min(stock, current + 1))
-                      }
-                      disabled={qty >= stock}
-                      aria-label="Increase quantity"
+                      onClick={() => {
+                        // At the limit the button stays pressable so the note below can explain why.
+                        if (atLimit) setNudge((n) => n + 1);
+                        else setQty((current) => Math.min(canAdd, current + 1));
+                      }}
+                      aria-disabled={atLimit}
+                      aria-label={atLimit ? "Increase quantity (no more available)" : "Increase quantity"}
                     >
                       <FiPlus />
                     </button>
                   </div>
                 </div>
+              )}
+              {user?.role === "buyer" && !isOutOfStock && !needsOption && (
+                <StockNote stock={stock} qty={qty} inCart={inCart} nudge={nudge} className="detail-stock-note" />
               )}
 
               <div className="detail-actions">

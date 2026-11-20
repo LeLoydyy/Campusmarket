@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Trash2, Minus, Plus, ShoppingBag, Wallet } from "lucide-react";
+import StockNote from "../ui/StockNote.jsx";
 import { effectivePrice } from "../../utils/pricing.js";
 import "./CartDrawer.css";
 
@@ -49,6 +50,7 @@ const CartDrawer = ({ items, total, onRemove, onUpdateQty, onCheckout }) => {
                 </div>
                 <strong className="cart-item-line-total">{formatPrice(price * item.quantity)}</strong>
               </div>
+              {Number.isFinite(stock) && <StockNote stock={stock} qty={item.quantity} className="cart-item-stock" />}
             </li>
           );
         })}
