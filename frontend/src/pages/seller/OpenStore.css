@@ -60,3 +60,7 @@
   .os-steps { grid-template-columns: 1fr; }
   .os-card { padding: 1rem; border-radius: 16px; }
 }
+.os-blocked { max-width: 620px; }
+.os-blocked h2 { font: 900 1.25rem var(--font-display); }
+.os-blocked p { color: var(--ink-600); font-size: var(--text-sm); line-height: 1.6; }
+.os-blocked .btn { justify-self: start; }

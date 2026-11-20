@@ -92,7 +92,7 @@ export default function ForgotPassword() {
             <label className="form-label" htmlFor="fp-email">Registered email</label>
             <div className="form-input-wrap">
               <Mail size={18} className="form-input-icon" aria-hidden="true" />
-              <input id="fp-email" type="email" className="form-input" placeholder="you@csucc.edu.ph" autoComplete="email" autoFocus
+              <input id="fp-email" type="email" className="form-input" placeholder="you@csucc.edu.ph or you@gmail.com" autoComplete="email" autoFocus
                 value={email} required onChange={(e) => setEmail(e.target.value)} />
             </div>
           </div>

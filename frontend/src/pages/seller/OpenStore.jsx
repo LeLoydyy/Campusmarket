@@ -6,6 +6,7 @@ import Footer from "../../components/common/Footer.jsx";
 import StallCard from "../../components/ui/StallCard.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import api from "../../services/api.js";
+import { CAMPUS_DOMAIN, isCampusEmail } from "../../config/email.js";
 import "./OpenStore.css";
 
 const CATEGORIES = [
@@ -31,6 +32,8 @@ export default function OpenStore() {
   const [form, setForm] = useState({ name: "", location: "", description: "", category: "food" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // Personal-email (e.g. Gmail) buyers can't open a store; the page explains why instead of showing the form.
+  const blocked = Boolean(user) && !isCampusEmail(user.email);
   const set = (key, value) => { setForm((current) => ({ ...current, [key]: value })); setError(""); };
 
   const submit = async (event) => {
@@ -69,9 +72,9 @@ export default function OpenStore() {
           <h1>Open your campus store</h1>
           <p className="os-lede">
             Free for CSUCC students. New stores start on the Free plan with 5 listings.
-            {user?.role === "buyer" && " Your account switches to Seller, with store tools and order management."}
+            {user?.role === "buyer" && !blocked && " Your account switches to Seller, with store tools and order management."}
           </p>
-          <ol className="os-steps">
+          {!blocked && <ol className="os-steps">
             {STEPS.map(({ icon: Icon, title, text }, index) => (
               <li key={title}>
                 <span className="os-step-num" aria-hidden="true">{index + 1}</span>
@@ -79,9 +82,17 @@ export default function OpenStore() {
                 <span><strong>{title}</strong><small>{text}</small></span>
               </li>
             ))}
-          </ol>
+          </ol>}
         </header>
 
+        {blocked ? (
+          <section className="os-card os-blocked" role="status">
+            <h2>Selling needs a CSUCC email</h2>
+            <p>Your account uses <strong>{user.email}</strong>. Personal addresses can buy, but stores are opened with a <strong>@{CAMPUS_DOMAIN}</strong> account so the campus knows who runs them.</p>
+            <p>To sell, sign out and create a seller account with your CSUCC email.</p>
+            <button type="button" className="btn btn-primary" onClick={() => navigate("/browse")}>Keep shopping</button>
+          </section>
+        ) : (
         <div className="os-layout">
           <form className="os-card" onSubmit={submit} noValidate>
             <label className="os-field">
@@ -133,6 +144,7 @@ export default function OpenStore() {
             </ul>
           </aside>
         </div>
+        )}
       </main>
       <Footer />
     </div>

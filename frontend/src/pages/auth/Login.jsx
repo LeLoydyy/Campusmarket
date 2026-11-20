@@ -130,7 +130,7 @@ export default function Login() {
               autoComplete="username"
               autoCapitalize="none"
               spellCheck={false}
-              placeholder="you@csucc.edu.ph"
+              placeholder="you@csucc.edu.ph or you@gmail.com"
               value={form.email}
               required
               onChange={(e) => setForm({ ...form, email: e.target.value })}

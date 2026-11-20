@@ -7,14 +7,16 @@ import PasswordField, { PasswordStrength, passwordMeetsRules } from "../../compo
 import RecoveryQuestions, { emptyRecoveryQuestions, recoveryQuestionsComplete } from "../../components/auth/RecoveryQuestions.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { authService } from "../../services/api";
+import { BUYER_DOMAINS, CAMPUS_DOMAIN } from "../../config/email.js";
 
-const CAMPUS_DOMAIN = "csucc.edu.ph";
 const ROLE_CARDS = [
   { value: "buyer", title: "I want to buy", text: "Food, merch and student-made goods", icon: ShoppingBag },
   { value: "seller", title: "I want to sell", text: "Open a stall and take orders", icon: Store },
 ];
 // Three short steps so each one fits on a single screen.
 const STEPS = ["Account", "Security", "CSUCC ID"];
+// Buyers with a personal email (e.g. Gmail) have no CSUCC ID: they finish after Security and get an automatic buyer ID.
+const PUBLIC_STEPS = STEPS.slice(0, 2);
 // Email confirmation: idle → sent (code boxes open) → verified (token in hand).
 const NO_OTP = { status: "idle", code: "", error: "", busy: false, resendAt: 0, devCode: "", token: "" };
 // VITE_SKIP_EMAIL_OTP=true hides the email code while testing on the dev server (the API needs SKIP_EMAIL_OTP=true too).
@@ -26,7 +28,7 @@ export default function Register() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
-    name: "", emailUser: "", password: "", confirmPassword: "", security_questions: emptyRecoveryQuestions(1),
+    name: "", emailUser: "", emailDomain: CAMPUS_DOMAIN, emailTyped: null, password: "", confirmPassword: "", security_questions: emptyRecoveryQuestions(1),
     role: "buyer", campus_id: "", affiliation: "student", department: "", store_name: "", campus_location: "",
   });
   const [showPass, setShowPass] = useState(false);
@@ -37,21 +39,54 @@ export default function Register() {
   const [otp, setOtp] = useState(NO_OTP);
   const emailRef = useRef(null);
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
-  const email = `${form.emailUser.trim().toLowerCase()}@${CAMPUS_DOMAIN}`;
+  // Buyers may use a campus or personal (Gmail) address; sellers must use their campus email.
+  const domains = form.role === "seller" ? [CAMPUS_DOMAIN] : BUYER_DOMAINS;
+  const email = `${form.emailUser.trim().toLowerCase()}@${form.emailDomain}`;
   const emailVerified = otp.status === "verified";
+  const isPublic = form.role === "buyer" && form.emailDomain !== CAMPUS_DOMAIN;
+  const steps = isPublic ? PUBLIC_STEPS : STEPS;
 
-  // People often type or paste the full address; keep only the part before @.
+  // People often type or paste the full address. A typed "@domain" stays in the box until it
+  // matches an allowed domain, which then moves into the domain picker / suffix.
+  const emailBox = form.emailTyped == null ? form.emailUser : `${form.emailUser}@${form.emailTyped}`;
   const handleEmailChange = (e) => {
-    const [user, domain = ""] = e.target.value.replace(/\s/g, "").split("@");
-    setForm({ ...form, emailUser: user });
-    setFieldErrors({ ...fieldErrors, email: domain && !CAMPUS_DOMAIN.startsWith(domain.toLowerCase()) ? `Only @${CAMPUS_DOMAIN} addresses can join — we've added it for you.` : "" });
+    const raw = e.target.value.replace(/\s/g, "");
+    const at = raw.indexOf("@");
+    const user = at === -1 ? raw : raw.slice(0, at);
+    const domain = at === -1 ? null : raw.slice(at + 1).replace(/@/g, "").toLowerCase();
+    const exact = domain ? domains.find((item) => item === domain) : undefined;
+    const sellerOnGmail = form.role === "seller" && domain && domain !== CAMPUS_DOMAIN && BUYER_DOMAINS.includes(domain);
+    let note = "";
+    if (sellerOnGmail) note = `Sellers sign up with their @${CAMPUS_DOMAIN} email — we've switched it for you.`;
+    else if (domain && !exact && !domains.some((item) => item.startsWith(domain))) note = `Only ${domains.map((item) => `@${item}`).join(" or ")} addresses can join.`;
+    setForm({ ...form, emailUser: user, emailDomain: exact || form.emailDomain, emailTyped: exact || sellerOnGmail ? null : domain });
+    setFieldErrors({ ...fieldErrors, email: note });
     // A new address needs a new code.
     if (otp.status !== "idle") setOtp(NO_OTP);
   };
 
+  const handleDomainChange = (e) => {
+    setForm({ ...form, emailDomain: e.target.value, emailTyped: null });
+    setFieldErrors({ ...fieldErrors, email: "" });
+    if (otp.status !== "idle") setOtp(NO_OTP);
+  };
+
+  // Switching to seller with a personal address moves the email back to the campus domain.
+  const handleRoleChange = (e) => {
+    const role = e.target.value;
+    const keepsDomain = role !== "seller" || form.emailDomain === CAMPUS_DOMAIN;
+    setForm({ ...form, role, emailDomain: keepsDomain ? form.emailDomain : CAMPUS_DOMAIN, emailTyped: null });
+    if (!keepsDomain) {
+      setFieldErrors({ ...fieldErrors, email: `Sellers sign up with their @${CAMPUS_DOMAIN} email.` });
+      if (otp.status !== "idle") setOtp(NO_OTP);
+    }
+  };
+
   const sendCode = async () => {
-    if (!/^[a-z0-9._%+-]+$/i.test(form.emailUser.trim())) {
-      setFieldErrors({ ...fieldErrors, email: "Enter the part of your CSUCC email before @." });
+    if (!/^[a-z0-9._%+-]+$/i.test(form.emailUser.trim()) || form.emailTyped != null) {
+      setFieldErrors({ ...fieldErrors, email: form.emailTyped != null
+        ? `Finish the address with ${domains.map((item) => `@${item}`).join(" or ")}${domains.length > 1 ? ", or pick it from the list" : ""}.`
+        : "Enter the part of your email before @." });
       emailRef.current?.focus();
       return;
     }
@@ -82,7 +117,8 @@ export default function Register() {
   const finishAccount = (e) => {
     e.preventDefault();
     const errors = {};
-    if (!SKIP_OTP && !emailVerified) errors.email = otp.status === "sent" ? "Enter the 6-digit code we emailed you." : "Confirm your CSUCC email first — tap “Send code”.";
+    if (form.emailTyped != null) errors.email = `Finish the address with ${domains.map((item) => `@${item}`).join(" or ")}.`;
+    else if (!SKIP_OTP && !emailVerified) errors.email = otp.status === "sent" ? "Enter the 6-digit code we emailed you." : "Confirm your email first — tap “Send code”.";
     setFieldErrors(errors);
     if (!e.currentTarget.reportValidity() || errors.email) return;
     goTo(1);
@@ -96,18 +132,24 @@ export default function Register() {
     if (!errors.password && !errors.confirmPassword && !recoveryQuestionsComplete(form.security_questions)) errors.security = "Answer the security question (2+ characters).";
     setFieldErrors(errors);
     if (!e.currentTarget.reportValidity() || Object.values(errors).some(Boolean)) return;
-    goTo(2);
+    if (isPublic) createAccount();
+    else goTo(2);
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
+    createAccount();
+  };
+
+  const createAccount = async () => {
     setLoading(true);
     setError("");
     try {
       await register({
         name: form.name, email, email_token: SKIP_OTP ? undefined : otp.token, password: form.password,
         security_questions: form.security_questions.map((item) => ({ question: item.question, answer: item.answer.trim() })),
-        role: form.role, campus_id: form.campus_id, affiliation: form.affiliation, department: form.department,
+        role: form.role,
+        ...(isPublic ? {} : { campus_id: form.campus_id, affiliation: form.affiliation, department: form.department }),
         store_name: form.store_name, campus_location: form.campus_location,
       });
       navigate("/account-status");
@@ -129,7 +171,7 @@ export default function Register() {
   return (
     <AuthLayout title="Create your account" subtitle="Join Campus Market and start buying and selling today!">
       <ol className="reg-progress" aria-label="Sign-up steps">
-        {STEPS.map((label, index) => (
+        {steps.map((label, index) => (
           <li key={label} className={index < step ? "is-done" : index === step ? "is-current" : ""} aria-current={index === step ? "step" : undefined}>
             <span>{index < step ? <Check aria-hidden="true" /> : index + 1}</span>
             {label}
@@ -145,7 +187,7 @@ export default function Register() {
             <legend>What brings you here?</legend>
             {ROLE_CARDS.map(({ value, title, text, icon: Icon }) => (
               <label key={value} className={`reg-role ${form.role === value ? "is-selected" : ""}`}>
-                <input type="radio" name="role" value={value} checked={form.role === value} onChange={set("role")} />
+                <input type="radio" name="role" value={value} checked={form.role === value} onChange={handleRoleChange} />
                 <span className="reg-role-icon" aria-hidden="true"><Icon /></span>
                 <span className="reg-role-text"><strong>{title}</strong><small>{text}</small></span>
                 <span className="reg-role-check" aria-hidden="true"><Check /></span>
@@ -157,23 +199,29 @@ export default function Register() {
             <label className="form-label" htmlFor="name">Full name</label>
             <div className="form-input-wrap">
               <User size={18} className="form-input-icon" aria-hidden="true" />
-              <input id="name" type="text" className="form-input" autoComplete="name" placeholder="As it appears on your CSUCC ID" value={form.name} required minLength={2} maxLength={80} onChange={set("name")} />
+              <input id="name" type="text" className="form-input" autoComplete="name" placeholder={isPublic ? "Your full name" : "As it appears on your CSUCC ID"} value={form.name} required minLength={2} maxLength={80} onChange={set("name")} />
             </div>
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="reg-email">CSUCC email</label>
+            <label className="form-label" htmlFor="reg-email">{form.role === "seller" ? "CSUCC email" : "Email"}</label>
             <div className="email-row">
-              <div className={`form-input-wrap email-field ${emailVerified ? "is-verified" : ""}`}>
+              <div className={`form-input-wrap email-field ${domains.length > 1 ? "has-domain-pick" : ""} ${emailVerified ? "is-verified" : ""}`}>
                 <Mail size={18} className="form-input-icon" aria-hidden="true" />
                 <input
                   id="reg-email" ref={emailRef} type="text" className="form-input" autoComplete="username" inputMode="email" autoCapitalize="none" spellCheck={false}
-                  placeholder="juan.delacruz" value={form.emailUser} required maxLength={64}
+                  placeholder="juan.delacruz" value={emailBox} required maxLength={100}
                   aria-invalid={Boolean(fieldErrors.email) || undefined} aria-describedby="reg-email-note"
                   onChange={handleEmailChange}
                   onKeyDown={(e) => { if (!SKIP_OTP && e.key === "Enter" && otp.status === "idle") { e.preventDefault(); sendCode(); } }}
                 />
-                <span className="email-suffix" aria-hidden="true">@{CAMPUS_DOMAIN}</span>
+                {domains.length > 1 ? (
+                  <select className="email-domain" aria-label="Email domain" value={form.emailDomain} onChange={handleDomainChange}>
+                    {domains.map((domain) => <option key={domain} value={domain}>@{domain}</option>)}
+                  </select>
+                ) : (
+                  <span className="email-suffix" aria-hidden="true">@{CAMPUS_DOMAIN}</span>
+                )}
               </div>
               {emailVerified && <span className="email-verified"><BadgeCheck aria-hidden="true" /> Verified</span>}
               {!SKIP_OTP && otp.status === "idle" && (
@@ -185,7 +233,7 @@ export default function Register() {
             {/* While the code panel is open it says where the code went, so the note steps aside. */}
             {(fieldErrors.email || (!SKIP_OTP && otp.status !== "sent")) && (
               <p id="reg-email-note" className={`field-note ${fieldErrors.email ? "is-error" : ""}`} role={fieldErrors.email ? "alert" : undefined}>
-                {fieldErrors.email || (emailVerified ? `${email} is confirmed.` : `We'll email a 6-digit code to confirm this is your CSUCC address.`)}
+                {fieldErrors.email || (emailVerified ? `${email} is confirmed.` : (form.role === "seller" ? "Sellers use their CSUCC email. We'll email a 6-digit code to confirm it." : "Use your CSUCC email or Gmail. We'll email a 6-digit code to confirm it."))}
               </p>
             )}
 
@@ -246,8 +294,13 @@ export default function Register() {
 
           <div className="reg-actions">
             <button type="button" className="btn btn-outline btn-lg" onClick={() => goTo(0)}><ArrowLeft aria-hidden="true" /> Back</button>
-            <button type="submit" className="btn btn-primary btn-lg">Continue <ArrowRight aria-hidden="true" /></button>
+            {isPublic ? (
+              <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>{loading ? "Creating account…" : <>Create account <ArrowRight aria-hidden="true" /></>}</button>
+            ) : (
+              <button type="submit" className="btn btn-primary btn-lg">Continue <ArrowRight aria-hidden="true" /></button>
+            )}
           </div>
+          {isPublic && <p className="field-note reg-public-note">No CSUCC ID needed: you'll get a buyer ID automatically. An administrator approves new accounts before you can order.</p>}
         </form>
       ) : (
         <form onSubmit={handleSubmit} className="auth-form">
