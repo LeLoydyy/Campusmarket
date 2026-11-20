@@ -19,10 +19,17 @@ export const validate = (schema) => (req, res, next) => {
 
 // ── Shared schemas ────────────────────────────────────────────────────────────
 
-// New accounts must use a campus mailbox; existing accounts (e.g. administrators) may sign in with any.
+// Sellers and administrators must use a campus mailbox. Buyers may also sign up with a personal
+// address on BUYER_EMAIL_DOMAINS (default gmail.com). Existing accounts may sign in with any email.
 export const CAMPUS_EMAIL_DOMAIN = (process.env.ALLOWED_EMAIL_DOMAIN || "csucc.edu.ph").toLowerCase();
-const campusEmail = z.string().trim().email("Enter a valid email address.").toLowerCase()
-  .refine((value) => value.endsWith(`@${CAMPUS_EMAIL_DOMAIN}`), `Use your @${CAMPUS_EMAIL_DOMAIN} email address.`);
+export const BUYER_EMAIL_DOMAINS = [CAMPUS_EMAIL_DOMAIN, ...String(process.env.BUYER_EMAIL_DOMAINS ?? "gmail.com")
+  .split(",").map((domain) => domain.trim().toLowerCase().replace(/^@/, "")).filter(Boolean)];
+const onDomain = (value, domains) => domains.some((domain) => value.endsWith(`@${domain}`));
+const domainList = (domains) => domains.map((domain) => `@${domain}`).join(" or ");
+const emailField = z.string().trim().email("Enter a valid email address.").toLowerCase();
+const campusEmail = emailField.refine((value) => onDomain(value, [CAMPUS_EMAIL_DOMAIN]), `Use your @${CAMPUS_EMAIL_DOMAIN} email address.`);
+// Sign-up email (the code steps don't know the role yet; registerSchema checks sellers).
+const signupEmail = emailField.refine((value) => onDomain(value, BUYER_EMAIL_DOMAINS), `Use your ${domainList(BUYER_EMAIL_DOMAINS)} email address.`);
 const otpCode = z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code.");
 
 const strongPassword = z.string().min(8, "Use at least 8 characters.").max(100)
@@ -38,25 +45,34 @@ const allDifferent = (items) => new Set(items.map((item) => item.question.toLowe
 const oneRecoveryQuestion = recoveryItems.length(1, "Answer the security question.");
 const threeRecoveryQuestions = recoveryItems.length(3, "Answer three security questions.").refine(allDifferent, "Pick three different questions.");
 
-export const sendCodeSchema = z.object({ email: campusEmail });
-export const verifyEmailSchema = z.object({ email: campusEmail, code: otpCode });
+export const sendCodeSchema = z.object({ email: signupEmail });
+export const verifyEmailSchema = z.object({ email: signupEmail, code: otpCode });
 
 export const registerSchema = z.object({
   name: z.string().min(2).max(80),
-  email: campusEmail,
+  email: signupEmail,
   // Checked in the register controller (it can be skipped locally with SKIP_EMAIL_OTP).
   email_token: z.string().optional(),
   password: strongPassword,
   security_questions: oneRecoveryQuestion,
   role: z.enum(["buyer", "seller"]).default("buyer"),
-  campus_id: z.string().trim().min(3).max(50),
-  affiliation: z.enum(["student", "faculty", "employee"]),
-  department: z.string().trim().min(2).max(120),
+  // CSUCC details: required for campus emails. Personal-email buyers skip them and get an automatic buyer ID.
+  campus_id: z.string().trim().max(50).optional(),
+  affiliation: z.enum(["student", "faculty", "employee"]).optional(),
+  department: z.string().trim().max(120).optional(),
   store_name: z.string().trim().max(100).optional(),
   campus_location: z.string().trim().max(150).optional(),
 }).refine((value) => value.role !== "seller" || (value.store_name?.length >= 2 && value.campus_location?.length >= 2), {
   message: "Sellers must provide a store name and CSUCC campus location.", path: ["store_name"],
-});
+}).refine((value) => value.role !== "seller" || onDomain(value.email, [CAMPUS_EMAIL_DOMAIN]), {
+  message: `Sellers must sign up with their @${CAMPUS_EMAIL_DOMAIN} email address.`, path: ["email"],
+}).superRefine((value, ctx) => {
+  if (!onDomain(value.email, [CAMPUS_EMAIL_DOMAIN])) return;
+  if ((value.campus_id || "").length < 3) ctx.addIssue({ code: "custom", path: ["campus_id"], message: "Enter your CSUCC ID number." });
+  if (!value.affiliation) ctx.addIssue({ code: "custom", path: ["affiliation"], message: "Choose your campus affiliation." });
+  if ((value.department || "").length < 2) ctx.addIssue({ code: "custom", path: ["department"], message: "Enter your college, program or office." });
+}).transform((value) => (onDomain(value.email, [CAMPUS_EMAIL_DOMAIN]) ? value
+  : { ...value, campus_id: undefined, affiliation: undefined, department: undefined }));
 
 export const changePasswordSchema = z.object({
   current_password: z.string().min(1).max(100),
@@ -70,10 +86,11 @@ export const profileSchema = z.object({
   address: z.string().trim().max(200).optional(),
 });
 
+// Public (personal-email) buyers send an empty body to ask for another review; the store requires the rest for campus accounts.
 export const credentialsSchema = z.object({
-  campus_id: z.string().trim().min(3).max(50),
-  affiliation: z.enum(["student", "faculty", "employee"]),
-  department: z.string().trim().min(2).max(120),
+  campus_id: z.string().trim().min(3).max(50).optional(),
+  affiliation: z.enum(["student", "faculty", "employee"]).optional(),
+  department: z.string().trim().min(2).max(120).optional(),
 });
 
 const imageUrl = z.string().max(2000).refine((value) => !value || /^https?:\/\//i.test(value) || /^\/images\//.test(value) || /^\/api\/product-images\/[a-f0-9-]+\.(png|jpg|webp)$/.test(value), "Choose a product photo or a valid image URL.");
@@ -144,7 +161,7 @@ export const updateAccountSchema = z.object({
   name: z.string().trim().min(2).max(80).optional(),
   email: anyEmail.optional(),
   campus_id: z.string().trim().min(3).max(50).optional(),
-  affiliation: z.enum(["student", "faculty", "employee"]).optional(),
+  affiliation: z.enum(["student", "faculty", "employee", "public"]).optional(),
   department: z.string().trim().min(2).max(120).optional(),
 });
 
@@ -181,6 +198,9 @@ export const productSchema = z.object({
   // Empty or null = no sale; the store checks it is below the regular price.
   sale_price: z.union([z.coerce.number().positive(), z.literal(""), z.null()]).optional(),
   images: z.array(imageUrl).max(4, "Add up to 4 extra photos.").optional(),
+  // Empty or null = plain "option".
+  option_type: z.union([z.string().trim().max(20, "Keep the size type under 20 characters."), z.null()]).optional()
+    .transform((value) => (value ? value : value === undefined ? undefined : null)),
   options: z.array(z.object({
     label: z.string().trim().min(1, "Name each option.").max(30),
     stock: z.coerce.number().int().nonnegative().max(100000),
@@ -205,7 +225,7 @@ export const reviewRegistrationSchema = z.object({
   status: z.enum(["approved", "rejected"]),
   note: z.string().trim().min(5).max(500),
   credentials_checked: z.boolean().optional(),
-}).refine((value) => value.status !== "approved" || value.credentials_checked === true, { message: "Confirm that credentials were checked against CSUCC records." });
+}).refine((value) => value.status !== "approved" || value.credentials_checked === true, { message: "Confirm that you checked this registration before approving." });
 
 export const reviewApplicationSchema = z.object({
   status: z.enum(["approved", "rejected"]),

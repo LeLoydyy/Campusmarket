@@ -39,8 +39,8 @@ test("campus email codes, sign-in codes, security question fallback and lockout"
   };
   const wrongCode = (code) => String((Number(code) + 1) % 1_000_000).padStart(6, "0");
 
-  // Sign-up only accepts the campus domain, and only after the emailed code is confirmed.
-  assert.equal((await request("/auth/email/send-code", null, { email: "juan@gmail.com" })).status, 400);
+  // Sign-up accepts the campus domain (and Gmail for buyers), and only after the emailed code is confirmed.
+  assert.equal((await request("/auth/email/send-code", null, { email: "juan@yahoo.com" })).status, 400);
   const email = "Juan.DelaCruz@CSUCC.edu.ph";
   const sent = await request("/auth/email/send-code", null, { email });
   assert.equal(sent.status, 200);

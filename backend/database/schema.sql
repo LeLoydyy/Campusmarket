@@ -196,6 +196,13 @@ ALTER TABLE event_stalls ADD COLUMN IF NOT EXISTS y INTEGER;
 ALTER TABLE event_stalls ADD COLUMN IF NOT EXISTS w INTEGER;
 ALTER TABLE event_stalls ADD COLUMN IF NOT EXISTS h INTEGER;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS landmarks JSONB NOT NULL DEFAULT '[]'::jsonb;
+-- Buyers who sign up with a personal email (e.g. Gmail) get an automatic buyer ID: CMB-000001, CMB-000002…
+CREATE SEQUENCE IF NOT EXISTS public_buyer_id_seq;
+-- Real-map pins (OpenStreetMap). A space's pin is where it stands; the event's is the middle of its pins.
+ALTER TABLE event_stalls ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+ALTER TABLE event_stalls ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
 ALTER TABLE seller_applications ADD COLUMN IF NOT EXISTS review_note TEXT;
 ALTER TABLE seller_applications ADD COLUMN IF NOT EXISTS reviewed_by TEXT;
 ALTER TABLE seller_applications ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
@@ -415,6 +422,9 @@ CREATE TABLE IF NOT EXISTS product_options (
   UNIQUE (product_id, label)
 );
 CREATE INDEX IF NOT EXISTS product_options_product_idx ON product_options (product_id, position);
+
+-- What the options are ("Size", "Cup size", "Bag size", "Length"…), so buyers read "Choose a size".
+ALTER TABLE products ADD COLUMN IF NOT EXISTS option_type TEXT;
 
 -- The cart, orders and counter sales remember which option was chosen.
 ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS option_id TEXT REFERENCES product_options (id) ON DELETE CASCADE;

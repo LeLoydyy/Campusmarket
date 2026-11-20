@@ -14,6 +14,7 @@ import { getDb, query, transaction } from "../db/index.js";
 import { getRecommendedProductIds, getSimilarProductIds } from "../services/aiService.js";
 import { buyerOrderMessage, sellerCancelledMessage, sellerNewOrderMessage } from "../services/orderNotifications.js";
 import { isStallOpen } from "../services/openingHours.js";
+import { CAMPUS_EMAIL_DOMAIN } from "../middleware/validate.js";
 
 // ── Errors ────────────────────────────────────────────────────────────────────
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
@@ -31,7 +32,7 @@ const mapDbError = (error) => {
   return mapped ? Object.assign(new Error(mapped[0]), { status: mapped[1], cause: error }) : error;
 };
 
-// ── Startup: demo data and first administrator ───────────────────────────────
+// ── Startup: optional sample data and first administrator ───────────────────────────────
 const seedPassword = process.env.SEED_PASSWORD || randomUUID();
 
 const seedDemoData = async (q) => {
@@ -71,7 +72,8 @@ const bootstrap = async () => {
       await q(`INSERT INTO users (name, email, password_hash, role, status) VALUES ('Administrator', $1, $2, 'admin', 'approved')
                ON CONFLICT (email) DO NOTHING`, [email.trim().toLowerCase(), bcrypt.hashSync(password, 12)]);
     }
-    const seedEnabled = process.env.SEED_DEMO !== "false" && process.env.NODE_ENV !== "production";
+    // Sample accounts (admin/buyer/seller@campusmarket.test) only when asked for, e.g. by the tests; never in production.
+    const seedEnabled = process.env.SEED_DEMO === "true" && process.env.NODE_ENV !== "production";
     const [{ count }] = await q("SELECT count(*) FROM users");
     if (seedEnabled && count === 0) await seedDemoData(q);
   });
@@ -122,6 +124,15 @@ const PRODUCT_SELECT = `SELECT p.*, to_jsonb(s) AS stalls, coalesce(o.name, 'Cam
 
 const isApprovedUser = async (run, id) =>
   Boolean((await run("SELECT 1 FROM users WHERE id = $1 AND status = 'approved' AND NOT is_banned", [id]))[0]);
+
+/** Next automatic buyer ID (CMB-000001…) for a buyer signing up with a personal email. Skips any ID already taken. */
+const nextPublicBuyerId = async (run) => {
+  for (;;) {
+    const [{ n }] = await run("SELECT nextval('public_buyer_id_seq')::int AS n");
+    const id = `CMB-${String(n).padStart(6, "0")}`;
+    if (!(await run("SELECT 1 FROM users WHERE lower(campus_id) = lower($1)", [id]))[0]) return id;
+  }
+};
 
 const audit = (run, actorId, action, targetId, note = null) =>
   run("INSERT INTO audit_log (actor_id, action, target_id, note) VALUES ($1, $2, $3, $4)", [actorId, action, targetId, note]);
@@ -334,15 +345,17 @@ export const authStore = {
 
   async startSelling(userId, payload) {
     return tx(async (run) => {
-      const [user] = await run("SELECT role FROM users WHERE id = $1 AND status = 'approved' AND NOT is_banned FOR UPDATE", [userId]);
+      const [user] = await run("SELECT role, email FROM users WHERE id = $1 AND status = 'approved' AND NOT is_banned FOR UPDATE", [userId]);
       if (!user || !["buyer", "seller"].includes(user.role)) fail("An approved campus account is required.", 403);
+      // Buyers who signed up with a personal address (e.g. Gmail) can't open a store.
+      if (!String(user.email).toLowerCase().endsWith(`@${CAMPUS_EMAIL_DOMAIN}`)) fail(`Opening a store needs a @${CAMPUS_EMAIL_DOMAIN} account.`, 403);
       const stall = await insertStall(run, userId, payload);
       const [updated] = await run(`UPDATE users SET role = 'seller' WHERE id = $1 RETURNING ${USER_COLUMNS}`, [userId]);
       return { user: updated, stall };
     });
   },
 
-  async registerUser({ name, email, password, role = "buyer", campus_id, affiliation, department, store_name, campus_location,
+  async registerUser({ name, email, password, role = "buyer", campus_id = null, affiliation = null, department = null, store_name, campus_location,
     security_question = null, security_answer = null, security_questions = null, email_verified = false }) {
     const passwordHash = bcrypt.hashSync(password, 12);
     const recovery = security_questions ? hashRecoveryQuestions(security_questions) : null;
@@ -351,12 +364,15 @@ export const authStore = {
     const answerHash = security_answer ? bcrypt.hashSync(normalizeAnswer(security_answer), 12) : null;
     return tx(async (run) => {
       if ((await run("SELECT 1 FROM users WHERE email = $1", [email]))[0]) fail("Email already registered", 409);
-      if ((await run("SELECT 1 FROM users WHERE lower(campus_id) = lower($1)", [campus_id]))[0]) fail("This campus ID is already registered.", 409);
+      // Personal-email buyers have no CSUCC ID: they get the next automatic buyer ID instead.
+      const isPublic = role === "buyer" && !String(email).toLowerCase().endsWith(`@${CAMPUS_EMAIL_DOMAIN}`);
+      if (isPublic) [campus_id, affiliation, department] = [await nextPublicBuyerId(run), "public", null];
+      else if ((await run("SELECT 1 FROM users WHERE lower(campus_id) = lower($1)", [campus_id]))[0]) fail("This campus ID is already registered.", 409);
       const [user] = await run(
         `INSERT INTO users (name, email, password_hash, role, campus_id, affiliation, department, campus,
                             security_question, security_answer_hash, email_verified_at, recovery_questions)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'CSUCC', $8, $9, CASE WHEN $10::boolean THEN now() END, $11) RETURNING ${USER_COLUMNS}`,
-        [name, email, passwordHash, role, campus_id, affiliation, department, security_question, answerHash, email_verified,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CASE WHEN $11::boolean THEN now() END, $12) RETURNING ${USER_COLUMNS}`,
+        [name, email, passwordHash, role, campus_id, affiliation, department, isPublic ? null : "CSUCC", security_question, answerHash, email_verified,
           recovery && JSON.stringify(recovery)],
       );
       if (role === "seller") {
@@ -476,9 +492,14 @@ export const authStore = {
 
   async submitCredentials(userId, payload) {
     return tx(async (run) => {
-      const [user] = await run("SELECT status, is_banned FROM users WHERE id = $1 FOR UPDATE", [userId]);
+      const [user] = await run("SELECT status, is_banned, affiliation FROM users WHERE id = $1 FOR UPDATE", [userId]);
       if (!user || user.is_banned) fail("Account unavailable.", 403);
       if (user.status === "approved") fail("Approved credentials cannot be changed here.", 409);
+      // Public buyers have no CSUCC details to correct: this just sends them back for review.
+      if (user.affiliation === "public") {
+        return (await run(`UPDATE users SET status = 'pending', review_note = '' WHERE id = $1 RETURNING ${USER_COLUMNS}`, [userId]))[0];
+      }
+      if (!payload.campus_id || !payload.affiliation || !payload.department) fail("Enter your CSUCC ID, affiliation and college, program or office.");
       if ((await run("SELECT 1 FROM users WHERE id <> $1 AND lower(campus_id) = lower($2)", [userId, payload.campus_id]))[0]) {
         fail("This campus ID is already registered.", 409);
       }
@@ -495,8 +516,9 @@ export const authStore = {
       const [user] = await run("SELECT * FROM users WHERE id = $1 FOR UPDATE", [userId]);
       if (!user || user.role === "admin") fail("Registration not found.", 404);
       if (user.status !== "pending") fail("This registration has already been reviewed.", 409);
-      if (status === "approved" && (!credentials_checked || !user.campus_id || !user.affiliation || !user.department)) {
-        fail("Check complete credentials against CSUCC records before approving.");
+      const complete = user.affiliation === "public" ? Boolean(user.campus_id) : Boolean(user.campus_id && user.affiliation && user.department);
+      if (status === "approved" && (!credentials_checked || !complete)) {
+        fail(user.affiliation === "public" ? "Confirm that you checked this registration before approving." : "Check complete credentials against CSUCC records before approving.");
       }
       const [updated] = await run(
         `UPDATE users SET status = $2, review_note = $3, reviewed_by = $4, reviewed_at = now() WHERE id = $1 RETURNING ${USER_COLUMNS}`,
@@ -881,7 +903,7 @@ export const stallStore = {
       if (tier === "premium") {
         // A manual switch settles any request that was waiting.
         await run(`UPDATE plan_requests SET status = 'approved', reviewed_by = $2, reviewed_at = now(), premium_until = $3,
-                   review_note = 'Switched to Premium in Stores & Plans' WHERE stall_id = $1 AND status = 'pending'`, [stallId, actorId, until]);
+                   review_note = 'Switched to Premium in Stores & plans' WHERE stall_id = $1 AND status = 'pending'`, [stallId, actorId, until]);
         const ends = until ? `until ${formatDay(until)}` : "with no end date";
         if (extending) {
           await insertPlanNotification(run, stall.owner_id, "plan_extended", "Your Premium plan was updated", `Your stall stays on Premium ${ends}.${adminNote}`);
@@ -990,11 +1012,12 @@ export const productStore = {
       const [{ count }] = await run("SELECT count(*) FROM products WHERE stall_id = $1", [stallId]);
       if (count >= plan.listing_limit) fail(`${plan.name} plan limit of ${plan.listing_limit} listings reached`, 403);
       const [product] = await run(
-        `INSERT INTO products (stall_id, name, description, price, stock, category, image_url, is_active, sale_price, images)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+        `INSERT INTO products (stall_id, name, description, price, stock, category, image_url, is_active, sale_price, images, option_type)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
         [stallId, payload.name, payload.description || "", Number(payload.price), Number(payload.stock),
           payload.category || "other", payload.image_url || "", payload.is_active !== false,
-          checkedSalePrice(payload.sale_price, payload.price), JSON.stringify(payload.images || [])],
+          checkedSalePrice(payload.sale_price, payload.price), JSON.stringify(payload.images || []),
+          payload.options?.length ? payload.option_type || null : null],
       );
       if (payload.options?.length) await saveOptions(run, product.id, payload.options);
       // Free stalls hear about Premium as they run out of listing slots.
@@ -1020,7 +1043,7 @@ export const productStore = {
       }
       const params = [productId];
       const sets = [];
-      for (const key of ["name", "description", "price", "stock", "category", "image_url", "is_active"]) {
+      for (const key of ["name", "description", "price", "stock", "category", "image_url", "is_active", "option_type"]) {
         if (payload[key] === undefined) continue;
         params.push(payload[key]);
         sets.push(`${key} = $${params.length}`);
@@ -1039,6 +1062,8 @@ export const productStore = {
       if (payload.is_active === false) sets.push("is_featured = FALSE");
       if (sets.length) await run(`UPDATE products SET ${sets.join(", ")} WHERE id = $1`, params);
       if (payload.options !== undefined) await saveOptions(run, productId, payload.options);
+      // No options left means no size type either.
+      await run("UPDATE products SET option_type = NULL WHERE id = $1 AND NOT EXISTS (SELECT 1 FROM product_options WHERE product_id = $1)", [productId]);
       // A lowered regular price can't sit under an old sale price.
       await run("UPDATE products SET sale_price = NULL WHERE id = $1 AND sale_price >= price", [productId]);
       return (await run(`${PRODUCT_SELECT} WHERE p.id = $1`, [productId]))[0];
@@ -1754,7 +1779,7 @@ export const messageStore = {
 };
 
 // ── Events ────────────────────────────────────────────────────────────────────
-const EVENT_STALL_COLUMNS = ["id", "event_id", "stall_number", "category", "status", "size", "price", "stall_id", "seller_id", "name", "description", "location", "x", "y", "w", "h"];
+const EVENT_STALL_COLUMNS = ["id", "event_id", "stall_number", "category", "status", "size", "price", "stall_id", "seller_id", "name", "description", "location", "x", "y", "w", "h", "latitude", "longitude"];
 
 // Stall map grid (cells). Geometry is optional: spaces without it are auto-placed by number.
 export const MAP_COLS = 24;
@@ -1770,6 +1795,15 @@ const mapGeometry = (item, what) => {
     fail(`${what} must sit inside the ${MAP_COLS}×${MAP_ROWS} map grid.`);
   }
   return { x, y, w, h };
+};
+/** Validated real-map pin { latitude, longitude } (6 decimals ≈ 10 cm), or both null when not pinned yet. */
+const mapPin = (item, what) => {
+  const { latitude = null, longitude = null } = item;
+  if (latitude === null && longitude === null) return { latitude: null, longitude: null };
+  if (![latitude, longitude].every((value) => typeof value === "number" && Number.isFinite(value))
+    || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) fail(`${what} has an invalid map pin.`);
+  const round = (value) => Math.round(value * 1e6) / 1e6;
+  return { latitude: round(latitude), longitude: round(longitude) };
 };
 const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
@@ -1840,7 +1874,7 @@ export const eventStore = {
         if (prior?.seller_id && item.status !== prior.status) fail("Assigned spaces cannot change status in the layout editor.", 409);
         return { ...prior, id: prior?.id || randomUUID(), event_id: event.id, stall_number: item.stall_number,
           category: item.category, status: item.status, size: item.size.trim(), price: item.price,
-          ...mapGeometry(item, `Space ${item.stall_number}`) };
+          ...mapGeometry(item, `Space ${item.stall_number}`), ...mapPin(item, `Space ${item.stall_number}`) };
       });
       if (existing.some((item) => !ids.has(item.id))) fail("Existing spaces cannot be removed from this editor.");
 
@@ -1851,8 +1885,9 @@ export const eventStore = {
           const label = String(item.label || "").trim();
           if (!LANDMARK_TYPES.includes(item.type) || !label || label.length > 40) fail("Each landmark needs a type and a short label.");
           const geometry = mapGeometry(item, `Landmark "${label}"`);
-          if (geometry.x === null) fail(`Place landmark "${label}" on the map.`);
-          return { id: String(item.id || randomUUID()).slice(0, 64), type: item.type, label, ...geometry };
+          const pin = mapPin(item, `Landmark "${label}"`);
+          if (geometry.x === null && pin.latitude === null) fail(`Place landmark "${label}" on the map.`);
+          return { id: String(item.id || randomUUID()).slice(0, 64), type: item.type, label, ...geometry, ...pin };
         });
       }
       const placed = [...next.filter((item) => item.x !== null).map((item) => ({ ...item, what: `Space ${item.stall_number}` })),
@@ -1870,8 +1905,13 @@ export const eventStore = {
           EVENT_STALL_COLUMNS.map((column) => stall[column] ?? null),
         );
       }
-      const [updated] = await run("UPDATE events SET layout_version = layout_version + 1, landmarks = $2::jsonb WHERE id = $1 RETURNING *",
-        [event.id, JSON.stringify(landmarks)]);
+      // The event's own pin (for directions and the starting view) is the middle of everything pinned.
+      const pins = [...next, ...landmarks].filter((item) => item.latitude !== null && item.latitude !== undefined);
+      const middle = (key) => (pins.length ? Math.round((pins.reduce((sum, item) => sum + item[key], 0) / pins.length) * 1e6) / 1e6 : null);
+      const [updated] = await run(
+        `UPDATE events SET layout_version = layout_version + 1, landmarks = $2::jsonb,
+           latitude = coalesce($3, latitude), longitude = coalesce($4, longitude) WHERE id = $1 RETURNING *`,
+        [event.id, JSON.stringify(landmarks), middle("latitude"), middle("longitude")]);
       await audit(run, actorId, "event.layout_saved", event.id);
       return { event: updated, stalls: next };
     });
