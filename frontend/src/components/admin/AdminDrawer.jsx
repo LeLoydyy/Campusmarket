@@ -1,19 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { AlertTriangle, CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { plural } from "../../utils/marketplace.js";
 import "../../pages/admin/ManageUsers.css";
 import "../../pages/admin/ManageAdmins.css";
+import useDialog from "../../utils/useDialog.js";
 
 /** Right-hand panel used across the admin pages. Escape or the backdrop closes it; focus returns afterwards. */
 export default function AdminDrawer({ title, eyebrow, subtitle, avatar, onClose, children, footer, labelId = "admin-drawer-title" }) {
   const panel = useRef(null);
-  useEffect(() => {
-    const previous = document.activeElement;
-    panel.current?.querySelector("input, select, textarea, button:not(.mu-drawer-close)")?.focus();
-    const escape = (event) => { if (event.key === "Escape") onClose(); };
-    document.addEventListener("keydown", escape);
-    return () => { document.removeEventListener("keydown", escape); previous?.focus?.(); };
-  }, [onClose]);
+  useDialog(panel, { onClose, focus: "input, select, textarea, button:not(.mu-drawer-close)" });
 
   return (
     <div className="mu-drawer-layer" role="presentation" onClick={onClose}>

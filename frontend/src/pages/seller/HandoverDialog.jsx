@@ -1,20 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { FiKey, FiX } from "react-icons/fi";
 import "../buyer/CancelOrderDialog.css";
 import "./HandoverDialog.css";
+import useDialog from "../../utils/useDialog.js";
 
 /** Before handing over a pickup order, the seller types the 4-digit code the buyer shows them. */
 export default function HandoverDialog({ orderCode, buyerName, submitting, error, onConfirm, onClose }) {
   const [code, setCode] = useState("");
   const input = useRef(null);
 
-  useEffect(() => {
-    const previous = document.activeElement;
-    input.current?.focus();
-    const onKey = (event) => { if (event.key === "Escape" && !submitting) onClose(); };
-    document.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("keydown", onKey); previous?.focus?.(); };
-  }, [onClose, submitting]);
+  useDialog(input, { onClose, canClose: !submitting, focus: input });
 
   const submit = (event) => {
     event.preventDefault();

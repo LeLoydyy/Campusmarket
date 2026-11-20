@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import "./CancelOrderDialog.css";
+import useDialog from "../../utils/useDialog.js";
 
 export const CANCEL_REASONS = [
   "I ordered by mistake",
@@ -33,21 +34,7 @@ export default function CancelOrderDialog({ orderReference, remainingLabel, subm
   const panel = useRef(null);
   const otherInput = useRef(null);
 
-  useEffect(() => {
-    const previous = document.activeElement;
-    panel.current?.querySelector("input")?.focus();
-    const onKey = (event) => {
-      if (event.key === "Escape" && !submitting) onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    const { overflow } = document.body.style;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = overflow;
-      previous?.focus?.();
-    };
-  }, [onClose, submitting]);
+  useDialog(panel, { onClose, canClose: !submitting, focus: "input", lockScroll: true });
 
   const wantsOther = choices.has(OTHER);
   useEffect(() => {

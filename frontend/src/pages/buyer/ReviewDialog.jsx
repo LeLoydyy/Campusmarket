@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Star, X } from "lucide-react";
 import "./CancelOrderDialog.css";
 import "./ReviewDialog.css";
+import useDialog from "../../utils/useDialog.js";
 
 const LABELS = ["", "Poor", "Fair", "Good", "Very good", "Excellent"];
 const MAX_COMMENT = 1000;
@@ -14,19 +15,8 @@ export default function ReviewDialog({ productName, imageUrl, initial, submittin
   const [touched, setTouched] = useState(false);
   const panel = useRef(null);
 
-  useEffect(() => {
-    const previous = document.activeElement;
-    panel.current?.querySelector("input")?.focus();
-    const onKey = (event) => { if (event.key === "Escape" && !submitting) onClose(); };
-    document.addEventListener("keydown", onKey);
-    const { overflow } = document.body.style;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = overflow;
-      previous?.focus?.();
-    };
-  }, [onClose, submitting]);
+  // Opens on the stars; typing in the comment then stays put while the Orders page keeps ticking.
+  useDialog(panel, { onClose, canClose: !submitting, focus: "input", lockScroll: true });
 
   const shown = hover || rating;
   const submit = (event) => {

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { FiClock, FiX } from "react-icons/fi";
 import "../buyer/CancelOrderDialog.css";
 import "./HandoverDialog.css";
+import useDialog from "../../utils/useDialog.js";
 
 const CHOICES = [10, 15, 20, 30, 45, 60];
 const clock = (minutes) => new Date(Date.now() + minutes * 60000).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
@@ -11,13 +12,7 @@ export default function ReadyTimeDialog({ orderCode, submitting, onConfirm, onCl
   const [minutes, setMinutes] = useState(15);
   const panel = useRef(null);
 
-  useEffect(() => {
-    const previous = document.activeElement;
-    panel.current?.querySelector("input:checked")?.focus();
-    const onKey = (event) => { if (event.key === "Escape" && !submitting) onClose(); };
-    document.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("keydown", onKey); previous?.focus?.(); };
-  }, [onClose, submitting]);
+  useDialog(panel, { onClose, canClose: !submitting, focus: "input:checked" });
 
   return (
     <div className="cancel-dialog-layer" role="presentation" onClick={() => !submitting && onClose()}>
