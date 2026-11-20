@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Sidebar from "../../components/common/Sidebar.jsx";
 import eventService from "../../services/eventService.js";
-import StallMap, { placeSpaces, SPACE_CATEGORIES } from "../../components/map/StallMap.jsx";
+import EventMap from "../../components/map/EventMap.jsx";
+import { SPACE_CATEGORIES } from "../../components/map/StallMap.jsx";
+import { hasPin } from "../../utils/geo.js";
 import { stallService } from "../../services/api.js";
 import toast from "react-hot-toast";
 import {
@@ -202,8 +204,11 @@ export default function SellerApplicationForm() {
   }, [formData.eventId]);
   useEffect(() => { loadSpaces(); }, [loadSpaces]);
 
-  const placedSpaces = useMemo(() => placeSpaces(spaces, landmarks), [spaces, landmarks]);
   const isOpenSpace = (space) => !space.seller_id && space.status === "available" && !space.requested;
+  const pinnedSpaces = useMemo(() => spaces.filter(hasPin), [spaces]);
+  const pinnedLandmarks = useMemo(() => landmarks.filter(hasPin), [landmarks]);
+  // Open spaces the organisers haven't pinned on the map yet can still be chosen from a list.
+  const unpinnedOpen = spaces.filter((space) => !hasPin(space) && isOpenSpace(space)).sort((a, b) => a.stall_number - b.stall_number);
   const openCount = spaces.filter(isOpenSpace).length;
   const selectedSpace = spaces.find((space) => space.id === formData.preferredSpaceId);
   const categoryMismatch = selectedSpace && selectedSpace.category !== "mixed" && toSpaceCategory(formData.productCategory) !== "mixed"
@@ -473,8 +478,20 @@ export default function SellerApplicationForm() {
                       <span><i className="smap-swatch smap-cat--mixed smap-status--reserved is-taken" aria-hidden="true" /> Taken</span>
                       <small>{openCount} of {spaces.length} open</small>
                     </div>
-                    <StallMap stalls={placedSpaces} landmarks={landmarks} mode="pick" selectedId={formData.preferredSpaceId}
-                      onSelect={(id) => id && pickSpace(id)} label={`Stall map for ${selectedEvent?.name || "this event"}. Choose an open space.`} />
+                    {pinnedSpaces.length > 0 && (
+                      <EventMap key={formData.eventId} spaces={pinnedSpaces} landmarks={pinnedLandmarks} mode="pick" selectedId={formData.preferredSpaceId}
+                        onSelect={(id) => id && pickSpace(id)} label={`Stall map for ${selectedEvent?.name || "this event"}. Choose an open space.`} />
+                    )}
+                    {unpinnedOpen.length > 0 && (
+                      <div className="sa-spot-list" role="group" aria-label={pinnedSpaces.length ? "Open spaces not on the map yet" : "Open spaces"}>
+                        <span>{pinnedSpaces.length ? "Not on the map yet:" : "Open spaces:"}</span>
+                        {unpinnedOpen.map((space) => (
+                          <button key={space.id} type="button" aria-pressed={formData.preferredSpaceId === space.id} onClick={() => pickSpace(space.id)}>
+                            Space {space.stall_number} · {SPACE_CATEGORIES[space.category] || "Mixed"}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     {selectedSpace ? (
                       <div className="sa-spot-picked" role="status">
                         <FiCheckCircle aria-hidden="true" />
@@ -487,7 +504,7 @@ export default function SellerApplicationForm() {
                     ) : openCount === 0 ? (
                       <p className="sa-spot-hint">Every space is taken or requested. Check back later or pick another event.</p>
                     ) : (
-                      <p className="sa-spot-hint">Swipe the map to see all of it, then tap a solid space. Your pick gets a gold ring.</p>
+                      <p className="sa-spot-hint">Pinch or use + and − to zoom, then tap a solid pin. Your pick gets a gold ring.</p>
                     )}
                     {errors.preferredSpaceId && <small className="sa-error">{errors.preferredSpaceId}</small>}
                   </div>

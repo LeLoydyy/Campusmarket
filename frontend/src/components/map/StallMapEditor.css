@@ -17,11 +17,6 @@
 .sme-canvas, .sme-panel { min-width: 0; padding: 1rem; background: var(--surface); border-radius: 22px; box-shadow: var(--shadow-1); }
 .sme-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-bottom: .8rem; }
 .sme-landmark-add select { height: 40px; padding: 0 .9rem; color: var(--green-900); background: var(--gold-100); border: 1.5px solid var(--gold-500); border-radius: var(--radius-pill); font: 800 var(--text-xs) var(--font-body); cursor: pointer; }
-.sme-zoom { display: flex; align-items: center; gap: .3rem; margin-left: auto; padding: .2rem; background: var(--cream-100); border-radius: var(--radius-pill); }
-.sme-zoom button { width: 40px; height: 40px; display: grid; place-items: center; color: var(--green-900); background: var(--surface); border-radius: 50%; box-shadow: var(--shadow-1); }
-.sme-zoom button:disabled { opacity: .4; box-shadow: none; }
-.sme-zoom svg { width: 18px; height: 18px; }
-.sme-zoom span { min-width: 48px; color: var(--ink-900); font: 800 var(--text-xs) var(--font-body); text-align: center; }
 .sme-help { display: flex; align-items: flex-start; gap: .45rem; margin-top: .75rem; color: var(--ink-600); font-size: var(--text-xs); line-height: 1.5; }
 .sme-help svg { flex: 0 0 auto; width: 16px; height: 16px; margin-top: .1rem; color: var(--green-700); }
 
@@ -81,4 +76,45 @@
 @media (max-width: 1100px) {
   .sme-body { grid-template-columns: 1fr; }
   .sme-side { position: static; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+}
+
+/* Real-map tools: jump to a place, use the admin's own location. */
+.sme-find { display: flex; flex: 1 1 260px; gap: .4rem; min-width: 0; margin-left: auto; }
+.sme-find input { flex: 1; min-width: 0; height: 40px; padding: 0 .9rem; color: var(--ink-900); background: var(--cream-50); border: 1.5px solid var(--line); border-radius: var(--radius-pill); font: 600 var(--text-xs) var(--font-body); }
+.sme-find input:focus { border-color: var(--green-700); outline: none; }
+.sme-find .btn svg, .sme-tools .btn svg { width: 16px; height: 16px; }
+.sme-unpinned { display: grid; gap: .5rem; }
+.sme-unpinned .btn { justify-self: start; }
+.sme-unpinned-box { background: var(--cream-100); }
+.sme-unpinned-box p { margin: 0; font-size: var(--text-xs); }
+.sme-unpinned-box .btn { justify-self: start; }
+.sme-unpinned-box ul.sme-chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+.sme-chips button { padding: .3rem .65rem; color: var(--green-900); background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-pill); font: 700 var(--text-xs) var(--font-body); cursor: pointer; }
+.sme-chips button:hover { border-color: var(--green-700); }
+
+/* "Space 4 selected · Edit details": only where the edit panel sits below the map. */
+.sme-picked { display: none; }
+@media (max-width: 1100px) {
+  .sme-picked { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin-top: .6rem; padding: .45rem .5rem .45rem .8rem; color: var(--ink-900); background: var(--gold-100); border-radius: 12px; font-size: var(--text-sm); }
+  .sme-side > .sme-panel:first-child { scroll-margin-top: 130px; }
+}
+
+/* Phones: one compact sticky bar (back · status · save) with the counts in a swipeable strip below. */
+@media (max-width: 600px) {
+  .sme-bar { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "back state save" "stats stats stats"; gap: .45rem .5rem; padding: .5rem .6rem; border-radius: 14px; }
+  .sme-bar > a { grid-area: back; min-height: 36px; padding: .3rem .55rem; }
+  .sme-stats { grid-area: stats; flex-wrap: nowrap; gap: .3rem; overflow-x: auto; scrollbar-width: none; }
+  .sme-stats::-webkit-scrollbar { display: none; }
+  .sme-stats li { flex: 0 0 auto; padding: .15rem .55rem; font-size: .6875rem; }
+  .sme-stats b { font-size: .8125rem; }
+  .sme-state { grid-area: state; justify-self: end; padding: .3rem .6rem; font-size: .6875rem; }
+  .sme-save { grid-area: save; min-height: 36px; padding: .3rem .8rem; font-size: .8125rem; }
+  .sme-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .sme-canvas, .sme-panel { padding: .75rem; border-radius: 16px; }
+  .sme-tools { gap: .45rem; margin-bottom: .6rem; }
+  .sme-tools > .btn-primary, .sme-landmark-add { flex: 1 1 0; }
+  .sme-tools > .btn-primary { justify-content: center; }
+  .sme-landmark-add select { width: 100%; }
+  .sme-find { flex: 1 1 200px; margin-left: 0; }
+  .sme-help { font-size: .6875rem; }
 }

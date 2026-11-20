@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, CalendarDays, Clock3, MapPin, ShoppingCart, Store, Wallet } from "lucide-react";
 import Navbar from "../../components/common/Navbar.jsx";
 import Footer from "../../components/common/Footer.jsx";
@@ -16,7 +16,11 @@ import { productService, stallService, statsService } from "../../services/api.j
 import eventService from "../../services/eventService.js";
 import { eventStart, eventStatus, formatEventDate, parseEventDate, plural, stallOpenStatus, timeUntil } from "../../utils/marketplace.js";
 import { CATEGORY_TILES, QUICK_CHIPS } from "../../config/categories.js";
+import { hasPin } from "../../utils/geo.js";
 import "./Home.css";
+
+// The real map (Leaflet) only loads when the next event has pins to show.
+const EventMap = lazy(() => import("../../components/map/EventMap.jsx"));
 
 
 const list = (payload) => (Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : []);
@@ -149,6 +153,18 @@ export default function BuyerHome() {
       .filter((event) => eventStatus(event) === "upcoming")
       .sort((a, b) => parseEventDate(eventStart(a)) - parseEventDate(eventStart(b)))[0] || null;
   }, [events]);
+
+  // The next event's pinned spaces, for the live map preview.
+  const navigate = useNavigate();
+  const [nextSpaces, setNextSpaces] = useState([]);
+  useEffect(() => {
+    if (!nextEvent?.id) return undefined;
+    let active = true;
+    eventService.getStalls(nextEvent.id)
+      .then(({ data }) => { if (active) setNextSpaces(Array.isArray(data) ? data.filter(hasPin) : []); })
+      .catch(() => { if (active) setNextSpaces([]); });
+    return () => { active = false; };
+  }, [nextEvent?.id]);
 
   const stallCta = !user ? { to: "/register", label: "Open your stall" }
     : user.role === "buyer" ? { to: "/open-store", label: "Open your stall" }
@@ -322,10 +338,26 @@ export default function BuyerHome() {
                   <Link to="/events" className="btn btn-on-dark btn-lg">All events</Link>
                 </div>
               </div>
-              <div className="home-events-art" aria-hidden="true">
-                <Illustration name="map" size={300} />
-                <span className="home-events-count">{plural(nextEvent.stall_count || 0, "stall space")}</span>
-              </div>
+              {nextSpaces.length > 0 ? (
+                <div className="home-events-map">
+                  <Suspense fallback={<div className="home-events-map-wait" aria-hidden="true" />}>
+                    <EventMap
+                      spaces={nextSpaces}
+                      landmarks={(nextEvent.landmarks || []).filter(hasPin)}
+                      center={nextEvent}
+                      mode="view"
+                      onSelect={(id) => navigate(`/events/${nextEvent.id}/stalls${id ? `?space=${encodeURIComponent(id)}` : ""}`)}
+                      label={`Map of ${nextEvent.name}. Tap a pin to open the stall map.`}
+                    />
+                  </Suspense>
+                  <span className="home-events-count">{plural(nextEvent.stall_count || nextSpaces.length, "stall space")}</span>
+                </div>
+              ) : (
+                <div className="home-events-art" aria-hidden="true">
+                  <Illustration name="map" size={300} />
+                  <span className="home-events-count">{plural(nextEvent.stall_count || 0, "stall space")}</span>
+                </div>
+              )}
             </div>
           </section>
         ) : !loading && (

@@ -125,6 +125,12 @@
 .home-countdown b { font: 900 1.6rem/1 var(--font-display); font-variant-numeric: tabular-nums; }
 .home-countdown small { margin-top: .2rem; color: rgba(255, 255, 255, .85); font: 700 .75rem var(--font-body); text-transform: uppercase; letter-spacing: .06em; }
 .home-events-art { position: relative; display: grid; place-items: center; }
+/* Live map of the next event's stalls (replaces the drawing once stalls are pinned). */
+.home-events-map { position: relative; min-width: 0; }
+.home-events-map .emap { --emap-h: 340px; --emap-h-sm: 260px; border: 3px solid rgba(255, 255, 255, .85); box-shadow: 0 18px 40px rgba(0, 0, 0, .3); }
+.home-events-map-wait { height: 340px; border-radius: 18px; background: rgba(255, 255, 255, .08); }
+.home-events-map .home-events-count { right: 14px; bottom: 14px; z-index: 1; pointer-events: none; }
+@media (max-width: 600px) { .home-events-map-wait { height: 260px; } }
 .home-events-art .cm-illustration { width: min(320px, 100%); height: auto; filter: drop-shadow(0 18px 30px rgba(0, 0, 0, .25)); }
 .home-events-count { position: absolute; right: 12%; bottom: 10%; padding: .5rem .9rem; color: var(--green-900); background: var(--gold-500); border-radius: var(--radius-pill); font: 800 var(--text-sm) var(--font-body); box-shadow: var(--shadow-2); transform: rotate(-4deg); }
 
@@ -158,6 +164,7 @@
   .home-hero-art { order: -1; aspect-ratio: 16 / 9; transform: none; }
   .home-events-inner, .home-spotlight { grid-template-columns: 1fr; }
   .home-events-art { display: none; }
+  .home-events-map { order: 2; }
 }
 @media (max-width: 560px) {
   .home-hero { margin-top: .75rem; padding: 1.25rem; border-radius: 24px; }

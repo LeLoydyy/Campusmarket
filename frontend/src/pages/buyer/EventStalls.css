@@ -20,11 +20,6 @@
 .evs-map-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .8rem; }
 .evs-map-bar h2 { font: 900 1.25rem var(--font-display); }
 .evs-map-bar small { margin-left: .4rem; color: var(--ink-600); font: 700 var(--text-xs) var(--font-body); letter-spacing: 0; }
-.evs-zoom { display: flex; align-items: center; gap: .3rem; padding: .2rem; background: var(--cream-100); border-radius: var(--radius-pill); }
-.evs-zoom button { width: 40px; height: 40px; display: grid; place-items: center; color: var(--green-900); background: var(--surface); border-radius: 50%; box-shadow: var(--shadow-1); }
-.evs-zoom button:disabled { opacity: .4; box-shadow: none; }
-.evs-zoom svg { width: 18px; height: 18px; }
-.evs-zoom span { min-width: 48px; color: var(--ink-900); font: 800 var(--text-xs) var(--font-body); text-align: center; }
 .evs-hint { margin-top: .7rem; color: var(--ink-600); font-size: var(--text-xs); }
 .evs-selected { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-top: .8rem; padding: .75rem .9rem; background: var(--gold-100); border-radius: 16px; }
 .evs-selected strong { color: var(--ink-900); }
@@ -57,4 +52,33 @@
 @media (max-width: 600px) {
   .evs-head { gap: .75rem; padding: 1rem; border-radius: 16px; }
   .evs-head h1 { font-size: 1.6rem; }
+}
+
+/* Real map: header actions, seller list as buttons, the chosen seller's products. */
+.evs-head-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; }
+.evs-head-actions svg { width: 16px; height: 16px; }
+button.evs-seller { width: 100%; text-align: left; background: none; border: 0; cursor: pointer; font: inherit; }
+.evs-seller.is-active { background: var(--gold-100); box-shadow: inset 0 0 0 1.5px var(--gold-500); }
+.evs-selected-wrap { scroll-margin: 90px; }
+.evs-seller-pick { display: grid; gap: .75rem; margin-top: .8rem; padding: .9rem; background: var(--cream-100); border-radius: 18px; }
+.evs-seller-pick-head { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; }
+.evs-seller-pick-head > div { display: grid; flex: 1; min-width: 0; }
+.evs-seller-pick-head strong { color: var(--ink-900); font: 900 1.05rem var(--font-display); }
+.evs-seller-pick-head small { color: var(--ink-600); font-size: var(--text-xs); }
+.evs-seller-pick-head .btn svg { width: 16px; height: 16px; }
+.evs-products-title { color: var(--ink-900); font: 800 var(--text-sm) var(--font-body); }
+.evs-products { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .5rem; list-style: none; }
+.evs-product { display: flex; align-items: center; gap: .6rem; min-height: 64px; padding: .45rem; color: inherit; background: var(--surface); border-radius: 14px; text-decoration: none; box-shadow: var(--shadow-1); }
+.evs-product:hover { box-shadow: var(--shadow-2); }
+.evs-product-img { flex: 0 0 auto; width: 52px; height: 52px; display: grid; place-items: center; overflow: hidden; color: var(--green-700); background: var(--green-100); border-radius: 10px; }
+.evs-product-img img { width: 100%; height: 100%; object-fit: cover; }
+.evs-product-text { display: grid; min-width: 0; }
+.evs-product-text strong { overflow: hidden; color: var(--ink-900); font-size: var(--text-sm); text-overflow: ellipsis; white-space: nowrap; }
+.evs-product-text small { color: var(--green-700); font: 800 var(--text-xs) var(--font-body); }
+.evs-products-note { color: var(--ink-600); font-size: var(--text-sm); line-height: 1.55; }
+.evs-products-more { justify-self: start; font-size: var(--text-sm); }
+@media (max-width: 600px) {
+  .evs-head-actions { justify-content: stretch; }
+  .evs-head-actions .btn { flex: 1 1 auto; justify-content: center; }
+  .evs-seller-pick-head .btn { width: 100%; justify-content: center; }
 }
