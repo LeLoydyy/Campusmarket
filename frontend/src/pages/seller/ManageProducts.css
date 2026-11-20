@@ -206,6 +206,10 @@ svg.is-filled { color: var(--gold-500); fill: var(--gold-500); }
 .manage-product-stock-options small { max-width: 160px; overflow: hidden; color: var(--ink-600); font-size: .6875rem; white-space: nowrap; text-overflow: ellipsis; }
 .manage-product-field label em, .manage-product-options legend em, .manage-product-extra-label em { color: var(--ink-600); font-size: .75rem; font-style: normal; font-weight: 500; }
 .manage-product-options { display: grid; gap: .5rem; margin: 0; padding: .9rem 1rem; border: 1px solid var(--line); border-radius: 14px; background: var(--cream-50); }
+.mp-size-type { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; color: var(--ink-600); font-size: var(--text-sm); font-weight: 600; }
+.mp-size-type input { width: 10rem; max-width: 100%; height: 38px; padding: 0 .7rem; color: var(--ink-900); background: #fff; border: 1.5px solid var(--line-strong); border-radius: 10px; font: 600 var(--text-sm) var(--font-body); }
+.mp-size-type input:focus { outline: 0; border-color: var(--green-700); box-shadow: 0 0 0 3px var(--green-100); }
+@media (max-width: 600px) { .mp-size-type input { flex: 1; font-size: 16px; } }
 .manage-product-options legend { padding: 0 .3rem; color: var(--ink-900); font-size: var(--text-sm); font-weight: 700; }
 .manage-product-options p { margin: 0; }
 .manage-product-options ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }

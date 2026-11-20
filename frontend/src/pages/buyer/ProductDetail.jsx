@@ -30,7 +30,7 @@ import { SkeletonGrid } from "../../components/ui/Skeleton.jsx";
 import { stallOpenStatus } from "../../utils/marketplace.js";
 import "./ProductDetail.css";
 import toast from "react-hot-toast";
-import { discountLabel, effectivePrice, isOnSale, productOptions } from "../../utils/pricing.js";
+import { discountLabel, effectivePrice, isOnSale, optionNoun, productOptions, withArticle } from "../../utils/pricing.js";
 
 const formatPrice = (price) =>
   `₱${Number(price || 0).toLocaleString("en-PH", {
@@ -197,6 +197,8 @@ export default function ProductDetail() {
 
   const photos = [product?.image_url, ...(Array.isArray(product?.images) ? product.images : [])].filter(Boolean);
   const options = productOptions(product);
+  // "size", "cup size"… as the seller named them; "option" when they didn't.
+  const noun = optionNoun(product);
   const selectedOption = options.find((option) => option.id === optionId) || null;
   const needsOption = options.length > 0 && !selectedOption;
   // With options, stock and quantity follow the chosen option.
@@ -233,7 +235,7 @@ export default function ProductDetail() {
     }
 
     if (needsOption) {
-      toast.error(`Choose ${options.length > 1 ? "an option" : "the option"} first`);
+      toast.error(`Choose ${options.length > 1 ? withArticle(noun) : `the ${noun}`} first`);
       return;
     }
 
@@ -269,7 +271,7 @@ export default function ProductDetail() {
   const handleBuyBar = () => {
     if (needsOption) {
       optionsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      toast(`Choose ${options.length > 1 ? "an option" : "the option"} first`, { icon: "👆" });
+      toast(`Choose ${options.length > 1 ? withArticle(noun) : `the ${noun}`} first`, { icon: "👆" });
       return;
     }
     handleAddToCart();
@@ -474,7 +476,7 @@ export default function ProductDetail() {
             <div className="detail-purchase-panel">
               {options.length > 0 && (
                 <fieldset className="detail-options" ref={optionsRef}>
-                  <legend id="detail-options-hint">Choose an option {selectedOption && <span>· {selectedOption.label}</span>}</legend>
+                  <legend id="detail-options-hint">Choose {withArticle(noun)} {selectedOption && <span>· {selectedOption.label}</span>}</legend>
                   <div>
                     {options.map((option) => (
                       <label key={option.id} className={`${option.id === optionId ? "is-selected" : ""}${option.stock < 1 ? " is-out" : ""}`}>
@@ -549,7 +551,7 @@ export default function ProductDetail() {
                       </>
                     ) : (
                       <>
-                        <FiShoppingCart /> {needsOption ? "Choose an option to add" : "Add to cart"}
+                        <FiShoppingCart /> {needsOption ? `Choose ${withArticle(noun)} to add` : "Add to cart"}
                       </>
                     )}
                   </button>
@@ -650,7 +652,7 @@ export default function ProductDetail() {
           <div className="pd-buybar" role="region" aria-label="Buy this product">
             <div className="pd-buybar-price">
               <strong>{formatPrice(effectivePrice(product))}</strong>
-              <small className={isOutOfStock ? "is-out" : isLowStock ? "is-low" : ""}>{needsOption && !isOutOfStock ? "Choose an option" : stockLabel}</small>
+              <small className={isOutOfStock ? "is-out" : isLowStock ? "is-low" : ""}>{needsOption && !isOutOfStock ? `Choose ${withArticle(noun)}` : stockLabel}</small>
             </div>
             {showMessageAction && (
               <button type="button" className="pd-buybar-msg" onClick={handleToggleChat} aria-expanded={chatOpen} aria-label={chatOpen ? "Close message" : "Message seller"}>
@@ -659,7 +661,7 @@ export default function ProductDetail() {
             )}
             {showCartAction && (
               <button type="button" className={`btn btn-primary pd-buybar-cart ${added ? "btn-added" : ""}`} onClick={handleBuyBar} disabled={adding || isOutOfStock}>
-                {adding ? <><span className="spinner" /> Adding…</> : added ? <><FiCheck aria-hidden="true" /> Added</> : isOutOfStock ? "Sold out" : <><FiShoppingCart aria-hidden="true" /> {needsOption ? "Choose option" : "Add to cart"}</>}
+                {adding ? <><span className="spinner" /> Adding…</> : added ? <><FiCheck aria-hidden="true" /> Added</> : isOutOfStock ? "Sold out" : <><FiShoppingCart aria-hidden="true" /> {needsOption ? `Choose ${noun}` : "Add to cart"}</>}
               </button>
             )}
           </div>

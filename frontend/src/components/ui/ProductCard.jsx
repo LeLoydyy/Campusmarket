@@ -8,7 +8,7 @@ import { behaviorService } from "../../services/api.js";
 import favoriteService from "../../services/favoriteService.js";
 import { formatCurrency } from "../../utils/formatCurrency.js";
 import { isNewProduct } from "../../utils/marketplace.js";
-import { discountLabel, effectivePrice, isOnSale, productOptions } from "../../utils/pricing.js";
+import { discountLabel, effectivePrice, isOnSale, optionNoun, optionSummary, productOptions, withArticle } from "../../utils/pricing.js";
 import { CategoryChip } from "./Chip.jsx";
 
 /**
@@ -62,7 +62,7 @@ export default function ProductCard({ product, showStall = true }) {
     if (outOfStock) return toast.error("This product is out of stock");
     // Sizes and flavours are chosen on the product page.
     if (hasOptions) {
-      toast("Choose an option first", { icon: "👕" });
+      toast(`Choose ${withArticle(optionNoun(product))} first`, { icon: "👕" });
       return navigate(`/products/${product.id}`);
     }
     try {
@@ -131,6 +131,7 @@ export default function ProductCard({ product, showStall = true }) {
               <span>{rating.toFixed(1)} ({reviews})</span>
             </p>
           )}
+          {hasOptions && <p className="pc-sizes" title={optionSummary(product)}>{optionSummary(product)}</p>}
           <p className="pc-price">
             {formatCurrency(effectivePrice(product))}
             {isOnSale(product) && <s className="pc-price-was" aria-label={`Regular price ${formatCurrency(product.price)}`}>{formatCurrency(product.price)}</s>}
@@ -157,7 +158,7 @@ export default function ProductCard({ product, showStall = true }) {
           className={`pc-cart ${added ? "is-added" : ""}`}
           onClick={handleAddToCart}
           disabled={adding || outOfStock}
-          aria-label={outOfStock ? `${product.name} is sold out` : added ? `${product.name} added to cart` : hasOptions ? `Choose options for ${product.name}` : `Add ${product.name} to cart`}
+          aria-label={outOfStock ? `${product.name} is sold out` : added ? `${product.name} added to cart` : hasOptions ? `Choose ${withArticle(optionNoun(product))} for ${product.name}` : `Add ${product.name} to cart`}
         >
           {added ? <Check aria-hidden="true" /> : <ShoppingCart aria-hidden="true" />}
           {adding && <span className="pc-cart-spin" aria-hidden="true" />}

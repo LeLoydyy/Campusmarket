@@ -43,10 +43,21 @@ const EMPTY_FORM = {
   sale_price: "",
   images: [],
   options: [],
+  option_type: "",
 };
 const MAX_EXTRA_PHOTOS = 4;
 const MAX_OPTIONS = 12;
-const OPTION_PRESETS = [["Sizes", ["S", "M", "L", "XL"]], ["Cup sizes", ["Small", "Medium", "Large"]]];
+// Ready-made sizes per category: [size type buyers see, the sizes]. Sellers can still add their own.
+const SIZE_PRESETS = {
+  food: [["Serving", ["Small", "Medium", "Large"]], ["Cup size", ["12 oz", "16 oz", "22 oz"]], ["Pack", ["Solo", "Pack of 3", "Pack of 6"]]],
+  clothing: [["Size", ["S", "M", "L", "XL"]], ["Size", ["XS", "S", "M", "L", "XL", "2XL"]]],
+  accessories: [["Bag size", ["Small", "Medium", "Large"]], ["Bag size", ["Mini", "Regular", "Tote"]], ["Size", ["S", "M", "L"]]],
+  electronics: [["Cable length", ["1 m", "2 m", "3 m"]], ["Storage", ["32 GB", "64 GB", "128 GB"]], ["Power", ["10W", "20W", "30W"]]],
+  "student-made": [["Size", ["Small", "Medium", "Large"]], ["Size", ["S", "M", "L", "XL"]]],
+  other: [["Size", ["Small", "Medium", "Large"]], ["Paper size", ["A4", "Short", "Long"]]],
+};
+// Suggestions for the size type box (any short name works).
+const SIZE_TYPES = ["Size", "Serving", "Cup size", "Pack", "Bag size", "Cable length", "Storage", "Power", "Paper size", "Flavour", "Color"];
 
 const extractStall = (payload) => {
   const value =
@@ -457,6 +468,7 @@ export default function ManageProducts() {
       sale_price: product.sale_price != null && product.sale_price !== "" ? String(Number(product.sale_price)) : "",
       images: Array.isArray(product.images) ? product.images : [],
       options: productOptions(product).map((option) => ({ label: option.label, stock: String(option.stock) })),
+      option_type: product.option_type || "",
     });
     setEditTarget(product);
     setErrors({});
@@ -488,9 +500,9 @@ export default function ManageProducts() {
     if (form.options.length) {
       delete nextErrors.stock;
       const labels = form.options.map((option) => option.label.trim().toLowerCase());
-      if (labels.some((label) => !label)) nextErrors.options = "Give every option a name, or remove the empty one.";
-      else if (new Set(labels).size !== labels.length) nextErrors.options = "Each option needs a different name.";
-      else if (form.options.some((option) => !Number.isInteger(Number(option.stock)) || Number(option.stock) < 0)) nextErrors.options = "Option stock must be a whole number of 0 or more.";
+      if (labels.some((label) => !label)) nextErrors.options = "Give every size a name, or remove the empty one.";
+      else if (new Set(labels).size !== labels.length) nextErrors.options = "Each size needs a different name.";
+      else if (form.options.some((option) => !Number.isInteger(Number(option.stock)) || Number(option.stock) < 0)) nextErrors.options = "Size stock must be a whole number of 0 or more.";
     }
 
     return nextErrors;
@@ -515,6 +527,7 @@ export default function ManageProducts() {
       sale_price: form.sale_price === "" ? null : Number(form.sale_price),
       images: form.images,
       options: form.options.map((option) => ({ label: option.label.trim(), stock: Number(option.stock) || 0 })),
+      option_type: form.options.length ? form.option_type.trim() || null : null,
     };
 
     try {
@@ -633,7 +646,8 @@ export default function ManageProducts() {
     setForm((current) => ({ ...current, options: current.options.filter((_, at) => at !== index) }));
     clearOptionsError();
   };
-  const usePreset = (labels) => setForm((current) => ({ ...current, options: labels.map((label) => ({ label, stock: "0" })) }));
+  const usePreset = (type, labels) => setForm((current) => ({ ...current, option_type: type, options: labels.map((label) => ({ label, stock: "0" })) }));
+  const sizePresets = SIZE_PRESETS[form.category] || SIZE_PRESETS.other;
 
   // Extra photos upload right away, so the form only keeps their links.
   const [uploadingExtra, setUploadingExtra] = useState(false);
@@ -1112,16 +1126,24 @@ export default function ManageProducts() {
               </div>
             </div>
             <p id="product-sale-help" className="manage-product-photo-help">
-              A sale price shows the regular price crossed out.{form.options.length > 0 && <span id="product-stock-help"> Stock is the total of the options below.</span>}
+              A sale price shows the regular price crossed out.{form.options.length > 0 && <span id="product-stock-help"> Stock is the total of the sizes below.</span>}
             </p>
 
             <fieldset className="manage-product-options">
-              <legend>Sizes or flavours <em>optional</em></legend>
+              <legend>Sizes <em>optional</em></legend>
+              {form.options.length > 0 && (
+                <label className="mp-size-type">
+                  <span>Buyers choose a</span>
+                  <input list="mp-size-types" value={form.option_type} maxLength={20} placeholder="Size"
+                    onChange={(event) => setForm((current) => ({ ...current, option_type: event.target.value }))} />
+                  <datalist id="mp-size-types">{SIZE_TYPES.map((type) => <option key={type} value={type} />)}</datalist>
+                </label>
+              )}
               {form.options.length > 0 ? (
                 <ul>
                   {form.options.map((option, index) => (
                     <li key={index}>
-                      <input aria-label={`Option ${index + 1} name`} value={option.label} maxLength={30} placeholder="e.g. Medium"
+                      <input aria-label={`${form.option_type || "Size"} ${index + 1} name`} value={option.label} maxLength={30} placeholder="e.g. Medium"
                         onChange={(event) => changeOption(index, "label", event.target.value)} />
                       <input aria-label={`Stock for ${option.label || `option ${index + 1}`}`} type="number" inputMode="numeric" min="0" step="1" value={option.stock}
                         onChange={(event) => changeOption(index, "stock", event.target.value)} />
@@ -1130,14 +1152,14 @@ export default function ManageProducts() {
                   ))}
                 </ul>
               ) : (
-                <p className="manage-product-photo-help">Each option gets its own stock, and buyers pick one. Start from:</p>
+                <p className="manage-product-photo-help">Let buyers pick a size. Each size gets its own stock. Start from a {formatCategory(form.category).toLowerCase()} preset:</p>
               )}
               <div className="manage-product-option-presets">
-                {form.options.length === 0 && OPTION_PRESETS.map(([label, labels]) => (
-                  <button type="button" key={label} onClick={() => usePreset(labels)}>{label}: {labels.join(", ")}</button>
+                {form.options.length === 0 && sizePresets.map(([type, labels]) => (
+                  <button type="button" key={`${type}-${labels.join()}`} onClick={() => usePreset(type, labels)}>{type}: {labels.join(", ")}</button>
                 ))}
                 {form.options.length < MAX_OPTIONS && (
-                  <button type="button" className="mp-add-option" onClick={() => addOption()}><FiPlus aria-hidden="true" /> {form.options.length ? "Add option" : "Custom"}</button>
+                  <button type="button" className="mp-add-option" onClick={() => addOption()}><FiPlus aria-hidden="true" /> {form.options.length ? `Add ${(form.option_type || "size").toLowerCase()}` : "Custom sizes"}</button>
                 )}
               </div>
               {errors.options && <small className="manage-product-options-error" role="alert">{errors.options}</small>}
