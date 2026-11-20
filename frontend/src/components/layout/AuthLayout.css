@@ -417,3 +417,18 @@
   .rq .rq-item .form-input.rq-answer { min-height: 44px; padding-left: .7rem; }
   /* The question text and the field's placeholder say what each is, so the labels stay for screen readers only. */
 }
+
+/* Sign-up name: First and Middle side by side, Last name underneath; one column on phones. */
+.reg-name { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem .75rem; margin: 0 0 1rem; padding: 0; border: 0; min-width: 0; }
+.reg-name > legend { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: .35rem; margin-bottom: .4rem; padding: 0; }
+.reg-name > legend small { color: var(--ink-600); font-size: var(--text-xs); font-weight: 600; }
+.reg-name-part { display: grid; gap: .3rem; min-width: 0; }
+.reg-name-part > label { color: var(--ink-600); font-size: var(--text-xs); font-weight: 700; }
+.reg-name-part > label em { font-style: normal; font-weight: 600; }
+.reg-name-part--last_name { grid-column: 1 / -1; }
+.reg-name-part:not(.reg-name-part--first_name) .form-input-wrap .form-input { padding-left: 1rem; }
+.reg-name-part .field-note { margin-top: 0; }
+.reg-name > #reg-name-note { grid-column: 1 / -1; margin-top: -.1rem; }
+@media (max-width: 520px) {
+  .reg-name { grid-template-columns: minmax(0, 1fr); }
+}

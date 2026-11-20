@@ -8,6 +8,7 @@ import RecoveryQuestions, { emptyRecoveryQuestions, recoveryQuestionsComplete } 
 import { useAuth } from "../../context/AuthContext.jsx";
 import { authService } from "../../services/api";
 import { BUYER_DOMAINS, CAMPUS_DOMAIN } from "../../config/email.js";
+import { cleanName, joinName, namePartError, typeName } from "../../utils/personName.js";
 
 const ROLE_CARDS = [
   { value: "buyer", title: "I want to buy", text: "Food, merch and student-made goods", icon: ShoppingBag },
@@ -28,7 +29,7 @@ export default function Register() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
-    name: "", emailUser: "", emailDomain: CAMPUS_DOMAIN, emailTyped: null, password: "", confirmPassword: "", security_questions: emptyRecoveryQuestions(1),
+    first_name: "", middle_name: "", last_name: "", emailUser: "", emailDomain: CAMPUS_DOMAIN, emailTyped: null, password: "", confirmPassword: "", security_questions: emptyRecoveryQuestions(1),
     role: "buyer", campus_id: "", affiliation: "student", department: "", store_name: "", campus_location: "",
   });
   const [showPass, setShowPass] = useState(false);
@@ -39,6 +40,18 @@ export default function Register() {
   const [otp, setOtp] = useState(NO_OTP);
   const emailRef = useRef(null);
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
+  const NAME_LABELS = { first_name: "first name", last_name: "last name" };
+  // Name boxes: letters only, each word capitalised as it's typed ("dela cruz" → "Dela Cruz").
+  const setName = (key) => (e) => {
+    const value = typeName(e.target.value);
+    setForm({ ...form, [key]: value });
+    if (fieldErrors[key] && !namePartError(value, NAME_LABELS[key])) setFieldErrors((current) => ({ ...current, [key]: undefined }));
+  };
+  const tidyName = (key) => () => {
+    setForm((current) => ({ ...current, [key]: cleanName(current[key]) }));
+    // First and last name are checked as soon as the box is left (middle name is optional).
+    if (NAME_LABELS[key]) setFieldErrors((current) => ({ ...current, [key]: namePartError(form[key], NAME_LABELS[key]) || undefined }));
+  };
   // Buyers may use a campus or personal (Gmail) address; sellers must use their campus email.
   const domains = form.role === "seller" ? [CAMPUS_DOMAIN] : BUYER_DOMAINS;
   const email = `${form.emailUser.trim().toLowerCase()}@${form.emailDomain}`;
@@ -117,10 +130,14 @@ export default function Register() {
   const finishAccount = (e) => {
     e.preventDefault();
     const errors = {};
+    const firstError = namePartError(form.first_name, "first name");
+    const lastError = namePartError(form.last_name, "last name");
+    if (firstError) errors.first_name = firstError;
+    if (lastError) errors.last_name = lastError;
     if (form.emailTyped != null) errors.email = `Finish the address with ${domains.map((item) => `@${item}`).join(" or ")}.`;
     else if (!SKIP_OTP && !emailVerified) errors.email = otp.status === "sent" ? "Enter the 6-digit code we emailed you." : "Confirm your email first — tap “Send code”.";
     setFieldErrors(errors);
-    if (!e.currentTarget.reportValidity() || errors.email) return;
+    if (!e.currentTarget.reportValidity() || Object.keys(errors).length) return;
     goTo(1);
   };
 
@@ -146,7 +163,7 @@ export default function Register() {
     setError("");
     try {
       await register({
-        name: form.name, email, email_token: SKIP_OTP ? undefined : otp.token, password: form.password,
+        name: joinName({ first: form.first_name, middle: form.middle_name, last: form.last_name }), email, email_token: SKIP_OTP ? undefined : otp.token, password: form.password,
         security_questions: form.security_questions.map((item) => ({ question: item.question, answer: item.answer.trim() })),
         role: form.role,
         ...(isPublic ? {} : { campus_id: form.campus_id, affiliation: form.affiliation, department: form.department }),
@@ -195,13 +212,27 @@ export default function Register() {
             ))}
           </fieldset>
 
-          <div className="form-group">
-            <label className="form-label" htmlFor="name">Full name</label>
-            <div className="form-input-wrap">
-              <User size={18} className="form-input-icon" aria-hidden="true" />
-              <input id="name" type="text" className="form-input" autoComplete="name" placeholder={isPublic ? "Your full name" : "As it appears on your CSUCC ID"} value={form.name} required minLength={2} maxLength={80} onChange={set("name")} />
-            </div>
-          </div>
+          <fieldset className="reg-name">
+            <legend className="form-label">Full name <small>{isPublic ? "as on a valid ID" : "as it appears on your CSUCC ID"}</small></legend>
+            {[
+              ["first_name", "First name", "e.g. Juan", "given-name", true],
+              ["middle_name", "Middle name", "e.g. Santos", "additional-name", false],
+              ["last_name", "Last name", "e.g. Dela Cruz", "family-name", true],
+            ].map(([key, label, placeholder, autoComplete, required]) => (
+              <div className={`reg-name-part reg-name-part--${key}`} key={key}>
+                <label htmlFor={`reg-${key}`}>{label}{!required && <em> (optional)</em>}</label>
+                <div className="form-input-wrap">
+                  {key === "first_name" && <User size={18} className="form-input-icon" aria-hidden="true" />}
+                  <input id={`reg-${key}`} type="text" className="form-input" autoComplete={autoComplete} autoCapitalize="words" spellCheck={false}
+                    placeholder={placeholder} value={form[key]} required={required} maxLength={40}
+                    onChange={setName(key)} onBlur={tidyName(key)}
+                    aria-invalid={Boolean(fieldErrors[key]) || undefined} aria-describedby={fieldErrors[key] ? `reg-${key}-error` : "reg-name-note"} />
+                </div>
+                {fieldErrors[key] && <p id={`reg-${key}-error`} className="field-note is-error" role="alert">{fieldErrors[key]}</p>}
+              </div>
+            ))}
+            <p id="reg-name-note" className="field-note">Letters only — each name starts with a capital letter automatically.</p>
+          </fieldset>
 
           <div className="form-group">
             <label className="form-label" htmlFor="reg-email">{form.role === "seller" ? "CSUCC email" : "Email"}</label>

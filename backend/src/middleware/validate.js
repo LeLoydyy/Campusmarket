@@ -45,11 +45,25 @@ const allDifferent = (items) => new Set(items.map((item) => item.question.toLowe
 const oneRecoveryQuestion = recoveryItems.length(1, "Answer the security question.");
 const threeRecoveryQuestions = recoveryItems.length(3, "Answer three security questions.").refine(allDifferent, "Pick three different questions.");
 
-export const sendCodeSchema = z.object({ email: signupEmail });
+// People's names: letters only (ñ and accents are fine), at least a first and a last name,
+// each word capitalised ("juan dela cruz" → "Juan Dela Cruz"). Same rule as the website's forms.
+export const formatPersonName = (value) =>
+  String(value).replace(/\s+/g, " ").trim().toLowerCase().replace(/(^| )(\p{L})/gu, (_, space, letter) => space + letter.toUpperCase());
+export const personName = z.string().max(120)
+  .transform((value) => value.replace(/\s+/g, " ").trim())
+  .refine((value) => /^[\p{L} ]+$/u.test(value), "Use letters only in names — no numbers or symbols.")
+  .refine((value) => {
+    const words = value.split(" ");
+    return words.length >= 2 && words[0].length >= 2 && words[words.length - 1].length >= 2;
+  }, "Enter a first and last name in full.")
+  .refine((value) => value.length <= 80, "That name is too long.")
+  .transform(formatPersonName);
+
+export const sendCodeSchema =z.object({ email: signupEmail });
 export const verifyEmailSchema = z.object({ email: signupEmail, code: otpCode });
 
 export const registerSchema = z.object({
-  name: z.string().min(2).max(80),
+  name: personName,
   email: signupEmail,
   // Checked in the register controller (it can be skipped locally with SKIP_EMAIL_OTP).
   email_token: z.string().optional(),
@@ -80,7 +94,7 @@ export const changePasswordSchema = z.object({
 });
 
 export const profileSchema = z.object({
-  name: z.string().trim().min(2).max(80).optional(),
+  name: personName.optional(),
   avatar_url: z.string().trim().max(2000).refine((value) => !value || /^https?:\/\//i.test(value), "Avatar must be an http(s) image URL.").optional(),
   phone: z.string().trim().max(20).regex(/^[0-9+\-\s()]*$/, "Use digits, spaces, + or - only.").optional(),
   address: z.string().trim().max(200).optional(),
@@ -105,7 +119,7 @@ export const loginSchema = z.object({
 const employeeId = z.string().trim().min(3, "Enter the employee ID.").max(50);
 
 export const setupSchema = z.object({
-  name: z.string().trim().min(2, "Enter your full name.").max(80),
+  name: personName,
   employee_id: employeeId,
   new_password: strongPassword,
   security_questions: threeRecoveryQuestions,
@@ -140,7 +154,7 @@ const withValidShift = (schema) => schema
 export const createAdminSchema = withValidShift(z.object({
   username,
   email: campusEmail,
-  name: z.string().trim().max(80).optional(),
+  name: z.union([personName, z.string().trim().max(0)]).optional(), // may be left for their setup
   employee_id: employeeId.optional().or(z.literal("").transform(() => undefined)),
   shift_start: shiftMinute.default(null),
   shift_end: shiftMinute.default(null),
@@ -150,7 +164,7 @@ export const createAdminSchema = withValidShift(z.object({
 export const updateAdminSchema = withValidShift(z.object({
   username: username.optional(),
   email: campusEmail.optional(),
-  name: z.string().trim().min(2).max(80).optional(),
+  name: personName.optional(),
   employee_id: employeeId.optional(),
   shift_start: shiftMinute.optional(),
   shift_end: shiftMinute.optional(),
@@ -158,7 +172,7 @@ export const updateAdminSchema = withValidShift(z.object({
 }));
 
 export const updateAccountSchema = z.object({
-  name: z.string().trim().min(2).max(80).optional(),
+  name: personName.optional(),
   email: anyEmail.optional(),
   campus_id: z.string().trim().min(3).max(50).optional(),
   affiliation: z.enum(["student", "faculty", "employee", "public"]).optional(),

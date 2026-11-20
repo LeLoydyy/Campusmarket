@@ -14,6 +14,7 @@ import { useAuth } from "../../context/AuthContext.jsx";
 import { adminService } from "../../services/api.js";
 import { can, formatDateTime } from "../../utils/adminAccess.js";
 import useDialog from "../../utils/useDialog.js";
+import { cleanName, typeName } from "../../utils/personName.js";
 
 const ROLES = ["all", "buyer", "seller", "admin"];
 const STATUSES = [
@@ -106,7 +107,7 @@ function EditDrawer({ user, busy, onClose, onSubmit }) {
       </>}>
       <form id="edit-user" className="ma-form" onSubmit={submit}>
         <div className="form-group"><label className="form-label" htmlFor="eu-name">Full name</label>
-          <input id="eu-name" className="form-input" required minLength={2} maxLength={80} value={form.name} onChange={set("name")} /></div>
+          <input id="eu-name" className="form-input" required minLength={2} maxLength={80} value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: typeName(e.target.value) }))} onBlur={() => setForm((current) => ({ ...current, name: cleanName(current.name) }))} /></div>
         <div className="form-group"><label className="form-label" htmlFor="eu-email">Email</label>
           <input id="eu-email" type="email" className="form-input" required value={form.email} onChange={set("email")} /></div>
         <div className="form-group"><label className="form-label" htmlFor="eu-id">{isPublicBuyer(user) ? "Buyer ID" : "CSUCC ID number"}</label>

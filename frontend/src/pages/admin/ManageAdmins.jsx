@@ -11,6 +11,7 @@ import { StatusChip } from "../../components/ui/Chip.jsx";
 import { SkeletonBlock } from "../../components/ui/Skeleton.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { adminService } from "../../services/api.js";
+import { cleanName, typeName } from "../../utils/personName.js";
 import {
   ADMIN_PERMISSIONS, SHIFT_PRESETS, can, describeShift, formatDateTime, minutesToTime, shiftPresetOf, timeToMinutes,
 } from "../../utils/adminAccess.js";
@@ -128,7 +129,7 @@ function AdminForm({ admin, self, busy, onClose, onSubmit }) {
         {editing && (
           <div className="form-group">
             <label className="form-label" htmlFor="ma-name">Full name</label>
-            <input id="ma-name" className="form-input" required minLength={2} maxLength={80} value={form.name} onChange={set("name")} />
+            <input id="ma-name" className="form-input" required minLength={2} maxLength={80} value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: typeName(e.target.value) }))} onBlur={() => setForm((current) => ({ ...current, name: cleanName(current.name) }))} />
           </div>
         )}
         <div className="form-group">

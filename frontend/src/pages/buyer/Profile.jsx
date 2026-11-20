@@ -7,6 +7,7 @@ import Footer from "../../components/common/Footer.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { settingsService } from "../../services/api.js";
 import "./Profile.css";
+import { cleanName, fullNameError, typeName } from "../../utils/personName.js";
 
 const isValidImageUrl = (value) => {
   if (!value.trim()) return true;
@@ -47,7 +48,8 @@ export default function Profile() {
   const showAvatar = form.avatar_url && !avatarFailed;
 
   const change = ({ target: { name, value } }) => {
-    setForm((current) => ({ ...current, [name]: value }));
+    // Names: letters only, each word capitalised as it's typed.
+    setForm((current) => ({ ...current, [name]: name === "name" ? typeName(value) : value }));
     setError("");
     if (name === "avatar_url") setAvatarFailed(false);
   };
@@ -55,7 +57,9 @@ export default function Profile() {
   const save = async (event) => {
     event.preventDefault();
     const payload = Object.fromEntries(Object.entries(form).map(([key, value]) => [key, value.trim()]));
-    if (payload.name.length < 2) return setError("Enter your full name (at least 2 characters).");
+    // The name is only sent when it changed, so older names don't block saving a phone number.
+    if (!nameChanged) delete payload.name;
+    else if (fullNameError(payload.name)) return setError(`${fullNameError(payload.name)} Letters only, e.g. Juan Santos Dela Cruz.`);
     if (!isValidImageUrl(payload.avatar_url)) return setError("Enter a valid http or https image link.");
     if (!/^[0-9+\-\s()]*$/.test(payload.phone)) return setError("Use digits, spaces, + or - for your phone number.");
     if (nameChanged && !window.confirm("Changing your name sends your account back for an administrator to recheck your campus records. You can't place orders until it's approved again. Continue?")) return;
@@ -100,7 +104,7 @@ export default function Profile() {
               <div className="pf-grid">
                 <label className="pf-field">
                   <span>Full name on campus records</span>
-                  <input name="name" value={form.name} onChange={change} autoComplete="name" />
+                  <input name="name" value={form.name} onChange={change} onBlur={() => setForm((current) => ({ ...current, name: cleanName(current.name) }))} autoComplete="name" />
                   {nameChanged
                     ? <small className="pf-warn"><FiAlertTriangle aria-hidden="true" /> An administrator will recheck your account after this change.</small>
                     : <small>Changing your name needs a new administrator review.</small>}

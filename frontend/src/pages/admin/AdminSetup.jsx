@@ -6,6 +6,7 @@ import AuthLayout from "../../components/layout/AuthLayout.jsx";
 import PasswordField, { PasswordStrength, passwordMeetsRules } from "../../components/auth/PasswordField.jsx";
 import RecoveryQuestions, { emptyRecoveryQuestions, recoveryQuestionsComplete } from "../../components/auth/RecoveryQuestions.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { cleanName, typeName } from "../../utils/personName.js";
 
 const apiError = (err) => err.response?.data?.details?.map((detail) => detail.message).join(" ") || err.response?.data?.error || "Setup failed. Please try again.";
 
@@ -67,7 +68,7 @@ export default function AdminSetup() {
             <div className="form-input-wrap">
               <User size={18} className="form-input-icon" aria-hidden="true" />
               <input id="setup-name" className="form-input" required minLength={2} maxLength={80} autoComplete="name" autoFocus
-                placeholder="First name, M.I., Last name" value={form.name} onChange={set("name")} />
+                placeholder="First, middle (optional) and last name" value={form.name} onChange={(e) => setForm((current) => ({ ...current, name: typeName(e.target.value) }))} onBlur={() => setForm((current) => ({ ...current, name: cleanName(current.name) }))} />
             </div>
           </div>
           <div className="form-group">
