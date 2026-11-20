@@ -37,6 +37,11 @@ export default function Login() {
   const [searchParams] = useSearchParams();
   const notice = NOTICES[searchParams.get("reason")];
   const [form, setForm] = useState({ email: "", password: "" });
+  // The boxes stay read-only until tapped or focused, so the browser can't fill in a saved
+  // account when the page opens (it looked like someone was already signed in). Tapping a box
+  // still lets the browser offer saved accounts in its list.
+  const [editable, setEditable] = useState({ email: false, password: false });
+  const unlock = (field) => () => setEditable((current) => (current[field] ? current : { ...current, [field]: true }));
   const [showPass, setShowPass] = useState(false);
   const [remember, setRemember] = useState(getRememberPreference);
   const [error, setError] = useState("");
@@ -127,7 +132,10 @@ export default function Login() {
               type="text"
               name="email"
               className="form-input"
-              autoComplete="username"
+              autoComplete="off"
+              readOnly={!editable.email}
+              onPointerDown={unlock("email")}
+              onFocus={unlock("email")}
               autoCapitalize="none"
               spellCheck={false}
               placeholder="you@csucc.edu.ph or you@gmail.com"
@@ -141,7 +149,10 @@ export default function Login() {
           id="password"
           label="Password"
           name="password"
-          autoComplete="current-password"
+          autoComplete="off"
+          readOnly={!editable.password}
+          onPointerDown={unlock("password")}
+          onFocus={unlock("password")}
           placeholder="Enter your password"
           required
           value={form.password}
