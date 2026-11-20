@@ -224,8 +224,8 @@ export default function AdminDashboard() {
                   <li key={stall.id}>
                     <span className="ad-approval-logo">{stall.logo_url ? <img src={stall.logo_url} alt="" /> : <Store aria-hidden="true" />}</span>
                     <span className="ad-approval-text"><strong>{stall.name}</strong><small>{stall.location || "No location yet"} · applied {new Date(stall.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}</small></span>
+                    <button type="button" className="btn btn-outline btn-sm btn-reject ad-reject" disabled={actingId === stall.id} onClick={() => reviewStall(stall.id, "rejected")}><X aria-hidden="true" /> Reject</button>
                     <button type="button" className="btn btn-primary btn-sm" disabled={actingId === stall.id} onClick={() => reviewStall(stall.id, "approved")}><Check aria-hidden="true" /> Approve</button>
-                    <button type="button" className="btn btn-outline btn-sm ad-reject" disabled={actingId === stall.id} onClick={() => reviewStall(stall.id, "rejected")}><X aria-hidden="true" /> Reject</button>
                   </li>
                 ))}
               </ul>

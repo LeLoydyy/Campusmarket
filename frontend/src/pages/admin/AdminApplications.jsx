@@ -113,7 +113,7 @@ function ApplicationCard({ application, busy, onReview }) {
         </form>
       ) : (
         <div className="aa-actions">
-          <button type="button" className="btn btn-outline btn-sm aa-reject" onClick={() => open("rejected")} disabled={busy}><FiX aria-hidden="true" /> Reject</button>
+          <button type="button" className="btn btn-outline btn-sm btn-reject aa-reject" onClick={() => open("rejected")} disabled={busy}><FiX aria-hidden="true" /> Reject</button>
           <button type="button" className="btn btn-primary btn-sm" onClick={() => open("approved")} disabled={busy}><FiCheck aria-hidden="true" /> Approve</button>
         </div>
       ))}
@@ -175,7 +175,7 @@ export default function AdminApplications() {
         <div className="topbar">
           <div className="topbar-left">
             <div className="topbar-titles">
-              <h1>Event Applications</h1>
+              <h1>Event applications</h1>
               <p>Review sellers who applied for a stall at a campus event.</p>
             </div>
           </div>

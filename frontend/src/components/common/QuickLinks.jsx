@@ -11,11 +11,11 @@ const SHORT = {
   "Point of Sale": "POS",
   "Events & Reservations": "Events",
   Notifications: "Alerts",
-  "Registration & Users": "Users",
-  "Stores & Plans": "Stores",
-  "Event Applications": "Requests",
+  "Registration & users": "Users",
+  "Stores & plans": "Stores",
+  "Event applications": "Requests",
   Administrators: "Admins",
-  "Login Logs": "Logs",
+  "Login logs": "Logs",
 };
 // The dashboard itself and account pages (in the profile menu) don't need a tile.
 const SKIP = new Set(["/seller", "/admin", "/account/password", "/account/logins"]);

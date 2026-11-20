@@ -29,8 +29,8 @@ const GROUP_LABELS = {
   // Same groups as the admin dashboard shortcut tiles.
   admin: [
     ["Overview", ["Dashboard"]],
-    ["Approvals", ["Registration & Users", "Stores & Plans", "Event Applications", "Events"]],
-    ["Security", ["Administrators", "Login Logs"]],
+    ["Approvals", ["Registration & users", "Stores & plans", "Event applications", "Events"]],
+    ["Security", ["Administrators", "Login logs"]],
     ["Account", ["Password", "Login History"]],
   ],
   buyer: [["Marketplace", []]],

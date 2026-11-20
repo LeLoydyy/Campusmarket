@@ -47,6 +47,7 @@
 
 /* Drawer */
 .mu-drawer-layer { position: fixed; inset: 0; z-index: 500; display: flex; justify-content: flex-end; background: rgba(20, 32, 26, .45); animation: sheet-fade var(--dur) var(--ease-out); }
+.mu-drawer-layer { bottom: var(--keyboard-inset, 0px); } /* above the phone keyboard, see useDialog */
 .mu-drawer { width: min(460px, 100%); height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 1.1rem; padding: 1.4rem; background: var(--cream-50); box-shadow: -18px 0 40px rgba(11, 61, 36, .2); animation: mu-slide 260ms var(--ease-out); }
 @keyframes mu-slide { from { transform: translateX(40px); opacity: .4; } }
 .mu-drawer-head { display: flex; align-items: flex-start; gap: .9rem; }

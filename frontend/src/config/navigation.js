@@ -64,11 +64,11 @@ export const SELLER_NAV = [
 export const ADMIN_NAV = [
   { to: "/admin/events", label: "Events", icon: CalendarDays },
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/admin/users", label: "Registration & Users", icon: Users },
-  { to: "/admin/stalls", label: "Stores & Plans", icon: Store },
-  { to: "/admin/applications", label: "Event Applications", icon: FileText, permission: "marketplace" },
+  { to: "/admin/users", label: "Registration & users", icon: Users },
+  { to: "/admin/stalls", label: "Stores & plans", icon: Store },
+  { to: "/admin/applications", label: "Event applications", icon: FileText, permission: "marketplace" },
   { to: "/admin/admins", label: "Administrators", icon: ShieldCheck },
-  { to: "/admin/logs", label: "Login Logs", icon: History, permission: "logs" },
+  { to: "/admin/logs", label: "Login logs", icon: History, permission: "logs" },
   { to: "/account/password", label: "Password", icon: KeyRound },
   { to: "/account/logins", label: "Login History", icon: History },
 ];

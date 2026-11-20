@@ -141,16 +141,16 @@ export default function LoginLogs({ mine = false }) {
         ) : tab === "activity" && showAll ? (
           <section className="mu-card" aria-label="Admin activity">
             <div className="mu-table-wrap">
-              <table className="mu-table">
+              <table className="mu-table mu-table--cards">
                 <thead><tr><th scope="col">When</th><th scope="col">Admin</th><th scope="col">Action</th><th scope="col">Account</th><th scope="col">Note / reason</th></tr></thead>
                 <tbody>
                   {rows.map((row) => (
                     <tr key={row.id}>
-                      <td>{formatDateTime(row.created_at)}</td>
-                      <td><strong>{row.actor_name || "—"}</strong>{row.actor_id_no && <small className="ll-sub">{row.actor_id_no}</small>}</td>
-                      <td>{ACTIONS[row.action] || row.action}</td>
-                      <td>{row.target_name || "—"}{row.target_email && <small className="ll-sub">{row.target_email}</small>}</td>
-                      <td className="ll-note">{row.note || "—"}</td>
+                      <td className="mu-cell-side ll-when">{formatDateTime(row.created_at)}</td>
+                      <td data-label="By"><strong>{row.actor_name || "—"}</strong>{row.actor_id_no && <small className="ll-sub">{row.actor_id_no}</small>}</td>
+                      <td className="mu-cell-main">{ACTIONS[row.action] || row.action}</td>
+                      <td data-label="Account">{row.target_name || "—"}{row.target_email && <small className="ll-sub">{row.target_email}</small>}</td>
+                      <td className="ll-note mu-cell-sub" data-label="Note">{row.note || "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -161,7 +161,7 @@ export default function LoginLogs({ mine = false }) {
         ) : (
           <section className="mu-card" aria-label="Sign-ins">
             <div className="mu-table-wrap">
-              <table className="mu-table">
+              <table className="mu-table mu-table--cards">
                 <thead>
                   <tr>
                     {showAll && <><th scope="col">ID No.</th><th scope="col">Full name</th><th scope="col">Role</th></>}
@@ -175,14 +175,14 @@ export default function LoginLogs({ mine = false }) {
                     return (
                       <tr key={row.id} className={latest ? "ll-latest" : undefined}>
                         {showAll && <>
-                          <td className="mu-id-cell">{row.id_no || "—"}</td>
-                          <td><strong>{row.full_name}</strong></td>
-                          <td><span className={`cm-chip cm-chip--sm mu-role mu-role--${row.role}`}>{cap(row.role)}</span></td>
+                          <td className="mu-id-cell" data-label="ID">{row.id_no || "—"}</td>
+                          <td className="mu-cell-main"><strong>{row.full_name}</strong></td>
+                          <td className="ll-role"><span className={`cm-chip cm-chip--sm mu-role mu-role--${row.role}`}>{cap(row.role)}</span></td>
                         </>}
-                        <td>{formatDateTime(row.time_in)}{latest && <span className="ll-latest-tag">Latest</span>}</td>
-                        <td>{row.time_out ? formatDateTime(row.time_out) : <span className="ll-sub" title="Last activity">Last active {formatDateTime(row.last_seen_at)}</span>}</td>
-                        <td>{duration(row.time_in, row.time_out)}</td>
-                        <td><StatusChip status={tone} label={label} /></td>
+                        <td className={showAll ? "ll-in" : "mu-cell-main ll-in"} data-label={showAll ? "In" : undefined}>{formatDateTime(row.time_in)}{latest && <span className="ll-latest-tag">Latest</span>}</td>
+                        <td data-label={row.time_out ? "Out" : undefined}>{row.time_out ? formatDateTime(row.time_out) : <span className="ll-sub" title="Last activity">Last active {formatDateTime(row.last_seen_at)}</span>}</td>
+                        <td data-label="Length">{duration(row.time_in, row.time_out)}</td>
+                        <td className="mu-cell-side"><StatusChip status={tone} label={label} /></td>
                       </tr>
                     );
                   })}

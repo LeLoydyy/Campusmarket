@@ -4,10 +4,12 @@ import Sidebar from "../../components/common/Sidebar.jsx";
 import PremiumRequests from "../../components/admin/PremiumRequests.jsx";
 import StallPlanControl, { isExpiringSoon } from "../../components/admin/StallPlanControl.jsx";
 import { EmptyState } from "../../components/common/Ui.jsx";
+import { StatusChip } from "../../components/ui/Chip.jsx";
 import { adminService, stallService } from "../../services/api.js";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
-import { FiSearch, FiCheck, FiX, FiPause, FiRefreshCw } from "react-icons/fi";
+import { FiSearch, FiCheck, FiX, FiPause, FiRefreshCw, FiMapPin } from "react-icons/fi";
+import { Store } from "lucide-react";
 
 const STATUS_TABS = ["all", "pending", "approved", "rejected", "suspended"];
 const PLAN_FILTERS = [["all", "All plans"], ["premium", "Premium"], ["expiring", "Expiring soon"], ["free", "Free"]];
@@ -86,13 +88,14 @@ export default function ManageStalls() {
         <div className="topbar">
           <div className="topbar-left">
             <div className="topbar-titles">
-              <h1>Manage Stalls</h1>
+              <h1>Stores & plans</h1>
               <p>Review, approve, and moderate student stalls.</p>
             </div>
           </div>
           <div className="topbar-right">
             <button
-              className="btn btn-ghost btn-sm"
+              type="button"
+              className="btn btn-outline btn-sm"
               onClick={fetchStalls}
               disabled={loading}
             >
@@ -150,44 +153,52 @@ export default function ManageStalls() {
             <div className="stalls-grid">
               {filtered.map((stall) => (
                 <div key={stall.id} className="stall-card card">
-                  <div className="stall-card-banner">
-                    {stall.banner_url ? (
-                      <img src={stall.banner_url} alt={stall.name} />
-                    ) : (
-                      <div className="stall-banner-ph">🏪</div>
-                    )}
-                    <span
-                      className={`badge stall-status-badge status-${stall.status}`}
-                    >
-                      {stall.status}
-                    </span>
-                  </div>
+                  {stall.banner_url && (
+                    <div className="stall-card-banner">
+                      <img src={stall.banner_url} alt="" />
+                    </div>
+                  )}
 
                   <div className="stall-card-body">
-                    <p className="stall-card-name">{stall.name}</p>
-                    <p className="stall-card-owner text-sm text-muted">
-                      by {stall.seller_name || stall.users?.name || "Campus seller"} · {stall.users?.email}
-                    </p>
+                    <div className="stall-card-head">
+                      <span className="stall-card-logo" aria-hidden="true">
+                        {stall.logo_url ? <img src={stall.logo_url} alt="" /> : <Store />}
+                      </span>
+                      <div className="stall-card-titles">
+                        <p className="stall-card-name">{stall.name}</p>
+                        <p className="stall-card-owner">
+                          by {stall.seller_name || stall.users?.name || "Campus seller"}
+                          {stall.users?.email && <> · {stall.users.email}</>}
+                        </p>
+                      </div>
+                      <StatusChip status={stall.status} />
+                    </div>
                     {stall.description && (
-                      <p className="stall-card-desc text-sm text-muted">
-                        {stall.description}
-                      </p>
+                      <p className="stall-card-desc">{stall.description}</p>
                     )}
-                    <p className="text-xs text-muted" style={{ marginTop: 4 }}>
-                      Applied{" "}
-                      {format(new Date(stall.created_at), "MMM d, yyyy")}
+                    <p className="stall-card-meta">
+                      {stall.location && <span><FiMapPin aria-hidden="true" /> {stall.location}</span>}
+                      <span>Applied {format(new Date(stall.created_at), "MMM d, yyyy")}</span>
                     </p>
 
                     <StallPlanControl
                       stall={stall}
                       onChanged={(updated) => setStalls((current) => current.map((item) => item.id === stall.id ? { ...item, ...updated } : item))}
                     />
-                    <p className="text-sm text-muted">{stall.location}</p>
                     <div className="stall-card-actions">
                       {stall.status === "pending" && (
                         <>
                           <button
-                            className="btn btn-secondary btn-sm"
+                            type="button"
+                            className="btn btn-outline btn-sm btn-reject"
+                            onClick={() => handleAction(stall.id, "rejected")}
+                            disabled={actingId === stall.id}
+                          >
+                            <FiX size={13} /> Reject
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
                             onClick={() => handleAction(stall.id, "approved")}
                             disabled={actingId === stall.id}
                           >
@@ -206,24 +217,14 @@ export default function ManageStalls() {
                               </>
                             )}
                           </button>
-                          <button
-                            className="btn btn-danger btn-sm"
-                            onClick={() => handleAction(stall.id, "rejected")}
-                            disabled={actingId === stall.id}
-                          >
-                            <FiX size={13} /> Reject
-                          </button>
                         </>
                       )}
                       {stall.status === "approved" && (
                         <button
-                          className="btn btn-outline btn-sm"
+                          type="button"
+                          className="btn btn-outline btn-sm btn-reject"
                           onClick={() => handleAction(stall.id, "suspended")}
                           disabled={actingId === stall.id}
-                          style={{
-                            borderColor: "var(--color-warning)",
-                            color: "var(--color-warning)",
-                          }}
                         >
                           <FiPause size={13} /> Suspend
                         </button>
@@ -231,7 +232,8 @@ export default function ManageStalls() {
                       {(stall.status === "rejected" ||
                         stall.status === "suspended") && (
                         <button
-                          className="btn btn-secondary btn-sm"
+                          type="button"
+                          className="btn btn-primary btn-sm"
                           onClick={() => handleAction(stall.id, "approved")}
                           disabled={actingId === stall.id}
                         >
@@ -271,14 +273,21 @@ export default function ManageStalls() {
         .tab-count.active { background: rgba(255,255,255,0.3); color: #fff; }
         .stalls-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.25rem; }
         .stall-card { display: flex; flex-direction: column; overflow: hidden; }
-        .stall-card-banner { height: 100px; position: relative; background: var(--gray-100); overflow: hidden; }
+        .stall-card-banner { height: 96px; position: relative; background: var(--gray-100); overflow: hidden; }
         .stall-card-banner img { width: 100%; height: 100%; object-fit: cover; }
-        .stall-banner-ph { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; }
-        .stall-status-badge { position: absolute; top: 8px; right: 8px; }
-        .stall-card-body { padding: 1rem; display: flex; flex-direction: column; gap: 0.25rem; flex: 1; }
-        .stall-card-name { font-weight: 700; font-size: 1rem; color: var(--gray-900); }
-        .stall-card-owner { margin-top: 2px; }
-        .stall-card-desc { margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .stall-card-body { padding: 1rem; display: flex; flex-direction: column; gap: .45rem; flex: 1; }
+        .stall-card-head { display: flex; align-items: flex-start; gap: .7rem; }
+        .stall-card-logo { flex: 0 0 auto; width: 44px; height: 44px; display: grid; place-items: center; overflow: hidden; color: var(--green-700); background: var(--green-100); border-radius: 12px; }
+        .stall-card-logo img { width: 100%; height: 100%; object-fit: cover; }
+        .stall-card-logo svg { width: 20px; height: 20px; }
+        .stall-card-titles { flex: 1; min-width: 0; }
+        .stall-card-name { color: var(--ink-900); font-weight: 800; font-size: 1rem; line-height: 1.3; }
+        .stall-card-owner { margin-top: 2px; overflow: hidden; color: var(--ink-600); font-size: var(--text-xs); text-overflow: ellipsis; white-space: nowrap; }
+        .stall-card-head .cm-chip { flex: 0 0 auto; }
+        .stall-card-desc { color: var(--ink-600); font-size: var(--text-sm); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .stall-card-meta { display: flex; flex-wrap: wrap; gap: .2rem .9rem; color: var(--ink-600); font-size: var(--text-xs); }
+        .stall-card-meta span { display: inline-flex; align-items: center; gap: .3rem; }
+        .stall-card .sp-plan { margin-top: .25rem; }
         .stall-card-actions { display: flex; gap: 0.5rem; margin-top: auto; padding-top: 0.75rem; }
         .spin { animation: spin 0.7s linear infinite; }
       `}</style>

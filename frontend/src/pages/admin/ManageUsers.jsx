@@ -13,6 +13,7 @@ import { SkeletonBlock } from "../../components/ui/Skeleton.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { adminService } from "../../services/api.js";
 import { can, formatDateTime } from "../../utils/adminAccess.js";
+import useDialog from "../../utils/useDialog.js";
 
 const ROLES = ["all", "buyer", "seller", "admin"];
 const STATUSES = [
@@ -24,20 +25,18 @@ const STATUSES = [
 ];
 const PAGE_SIZE = 20;
 const cap = (text) => (text ? text.charAt(0).toUpperCase() + text.slice(1) : "");
+// Buyers who signed up with a personal email (e.g. Gmail): automatic buyer ID, no CSUCC records to check.
+const isPublicBuyer = (user) => user.affiliation === "public";
+const affiliationLabel = (user) => (isPublicBuyer(user) ? "Public buyer" : cap(user.affiliation));
 
 /** Side drawer for checking a registration against CSUCC records. */
 function ReviewDrawer({ user, onClose, onSubmit, busy }) {
   const [note, setNote] = useState("");
   const [checked, setChecked] = useState(false);
   const panel = useRef(null);
-  useEffect(() => {
-    const previous = document.activeElement;
-    panel.current?.querySelector("button, input, textarea")?.focus();
-    const escape = (event) => { if (event.key === "Escape") onClose(); };
-    document.addEventListener("keydown", escape);
-    return () => { document.removeEventListener("keydown", escape); previous?.focus?.(); };
-  }, [onClose]);
+  useDialog(panel, { onClose, focus: "button, input, textarea" });
   const noteOk = note.trim().length >= 5;
+  const open = isPublicBuyer(user);
   return (
     <div className="mu-drawer-layer" role="presentation" onClick={onClose}>
       <aside ref={panel} className="mu-drawer" role="dialog" aria-modal="true" aria-labelledby="review-title" onClick={(e) => e.stopPropagation()}>
@@ -52,9 +51,9 @@ function ReviewDrawer({ user, onClose, onSubmit, busy }) {
         </header>
 
         <dl className="mu-facts">
-          <div><dt><IdCard aria-hidden="true" /> CSUCC ID number</dt><dd className={user.campus_id ? "mu-id" : "mu-missing"}>{user.campus_id || "Not provided"}</dd></div>
-          <div><dt>Affiliation</dt><dd>{cap(user.affiliation) || <span className="mu-missing">Not provided</span>}</dd></div>
-          <div><dt>College / program / office</dt><dd>{user.department || <span className="mu-missing">Not provided</span>}</dd></div>
+          <div><dt><IdCard aria-hidden="true" /> {open ? "Buyer ID (automatic)" : "CSUCC ID number"}</dt><dd className={user.campus_id ? "mu-id" : "mu-missing"}>{user.campus_id || "Not provided"}</dd></div>
+          <div><dt>Affiliation</dt><dd>{affiliationLabel(user) || <span className="mu-missing">Not provided</span>}</dd></div>
+          {!open && <div><dt>College / program / office</dt><dd>{user.department || <span className="mu-missing">Not provided</span>}</dd></div>}
           <div><dt>Wants to</dt><dd>{user.role === "seller" ? "Sell (and buy)" : "Buy"}</dd></div>
           <div><dt>Registered</dt><dd>{new Date(user.created_at).toLocaleDateString("en-PH", { month: "long", day: "numeric", year: "numeric" })}</dd></div>
         </dl>
@@ -62,10 +61,12 @@ function ReviewDrawer({ user, onClose, onSubmit, busy }) {
         {user.review_note && <p className="mu-prev-note"><strong>Previous note:</strong> {user.review_note}</p>}
 
         <div className="mu-verify">
-          <p><ShieldCheck aria-hidden="true" /> Check the ID number and name against official CSUCC enrollment or personnel records before approving.</p>
+          <p><ShieldCheck aria-hidden="true" /> {open
+            ? "Public buyer: signed up with a personal email they confirmed with a code. There's no CSUCC ID to check, so look for a real name and anything suspicious."
+            : "Check the ID number and name against official CSUCC enrollment or personnel records before approving."}</p>
           <label className="mu-check">
             <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
-            <span>I verified the ID, name and current CSUCC membership.</span>
+            <span>{open ? "I checked the name and email and they look genuine." : "I verified the ID, name and current CSUCC membership."}</span>
           </label>
           <label className="mu-note">
             <span>Note to the user <small>(required, 5+ characters)</small></span>
@@ -108,11 +109,12 @@ function EditDrawer({ user, busy, onClose, onSubmit }) {
           <input id="eu-name" className="form-input" required minLength={2} maxLength={80} value={form.name} onChange={set("name")} /></div>
         <div className="form-group"><label className="form-label" htmlFor="eu-email">Email</label>
           <input id="eu-email" type="email" className="form-input" required value={form.email} onChange={set("email")} /></div>
-        <div className="form-group"><label className="form-label" htmlFor="eu-id">CSUCC ID number</label>
+        <div className="form-group"><label className="form-label" htmlFor="eu-id">{isPublicBuyer(user) ? "Buyer ID" : "CSUCC ID number"}</label>
           <input id="eu-id" className="form-input" minLength={3} maxLength={50} value={form.campus_id} onChange={set("campus_id")} /></div>
         <div className="form-group"><label className="form-label" htmlFor="eu-aff">Affiliation</label>
           <select id="eu-aff" className="form-input form-select" value={form.affiliation} onChange={set("affiliation")}>
             <option value="student">Student</option><option value="faculty">Faculty</option><option value="employee">Employee</option>
+            {isPublicBuyer(user) && <option value="public">Public buyer</option>}
           </select></div>
         <div className="form-group"><label className="form-label" htmlFor="eu-dept">College / program / office</label>
           <input id="eu-dept" className="form-input" minLength={2} maxLength={120} value={form.department} onChange={set("department")} /></div>
@@ -136,7 +138,7 @@ function RemovedDrawer({ user, canRestore, busy, onClose, onRestore }) {
         <div><dt>Role</dt><dd>{cap(user.role)}</dd></div>
         <div><dt><IdCard aria-hidden="true" /> ID number</dt><dd className="mu-id">{user.campus_id || "—"}</dd></div>
         {user.username && <div><dt>Username</dt><dd>{user.username}</dd></div>}
-        <div><dt>Affiliation</dt><dd>{cap(user.affiliation) || "—"}</dd></div>
+        <div><dt>Affiliation</dt><dd>{affiliationLabel(user) || "—"}</dd></div>
         <div><dt>College / program / office</dt><dd>{user.department || "—"}</dd></div>
         <div><dt>Registration status</dt><dd>{cap(user.status)}</dd></div>
         <div><dt>Registered</dt><dd>{formatDateTime(user.created_at)}</dd></div>
@@ -285,7 +287,7 @@ export default function ManageUsers() {
           ) : (
             <section className="mu-card" aria-label="Users">
               <div className="mu-table-wrap">
-                <table className="mu-table">
+                <table className="mu-table mu-table--cards has-avatar">
                   <thead>
                     <tr>
                       <th scope="col">Name</th><th scope="col">Email</th><th scope="col">Role</th><th scope="col">Status</th><th scope="col">ID No.</th>
@@ -297,22 +299,22 @@ export default function ManageUsers() {
                       const isAdmin = user.role === "admin";
                       return (
                         <tr key={user.id} className={user.is_banned ? "is-banned" : ""}>
-                          <td>
+                          <td className="mu-cell-main">
                             <span className="mu-person">
                               <span className="mu-avatar" aria-hidden="true">{user.avatar_url ? <img src={user.avatar_url} alt="" /> : user.name?.charAt(0).toUpperCase()}</span>
                               <strong>{user.name}</strong>
                             </span>
                           </td>
-                          <td>{user.email}</td>
+                          <td className="mu-cell-sub">{user.email}</td>
                           <td><span className={`cm-chip cm-chip--sm mu-role mu-role--${user.role}`}>{cap(user.role)}</span></td>
                           <td>
                             {removedView ? <StatusChip status="banned" label="Removed" />
                               : user.is_banned ? <StatusChip status="banned" label="Blocked" />
                                 : <StatusChip status={user.status} label={user.status === "rejected" ? "Needs correction" : undefined} />}
                           </td>
-                          <td className="mu-id-cell">{user.campus_id || "—"}</td>
-                          <td>{new Date(removedView ? user.deleted_at : user.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}</td>
-                          <td>
+                          <td className="mu-id-cell" data-label="ID">{user.campus_id || "—"}</td>
+                          <td data-label={removedView ? "Removed" : "Joined"}>{new Date(removedView ? user.deleted_at : user.created_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}</td>
+                          <td className="mu-cell-side">
                             <div className="mu-actions">
                               {removedView ? (
                                 <button type="button" className="btn btn-outline btn-sm" onClick={() => setViewingRemoved(user)}>Details & reason</button>

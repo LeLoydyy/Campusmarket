@@ -11,6 +11,7 @@ import { NotificationProvider } from "./context/NotificationContext.jsx";
 import "./styles/global.css";
 import "./styles/ui.css";
 import "./styles/workspace-mobile.css";
+import "./styles/admin-mobile.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

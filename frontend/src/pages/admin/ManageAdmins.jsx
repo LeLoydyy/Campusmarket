@@ -273,7 +273,7 @@ export default function ManageAdmins() {
           ) : (
             <section className="mu-card" aria-label="Administrators">
               <div className="mu-table-wrap">
-                <table className="mu-table ma-table">
+                <table className="mu-table mu-table--cards has-avatar ma-table">
                   <thead>
                     <tr><th scope="col">Admin</th><th scope="col">Employee ID</th><th scope="col">Shift</th><th scope="col">Privileges</th><th scope="col">Status</th><th scope="col">Last sign-in</th><th scope="col"><span className="sr-only">Actions</span></th></tr>
                   </thead>
@@ -283,23 +283,23 @@ export default function ManageAdmins() {
                       const status = admin.is_banned ? ["banned", "Blocked"] : admin.must_setup ? ["pending", "Setup pending"] : ["approved", "Active"];
                       return (
                         <tr key={admin.id} className={admin.is_banned ? "is-banned" : ""}>
-                          <td>
+                          <td className="mu-cell-main">
                             <span className="mu-person">
                               <span className="mu-avatar" aria-hidden="true">{admin.name?.charAt(0).toUpperCase()}</span>
                               <span className="ma-who"><strong>{admin.name}{isMe && <em> (you)</em>}</strong><small>{admin.username ? `@${admin.username}` : admin.email}</small></span>
                             </span>
                           </td>
-                          <td className="mu-id-cell">{admin.campus_id || "—"}</td>
-                          <td>
+                          <td className="mu-id-cell" data-label="Employee ID">{admin.campus_id || "—"}</td>
+                          <td data-label="Shift">
                             <span className={`ma-shift-cell ${admin.shift?.on_duty ? "is-on" : ""}`}>
                               <span className="ma-dot" aria-hidden="true" />{admin.shift?.label}
                               <span className="sr-only">{admin.shift?.on_duty ? " — on duty" : " — off duty"}</span>
                             </span>
                           </td>
-                          <td>{admin.permissions == null ? "All" : `${admin.permissions.length} of ${ALL_KEYS.length}`}</td>
-                          <td><StatusChip status={status[0]} label={status[1]} /></td>
-                          <td className="ma-wrap">{formatDateTime(admin.last_login_at)}</td>
-                          <td>
+                          <td data-label="Privileges">{admin.permissions == null ? "All" : `${admin.permissions.length} of ${ALL_KEYS.length}`}</td>
+                          <td className="mu-cell-side"><StatusChip status={status[0]} label={status[1]} /></td>
+                          <td className="ma-wrap" data-label="Last sign-in">{formatDateTime(admin.last_login_at)}</td>
+                          <td className="mu-cell-foot">
                             {manage && (
                               <div className="mu-actions">
                                 {/* Icon buttons keep the row on screen; the tooltip and label name each action. */}

@@ -1,0 +1,152 @@
+/* ── Admin pages on phones ────────────────────────────────────────────────────
+   One shared layer so every admin page reads the same on a phone: the same
+   spacing, card shape, search box, filter rows and list layout. It loads before
+   the (lazy) page stylesheets, so selectors start with "body" to win over them.
+   Tables marked .mu-table--cards turn into a list of cards (also used by
+   "My login history" for buyers and sellers). */
+
+/* Approve is the green primary button everywhere; Reject/Suspend are the coral outline. */
+.admin-shell .btn-reject { color: var(--coral-700); border-color: var(--coral-300); }
+.admin-shell .btn-reject:hover:not(:disabled) { color: var(--coral-700); background: var(--coral-100); border-color: var(--coral-300); }
+
+/* Long filter rows scroll sideways. Where the browser supports scroll-linked
+   animations, the edge that has more chips fades out as a hint. */
+@property --cm-fade-l { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@property --cm-fade-r { syntax: "<length>"; inherits: false; initial-value: 0px; }
+@keyframes cm-scroll-fade {
+  0% { --cm-fade-l: 0px; --cm-fade-r: 28px; }
+  12% { --cm-fade-l: 28px; }
+  88% { --cm-fade-r: 28px; }
+  100% { --cm-fade-l: 28px; --cm-fade-r: 0px; }
+}
+
+@media (max-width: 600px) {
+  /* ── Rhythm: the same gap between blocks on every page ── */
+  body .admin-shell .dashboard-content:is(.mu-content, .ms-content, .aa-content, .ad-content) { gap: .75rem; }
+  body .admin-shell :is(.admin-event-summary, .admin-collection-heading, .admin-event-controls) { margin-bottom: .75rem; }
+
+  /* ── Cards: one radius, one padding ── */
+  body .admin-shell :is(.mu-card, .ms-toolbar, .aa-toolbar, .pr-panel, .stall-card, .aa-card, .admin-event-card, .ad-card, .ma-duty, .admin-event-summary, .ll-tip) { border-radius: 16px; }
+  body .admin-shell :is(.pr-panel, .ma-duty, .aa-card) { padding: .85rem; }
+  body .admin-shell :is(.ms-toolbar, .aa-toolbar) { display: grid; grid-template-columns: minmax(0, 1fr); gap: .5rem; padding: .5rem; }
+  body .admin-shell .ms-toolbar-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: .5rem; }
+  body .admin-shell .mu-toolbar { gap: .5rem; }
+
+  /* ── Search boxes: same height, shape and text size (16px stops iOS zooming in) ── */
+  body .admin-shell :is(.mu-search, .ms-search, .aa-search, .admin-event-search) {
+    flex: 1 1 100%; width: 100%; max-width: none; min-width: 0; height: 42px; padding: 0 .8rem;
+    background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px;
+  }
+  body .admin-shell :is(.mu-search, .ms-search, .aa-search, .admin-event-search) svg { width: 17px; height: 17px; flex: 0 0 auto; color: var(--green-700); }
+  body .admin-shell :is(.mu-search, .ms-search, .aa-search, .admin-event-search) input { padding: 0; font-size: 16px; }
+  body .admin-shell :is(.mu-search, .ms-search, .aa-search, .admin-event-search) input::placeholder { font-size: .875rem; }
+
+  /* ── Filter rows: one line each ── */
+  body .admin-shell :is(.mu-pills, .ms-tabs, .aa-tabs, .admin-event-tabs, .ms-plans) {
+    display: flex; flex-wrap: nowrap; width: 100%; max-width: 100%; min-width: 0; margin: 0;
+    overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+  }
+  body .admin-shell :is(.mu-pills, .ms-tabs, .aa-tabs, .admin-event-tabs, .ms-plans)::-webkit-scrollbar { display: none; }
+  body .admin-shell :is(.mu-pills, .ms-plans) > * { flex: 0 0 auto; }
+  /* Segmented tabs (stall status, application status, event dates): one size everywhere */
+  body .admin-shell :is(.ms-tabs, .aa-tabs, .admin-event-tabs) { gap: 2px; padding: 3px; background: var(--cream-100); border-radius: 11px; }
+  body .admin-shell :is(.ms-tabs, .aa-tabs, .admin-event-tabs) button { flex: 1 0 auto; justify-content: center; height: 32px; padding: 0 .65rem; border-radius: 8px; font-size: .75rem; white-space: nowrap; }
+  /* Filter pills: same height as the tabs */
+  body .admin-shell :is(.mu-pills .cm-chip--filter, .ms-plans button) { min-height: 32px; padding: .3rem .75rem; font-size: .75rem; white-space: nowrap; }
+  @supports (animation-timeline: scroll()) {
+    body .admin-shell :is(.mu-pills, .ms-tabs, .aa-tabs, .admin-event-tabs, .ms-plans) {
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--cm-fade-l), #000 calc(100% - var(--cm-fade-r)), transparent);
+      mask-image: linear-gradient(90deg, transparent, #000 var(--cm-fade-l), #000 calc(100% - var(--cm-fade-r)), transparent);
+      animation: cm-scroll-fade linear both; animation-timeline: scroll(self inline);
+    }
+  }
+
+  /* Month / day pickers: slimmer */
+  body .admin-shell .ll-dates label .form-input { height: 40px; border-radius: 12px; }
+
+  /* ── Tables → a list of cards ──
+     Title (name) on the left, its status or buttons on the right, then the
+     details as small labelled facts that wrap: "ID 2023-01 · Joined Nov 20". */
+  body .mu-card:has(> .mu-table-wrap > .mu-table--cards) { padding: 0; overflow: hidden; }
+  body .mu-table-wrap:has(> .mu-table--cards) { overflow: visible; }
+  body .mu-table--cards, body .mu-table--cards tbody { display: block; }
+  body .mu-table--cards thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  body .mu-table--cards tr { display: flex; flex-wrap: wrap; align-items: center; gap: 0 .75rem; padding: .75rem .85rem; border-bottom: 1px solid var(--line); }
+  body .mu-table--cards tr:last-child { border-bottom: 0; }
+  /* Line break after the title row, so the details never squeeze in beside the name */
+  body .mu-table--cards tr::after { content: ""; order: 2; flex: 0 0 100%; height: 0; }
+  body .mu-table--cards td:not(.mu-cell-main, .mu-cell-side) { margin-top: .3rem; }
+  body .mu-table--cards td {
+    order: 3; display: block; min-width: 0; padding: 0; border: 0; background: none; box-shadow: none; position: static;
+    color: var(--ink-600); font-size: .75rem; line-height: 1.4; white-space: normal; overflow-wrap: anywhere;
+  }
+  body .mu-table--cards tbody tr:hover td, body .mu-table--cards td:last-child { background: none; box-shadow: none; position: static; }
+  body .mu-table--cards td:empty { display: none; }
+  body .mu-table--cards td[data-label]::before { content: attr(data-label); margin-right: .3rem; color: var(--ink-400); font-family: var(--font-body); font-size: .625rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+  body .mu-table--cards td.mu-cell-main { order: 0; flex: 1 1 0; color: var(--ink-900); font-size: .875rem; font-weight: 800; line-height: 1.3; }
+  body .mu-table--cards td.mu-cell-side { order: 1; flex: 0 0 auto; }
+  body .mu-table--cards td.mu-cell-sub { order: 2; flex: 1 1 100%; }
+  body .mu-table--cards td.mu-cell-foot { order: 9; flex: 1 1 100%; }
+  body .mu-table--cards td.mu-id-cell { font-size: .75rem !important; }
+  body .mu-table--cards td.ma-wrap { min-width: 0; }
+  body .mu-table--cards td.ll-note { max-width: none; }
+  body .mu-table--cards td .ll-sub { display: inline; margin-left: .3rem; }
+  body .mu-table--cards td > .ll-sub:first-child { margin-left: 0; }
+  body .mu-table--cards td .cm-chip--sm { vertical-align: middle; }
+  body .mu-table--cards .mu-actions { gap: .3rem; }
+  body .mu-table--cards td.mu-cell-foot .mu-actions { justify-content: flex-start; margin-top: .2rem; padding-top: .4rem; border-top: 1px dashed var(--line); }
+  body .mu-table--cards tr.ll-latest { background: var(--green-100); }
+  body .mu-table--cards tr.ll-latest td { background: none; }
+  /* Tables with a picture: the details line up under the name, not the picture */
+  body .mu-table--cards.has-avatar tr { padding-left: calc(.85rem + 36px + .65rem); }
+  body .mu-table--cards.has-avatar td.mu-cell-main { margin-left: calc(-36px - .65rem); }
+  body .mu-table--cards.has-avatar .mu-person { gap: .65rem; }
+  body .mu-table--cards.has-avatar .mu-avatar { width: 36px; height: 36px; font-size: .875rem; }
+  body .mu-card .mu-footer { padding: .6rem .85rem; border-top: 1px solid var(--line); font-size: .75rem; }
+
+  /* ── Dashboard: name on its own line, Approve / Reject share the row below ── */
+  body .admin-shell .ad-approvals li { gap: .5rem .65rem; }
+  body .admin-shell .ad-approval-logo { width: 40px; height: 40px; border-radius: 11px; }
+  body .admin-shell .ad-approval-text { flex: 1 1 calc(100% - 40px - .65rem); }
+  body .admin-shell .ad-approvals li .btn { flex: 1 1 0; }
+
+  /* ── Stall cards ── */
+  body .admin-shell .stalls-grid { grid-template-columns: minmax(0, 1fr); gap: .75rem; }
+  body .admin-shell .stall-card-banner { height: 72px; }
+  body .admin-shell .stall-card-body { gap: .4rem; padding: .85rem; }
+  body .admin-shell .stall-card-logo { width: 40px; height: 40px; border-radius: 11px; }
+  body .admin-shell .stall-card-name { font-size: .9375rem; }
+  body .admin-shell .stall-card .sp-plan { margin-top: .2rem; padding: .6rem .7rem; }
+  body .admin-shell .stall-card-actions { padding-top: .5rem; }
+  body .admin-shell .stall-card-actions .btn { flex: 1 1 0; justify-content: center; }
+
+  /* ── Premium requests: the filter gets its own row ── */
+  body .admin-shell .pr-panel header { gap: .5rem; }
+  body .admin-shell .pr-panel h2 { font-size: 1rem; }
+  body .admin-shell .pr-tabs { width: 100%; margin-left: 0; }
+  body .admin-shell .pr-tabs button { flex: 1 1 0; min-height: 30px; padding: .25rem .4rem; }
+  body .admin-shell .pr-panel li { flex-wrap: wrap; gap: .5rem; padding: .7rem .75rem; }
+
+  /* ── Events: a slim picture strip instead of a tall cover ── */
+  body .admin-shell .admin-collection-heading h2 { font-size: 1rem; }
+  body .admin-shell .admin-collection-heading p { display: none; }
+  body .admin-shell .admin-event-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem; }
+  body .admin-shell .admin-event-controls > .admin-event-tabs { grid-column: 1 / -1; }
+  body .admin-shell .admin-event-sort { width: 8.25rem; height: 42px; padding: 0 .5rem; color: var(--ink-900); border: 1.5px solid var(--line); border-radius: 12px; font-size: 16px; }
+  body .admin-shell .admin-event-grid { gap: .75rem; }
+  body .admin-shell .admin-event-cover { height: 64px; }
+  body .admin-shell .admin-cover-fallback > * { display: none; }
+  body .admin-shell .admin-event-status { top: 50%; left: .75rem; transform: translateY(-50%); padding: .3rem .55rem; font-size: .6875rem; }
+  body .admin-shell .admin-date-tile { top: 50%; right: .75rem; bottom: auto; width: 42px; padding: 4px 0; transform: translateY(-50%); }
+  body .admin-shell .admin-date-tile span { font-size: .5625rem; }
+  body .admin-shell .admin-date-tile strong { font-size: 1.05rem; }
+  body .admin-shell .admin-event-body { padding: .75rem .85rem 0; }
+  body .admin-shell .admin-event-date { display: none; } /* the date tile already shows it */
+  body .admin-shell .admin-event-body h3 { margin-bottom: .3rem; color: var(--ink-900); font-size: 1rem; line-height: 1.3; }
+  body .admin-shell .admin-event-description { margin: .45rem 0 .6rem; line-height: 1.5; -webkit-line-clamp: 2; }
+  body .admin-shell .admin-event-footer { padding: .6rem 0; }
+  body .admin-shell .admin-directory-count { margin-top: .75rem; text-align: center; }
+
+  /* ── Event applications ── */
+  body .admin-shell .aa-grid { gap: .75rem; }
+}
